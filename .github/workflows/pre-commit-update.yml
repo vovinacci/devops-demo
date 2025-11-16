@@ -32,6 +32,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install pre-commit
 
+      - name: Configure git for authentication
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://${{ secrets.PR_PAT_TOKEN }}@github.com/${{ github.repository }}.git
+
       - name: Update pre-commit hooks
         id: update
         run: |
