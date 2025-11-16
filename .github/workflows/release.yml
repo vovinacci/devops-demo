@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g., v1.0.0)"
+        required: true
+        type: string
+
+jobs:
+  release-placeholder:
+    name: Release Placeholder
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Get release version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Display release info
+        run: |
+          echo "🚀 Release workflow triggered"
+          echo "Version: ${{ steps.get_version.outputs.version }}"
+          echo "Event: ${{ github.event_name }}"
+          echo ""
+          echo "📝 Placeholder: No actual release artifacts are created."
+          echo "In production, this workflow would:"
+          echo "  - Build Docker images"
+          echo "  - Push to container registry"
+          echo "  - Create deployment artifacts"
+          echo "  - Update documentation"
+          echo "  - Send notifications"
+
+      - name: Build backend image (placeholder)
+        run: |
+          echo "Would build backend Docker image for version ${{ steps.get_version.outputs.version }}"
+          # docker build -t devops-demo-backend:${{ steps.get_version.outputs.version }} ./backend
+
+      - name: Build frontend image (placeholder)
+        run: |
+          echo "Would build frontend Docker image for version ${{ steps.get_version.outputs.version }}"
+          # docker build -t devops-demo-frontend:${{ steps.get_version.outputs.version }} ./frontend
+
+      - name: Release summary
+        run: |
+          echo "✅ Release workflow completed (placeholder)"
+          echo "Version: ${{ steps.get_version.outputs.version }}"
+          echo "Commit: ${{ github.sha }}"

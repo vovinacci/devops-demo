@@ -1,0 +1,245 @@
+# ============================================================================
+# Python (Backend)
+# ============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+*.cover
+*.py,cover
+.cache
+nosetests.xml
+coverage.xml
+*.log
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# ============================================================================
+# Node.js (Frontend)
+# ============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+*.local
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
+# ============================================================================
+# Environment variables
+# ============================================================================
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+.env.test
+*.env
+
+# ============================================================================
+# Docker
+# ============================================================================
+*.log
+docker-compose.override.yml
+# Keep example files
+!docker-compose.override.yml.example
+
+# ============================================================================
+# IDE & Editors
+# ============================================================================
+# VSCode
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# IntelliJ IDEA / PyCharm
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Vim
+*.swp
+*.swo
+*~
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ============================================================================
+# OS Files
+# ============================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ============================================================================
+# Database
+# ============================================================================
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# ============================================================================
+# Logs
+# ============================================================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+
+# ============================================================================
+# Temporary files
+# ============================================================================
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+
+# ============================================================================
+# Observability & Monitoring
+# ============================================================================
+# Prometheus data (if running locally)
+prometheus_data/
+# Grafana data (if running locally)
+grafana_data/
+# Loki data (if running locally)
+loki_data/
+
+# ============================================================================
+# CI/CD
+# ============================================================================
+# GitHub Actions (keep workflows, ignore artifacts)
+.github/workflows/*.log
+# GitLab CI
+.gitlab-ci-local/
+
+# ============================================================================
+# Misc
+# ============================================================================
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.orig
+*.rej
+.project
+.classpath
+.settings/
+.loadpath
+.externalToolBuilders/
+.buildpath
+.target
+.idea_modules/
+*.iml
+*.ipr
+*.iws
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace

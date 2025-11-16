@@ -1,0 +1,83 @@
+# Pre-commit hooks configuration
+# Installation: pip install pre-commit && pre-commit install
+# Manual run: pre-commit run --all-files
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(frontend/|observability/grafana/dashboards/)
+      - id: end-of-file-fixer
+        exclude: ^(frontend/|observability/grafana/dashboards/)
+      - id: check-yaml
+        args: ['--unsafe']  # Allow custom YAML tags (for Grafana dashboards)
+      - id: check-json
+        exclude: ^(frontend/node_modules/|observability/grafana/dashboards/)
+      - id: check-toml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-executables-have-shebangs
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: debug-statements
+        language_version: python3
+      - id: detect-private-key
+      - id: mixed-line-ending
+  # Docker Compose validation
+  - repo: local
+    hooks:
+      - id: docker-compose-validate
+        name: docker-compose validate
+        entry: bash -c 'docker compose config --quiet || (echo "docker-compose config validation failed" && exit 1)'
+        language: system
+        files: docker-compose\.(yaml|yml)$
+        pass_filenames: false
+  # Dockerfile linting
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.14.0
+    hooks:
+      - id: hadolint-docker
+        name: hadolint (Dockerfile)
+        args:
+          - '--ignore'
+          - 'DL3008'
+          - '--ignore'
+          - 'DL3009'
+        files: Dockerfile
+  # Makefile validation
+  - repo: local
+    hooks:
+      - id: makefile-check
+        name: Makefile syntax check
+        entry: bash -c 'make -n help > /dev/null 2>&1 || (echo "Makefile syntax error" && exit 1)'
+        language: system
+        files: Makefile
+        pass_filenames: false
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.45.0
+    hooks:
+      - id: markdownlint
+        args:
+          - "-fix"
+  # Shell linting
+  - repo: https://github.com/jumanjihouse/pre-commit-hooks
+    rev: 3.0.0
+    hooks:
+      - id: shellcheck
+      - id: shfmt
+        args:
+          - "-i 2"
+          - "-ci"
+  # YAML linting
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.37.1
+    hooks:
+      - id: yamllint
+        name: yamllint
+        args:
+          - "-c=.yamllint.yml"
+          - "-s"
+        files: \.(yaml|yml)$
+        exclude: ^(frontend/node_modules/|observability/grafana/dashboards/)

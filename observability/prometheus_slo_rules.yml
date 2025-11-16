@@ -1,0 +1,138 @@
+groups:
+  - name: slo_critical_endpoints
+    interval: 30s
+    rules:
+      # Critical endpoints for SLO
+      # /health (GET) and /items (GET, POST, DELETE)
+
+      # ============================================
+      # 1. AVAILABILITY SLO: 99.95% (error budget: 0.05%)
+      # ============================================
+
+      # Total number of requests to critical endpoints over the last 7 days
+      # Use rate with short window (5m) and integrate over 7d
+      - record: slo:critical_requests_total:rate7d
+        expr: |
+          sum(rate(http_requests_total{
+            endpoint=~"/health|/items",
+            method=~"GET|POST|DELETE"
+          }[5m])) * 604800
+
+      # Successful requests (2xx, 3xx, 4xx - excluding 5xx) over the last 7 days
+      - record: slo:critical_requests_success:rate7d
+        expr: |
+          sum(rate(http_requests_total{
+            endpoint=~"/health|/items",
+            method=~"GET|POST|DELETE",
+            status!~"5.."
+          }[5m])) * 604800
+
+      # SLI for availability (successful / total) over the last 7 days
+      # Use direct calculation from rate for more accurate metric
+      - record: slo:availability:ratio7d
+        expr: |
+          sum(rate(http_requests_total{
+            endpoint=~"/health|/items",
+            method=~"GET|POST|DELETE",
+            status!~"5.."
+          }[5m]))
+          /
+          sum(rate(http_requests_total{
+            endpoint=~"/health|/items",
+            method=~"GET|POST|DELETE"
+          }[5m]))
+
+      # Error budget for availability (1 - SLI)
+      - record: slo:availability:error_budget7d
+        expr: |
+          1 - slo:availability:ratio7d
+
+      # Comparison with target (99.95% = 0.9995)
+      - record: slo:availability:target_ratio7d
+        expr: 0.9995
+
+      # Error budget burn (positive value = SLO violation)
+      - record: slo:availability:error_budget_burn7d
+        expr: |
+          slo:availability:error_budget7d - (1 - 0.9995)
+
+      # ============================================
+      # 2. LATENCY SLO: p95 < 200ms (0.2s)
+      # ============================================
+
+      # SLI for latency (requests < 200ms / total) over the last 7 days
+      # Use rate with short window for more accurate metric
+      - record: slo:latency:ratio7d
+        expr: |
+          sum(rate(http_request_latency_seconds_bucket{
+            endpoint=~"/health|/items",
+            method=~"GET|POST|DELETE",
+            le="0.2"
+          }[5m]))
+          /
+          sum(rate(http_request_latency_seconds_count{
+            endpoint=~"/health|/items",
+            method=~"GET|POST|DELETE"
+          }[5m]))
+
+      # Actual p95 latency (use rate with short window)
+      - record: slo:latency:p95_7d
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_latency_seconds_bucket{
+              endpoint=~"/health|/items",
+              method=~"GET|POST|DELETE"
+            }[5m])) by (le)
+          )
+
+      # Error budget for latency (1 - SLI)
+      - record: slo:latency:error_budget7d
+        expr: |
+          1 - slo:latency:ratio7d
+
+      # ============================================
+      # 3. ERROR RATE SLO: < 0.1% for 5xx errors
+      # ============================================
+
+      # SLI for error rate (requests without 5xx / total) over the last 7 days
+      # Use rate with short window for more accurate metric
+      - record: slo:error_rate:ratio7d
+        expr: |
+          sum(rate(http_requests_total{
+            endpoint=~"/health|/items",
+            method=~"GET|POST|DELETE",
+            status!~"5.."
+          }[5m]))
+          /
+          sum(rate(http_requests_total{
+            endpoint=~"/health|/items",
+            method=~"GET|POST|DELETE"
+          }[5m]))
+
+      # Actual error rate (5xx / total)
+      - record: slo:error_rate:actual_5xx_ratio7d
+        expr: |
+          sum(rate(http_requests_total{
+            endpoint=~"/health|/items",
+            method=~"GET|POST|DELETE",
+            status=~"5.."
+          }[5m]))
+          /
+          sum(rate(http_requests_total{
+            endpoint=~"/health|/items",
+            method=~"GET|POST|DELETE"
+          }[5m]))
+
+      # Error budget for error rate (1 - SLI)
+      - record: slo:error_rate:error_budget7d
+        expr: |
+          1 - slo:error_rate:ratio7d
+
+      # Comparison with target (0.1% = 0.001)
+      - record: slo:error_rate:target_ratio7d
+        expr: 0.001
+
+      # Error budget burn (positive value = SLO violation)
+      - record: slo:error_rate:error_budget_burn7d
+        expr: |
+          slo:error_rate:error_budget7d - 0.001

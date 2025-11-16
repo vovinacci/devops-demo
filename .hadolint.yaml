@@ -1,0 +1,8 @@
+# Hadolint configuration
+# Ignore package version rules because:
+# - DL3008: apt-get install with versions can be problematic for security updates
+# - DL3013: pip install uses requirements.txt or pyproject.toml, where versions are already pinned
+
+ignored:
+  - DL3008  # Pin versions in apt get install
+  - DL3013  # Pin versions in pip

@@ -1,0 +1,116 @@
+// Grafana Alloy configuration for log collection
+// Migrated from Promtail (deprecated, EOL March 2026)
+// See: https://grafana.com/docs/alloy/latest/set-up/migrate/from-promtail/
+
+// Loki client for sending logs
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+  // External labels for log identification
+  external_labels = {
+    source = "alloy",
+  }
+  // Note: Alloy does not have a built-in option to exit on write failure
+  // To ensure Alloy fails fast when Loki is unavailable, we rely on:
+  // 1. Healthcheck in docker-compose.yml that monitors Alloy metrics
+  // 2. Alloy will retry writes, but if Loki is completely unavailable,
+  //    the healthcheck will detect the failure and Docker will mark the container as unhealthy
+  // 3. With restart: no, the container will remain stopped, making the failure visible
+}
+
+// Docker service discovery
+discovery.docker "containers" {
+  host            = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+// Relabel rules for container name extraction (following official example pattern)
+discovery.relabel "logs_integrations_docker" {
+  targets = discovery.docker.containers.targets
+
+  // Extract container name from __meta_docker_container_name (official pattern)
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container_name"
+  }
+}
+
+// Log collection from Docker containers
+loki.source.docker "docker_logs" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.containers.targets
+  relabel_rules = discovery.relabel.logs_integrations_docker.rules
+  forward_to    = [loki.process.docker_logs.receiver]
+}
+
+// Process logs (equivalent to Promtail pipeline stages)
+loki.process "docker_logs" {
+  forward_to = [loki.write.default.receiver]
+
+  // Parse Docker log format
+  stage.docker {}
+
+  // Set source label to "alloy" for all log entries
+  // This identifies logs collected by Alloy and enables filtering in Grafana
+  stage.template {
+    source   = "_source_temp"
+    template = "{{ \"alloy\" }}"
+  }
+
+  stage.labels {
+    values = {
+      source = "_source_temp",
+    }
+  }
+
+  // Extract log level (detected_level) from log messages
+  // This enables filtering by log level in Grafana using detected_level label
+  //
+  // Log Level Detection:
+  // The detected_level label follows Go log level conventions:
+  // - trace: Lowest level, very detailed tracing information
+  // - debug: Debugging information, typically only enabled during development
+  // - info:  Informational messages about normal operation
+  // - warn:  Warning messages for potentially harmful situations
+  // - error: Error messages for error events that might still allow the app to continue
+  // - fatal: Critical errors that cause the application to abort
+  // - panic: Most severe level, indicates that the application is in an unrecoverable state
+  //
+  // The regex matches various log level patterns:
+  // - Python: INFO, WARNING, ERROR, CRITICAL, DEBUG
+  // - Go: info, warn, error, fatal, panic, debug, trace
+  // - Common patterns: [WARN], [ERROR], level=warn, etc.
+  stage.regex {
+    expression = "(?i)(?:level=|\\[|^|\\s|levelname|level_name|log_level|logLevel)(?:=|:)?\\s*(trace|debug|info|warn|warning|error|fatal|crit|critical|panic)(?:\\]|:|\\s|$)"
+    source     = "output"
+  }
+
+  stage.labels {
+    values = {
+      detected_level = "$1",
+    }
+  }
+
+  // Normalize log levels to Go log level conventions (lowercase)
+  // Python -> Go mappings:
+  // - WARNING -> warn
+  // - CRITICAL -> fatal (critical is not a standard Go level, map to fatal)
+  // - All others -> lowercase
+  stage.template {
+    source   = "detected_level"
+    template = "{{ if eq (.detected_level | lower) \"warning\" }}warn{{ else if or (eq (.detected_level | lower) \"critical\") (eq (.detected_level | lower) \"crit\") }}fatal{{ else }}{{ .detected_level | lower }}{{ end }}"
+  }
+
+  // Drop internal metadata labels and temporary fields to keep labels clean
+  // Note: container_name is kept as it's useful for filtering logs
+  stage.label_drop {
+    values = [
+      "__meta_docker_container_id",
+      "__meta_docker_container_name",
+      "__meta_docker_container_label_com_docker_compose_service",
+      "_source_temp",
+    ]
+  }
+}

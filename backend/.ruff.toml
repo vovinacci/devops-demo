@@ -1,0 +1,28 @@
+# General settings
+target-version = "py311"
+line-length = 160
+include = ["**/*.py", "**/*.pyi"]
+extend-exclude = ["venv", ".venv", "__pycache__", "alembic/versions"]
+
+[lint]
+# E/W — pycodestyle, F — pyflakes, N — pep8-naming, UP — pyupgrade
+# I — import sorting (isort), B — bugbear, SIM — simplify
+# C4 — comprehensions, RUF — Ruff-specific rules
+select = ["E", "W", "F", "N", "UP", "I", "B", "SIM", "C4", "RUF"]
+ignore = [
+    "E501",      # Line too long (handled by formatter)
+    "C408",      # Unnecessary dict call
+    "C409",      # Unnecessary list/tuple call
+    "SIM117",    # Multiple with-statements
+    "B008",      # Do not perform function call in argument defaults (FastAPI Depends pattern)
+]
+
+[lint.isort]
+known-first-party = ["app"]
+combine-as-imports = true
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+docstring-code-format = true

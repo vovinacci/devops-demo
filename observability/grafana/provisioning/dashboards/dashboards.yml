@@ -1,0 +1,11 @@
+apiVersion: 1
+providers:
+  - name: 'devops-demo'
+    orgId: 1
+    folder: 'DevOps Demo'
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    updateIntervalSeconds: 10
+    options:
+      path: /etc/grafana/dashboards

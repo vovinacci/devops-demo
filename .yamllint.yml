@@ -1,0 +1,25 @@
+---
+# YAML linting configuration
+extends: default
+
+rules:
+  line-length:
+    max: 200
+    level: warning
+  indentation:
+    spaces: 2
+    indent-sequences: true
+  comments:
+    min-spaces-from-content: 1
+  document-start: disable  # Allow files without --- at the beginning
+  truthy:
+    allowed-values: ['true', 'false', 'on', 'off']
+    check-keys: false
+  brackets: disable  # Disable checking spaces in brackets (not critical for YAML)
+  braces: disable    # Disable checking spaces in braces (not critical for YAML)
+  empty-lines: disable  # Disable checking empty lines (not critical)
+
+# Exclusions for Grafana dashboards (they have a specific format)
+exclude: |
+  frontend/node_modules/
+  observability/grafana/dashboards/

@@ -1,0 +1,446 @@
+{
+  "annotations": { "list": [{ "builtIn": 1, "datasource": "-- Grafana --", "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "Annotations & Alerts", "type": "dashboard" }] },
+  "editable": true,
+  "fiscalYearStartMonth": 1,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "iteration": 1,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "SLO: Availability (99.95% target)",
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 6 },
+      "targets": [
+        {
+          "expr": "slo:availability:ratio7d",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 4,
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 0.9995, "color": "green" }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "Availability SLO for critical endpoints (/health, /items) over the last 7 days. Target: 99.95%"
+    },
+    {
+      "type": "stat",
+      "title": "SLO: Latency p95 (< 200ms target)",
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 6 },
+      "targets": [
+        {
+          "expr": "slo:latency:p95_7d",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 3,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 0.2, "color": "red" }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "p95 latency for critical endpoints over the last 7 days. Target: < 200ms (0.2s)"
+    },
+    {
+      "type": "stat",
+      "title": "SLO: Error Rate 5xx (< 0.1% target)",
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 6 },
+      "targets": [
+        {
+          "expr": "slo:error_rate:actual_5xx_ratio7d",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 4,
+          "min": 0,
+          "max": 0.01,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 0.001, "color": "red" }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "Error rate for 5xx errors on critical endpoints over the last 7 days. Target: < 0.1%"
+    },
+    {
+      "type": "timeseries",
+      "title": "SLO: Error Budget Burn Rate (7 days)",
+      "gridPos": { "x": 0, "y": 6, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "expr": "slo:availability:error_budget_burn7d",
+          "legendFormat": "Availability Error Budget",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        },
+        {
+          "expr": "slo:latency:error_budget7d",
+          "legendFormat": "Latency Error Budget",
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        },
+        {
+          "expr": "slo:error_rate:error_budget_burn7d",
+          "legendFormat": "Error Rate Error Budget",
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 4,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 10,
+            "pointSize": 5
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 0, "color": "red" }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "Error Budget burn rate for all SLOs. Positive values = SLO violation"
+    },
+    {
+      "type": "stat",
+      "title": "API Health Checks",
+      "gridPos": { "x": 0, "y": 14, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "sum(increase(http_requests_total{endpoint=\"/health\",status=\"200\"}[$__rate_interval]))",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Frontend LCP",
+      "gridPos": { "x": 6, "y": 14, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "fe_web_vital{name=\"LCP\"}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 2500, "color": "yellow" },
+              { "value": 4000, "color": "red" }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "API RPS by endpoint",
+      "gridPos": { "x": 12, "y": 14, "w": 12, "h": 4 },
+      "targets": [
+        {
+          "expr": "sum by (endpoint) (rate(http_requests_total[$__rate_interval]))",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "options": { "displayMode": "lcd", "orientation": "horizontal" }
+    },
+    {
+      "type": "timeseries",
+      "title": "API p95 latency (sec) by endpoint",
+      "gridPos": { "x": 0, "y": 18, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, endpoint) (rate(http_request_latency_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "{{endpoint}}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "type": "timeseries",
+      "title": "DB latency p95 (sec) by operation",
+      "gridPos": { "x": 12, "y": 18, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, op) (rate(db_query_latency_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "{{op}}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "DB queries rate by operation",
+      "gridPos": { "x": 0, "y": 26, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (op) (rate(db_queries_total[$__rate_interval]))",
+          "legendFormat": "{{op}}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "DB errors rate",
+      "gridPos": { "x": 12, "y": 26, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(db_query_errors_total[$__rate_interval]))",
+          "legendFormat": "errors",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Postgres: active connections",
+      "gridPos": { "x": 0, "y": 34, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "pg_stat_activity_count{datname=\"appdb\"}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Postgres: cache hit ratio",
+      "gridPos": { "x": 8, "y": 34, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(pg_stat_database_blks_hit{datname=\"appdb\"}[$__rate_interval])) / (sum(rate(pg_stat_database_blks_hit{datname=\"appdb\"}[$__rate_interval])) + sum(rate(pg_stat_database_blks_read{datname=\"appdb\"}[$__rate_interval])))",
+          "legendFormat": "hit ratio",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Frontend Web-Vitals (LCP/INP/CLS/FCP/TTFB)",
+      "gridPos": { "x": 16, "y": 34, "w": 8, "h": 8 },
+      "targets": [
+        { "expr": "fe_web_vital{name=\"LCP\"}", "legendFormat": "LCP", "refId": "A", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" } },
+        { "expr": "fe_web_vital{name=\"INP\"}", "legendFormat": "INP", "refId": "B", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" } },
+        { "expr": "fe_web_vital{name=\"CLS\"}", "legendFormat": "CLS", "refId": "C", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" } },
+        { "expr": "fe_web_vital{name=\"FCP\"}", "legendFormat": "FCP", "refId": "D", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" } },
+        { "expr": "fe_web_vital{name=\"TTFB\"}", "legendFormat": "TTFB", "refId": "E", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" } }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ms" },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "CLS" },
+            "properties": [{ "id": "unit", "value": "short" }]
+          }
+        ]
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Container CPU Usage (%)",
+      "gridPos": { "x": 0, "y": 42, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "100 * sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=~\"api|db|web|prometheus|grafana|loki|postgres_exporter|cadvisor|alloy\",cpu=\"total\"}[$__rate_interval])) by (container_label_com_docker_compose_service)",
+          "legendFormat": "{{container_label_com_docker_compose_service}}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Container Memory Usage",
+      "gridPos": { "x": 12, "y": 42, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(container_memory_usage_bytes{container_label_com_docker_compose_service=~\"api|db|web|prometheus|grafana|loki|postgres_exporter|cadvisor|alloy\"}) by (container_label_com_docker_compose_service)",
+          "legendFormat": "{{container_label_com_docker_compose_service}}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0 } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Container Network I/O",
+      "gridPos": { "x": 0, "y": 50, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(container_network_receive_bytes_total{container_label_com_docker_compose_service=~\"api|db|web|prometheus|grafana|loki|postgres_exporter|cadvisor|alloy\"}[$__rate_interval])) by (container_label_com_docker_compose_service)",
+          "legendFormat": "{{container_label_com_docker_compose_service}} RX",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        },
+        {
+          "expr": "sum(rate(container_network_transmit_bytes_total{container_label_com_docker_compose_service=~\"api|db|web|prometheus|grafana|loki|postgres_exporter|cadvisor|alloy\"}[$__rate_interval])) by (container_label_com_docker_compose_service)",
+          "legendFormat": "{{container_label_com_docker_compose_service}} TX",
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "Bps", "min": 0 } }
+    },
+    {
+      "type": "gauge",
+      "title": "Container CPU Usage (Current)",
+      "gridPos": { "x": 12, "y": 50, "w": 6, "h": 8 },
+      "targets": [
+        {
+          "expr": "100 * sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=~\"api|db|web|prometheus|grafana|loki|postgres_exporter|cadvisor|alloy\",cpu=\"total\"}[5m])) by (container_label_com_docker_compose_service)",
+          "legendFormat": "{{container_label_com_docker_compose_service}}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "green" }, { "value": 50, "color": "yellow" }, { "value": 80, "color": "red" }] } } }
+    },
+    {
+      "type": "gauge",
+      "title": "Container Memory Usage (Current)",
+      "gridPos": { "x": 18, "y": 50, "w": 6, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(container_memory_usage_bytes{container_label_com_docker_compose_service=~\"api|db|web|prometheus|grafana|loki|postgres_exporter|cadvisor|alloy\"}) by (container_label_com_docker_compose_service)",
+          "legendFormat": "{{container_label_com_docker_compose_service}}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "green" }, { "value": 536870912, "color": "yellow" }, { "value": 1073741824, "color": "red" }] } } }
+    },
+    {
+      "type": "logs",
+      "title": "Container Logs (Warn and Worse)",
+      "gridPos": { "x": 0, "y": 58, "w": 24, "h": 10 },
+      "targets": [
+        {
+          "expr": "{service_name!=\"\"} |~ \"(?i)(level=)?(warn|error|fatal|crit|panic|exception|failed|failure)\"",
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "${DS_LOKI}" }
+        }
+      ],
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["devops-demo"],
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "selected": true },
+        "hide": 0,
+        "label": "Prometheus"
+      },
+      {
+        "name": "DS_LOKI",
+        "type": "datasource",
+        "query": "loki",
+        "current": { "selected": true },
+        "hide": 0,
+        "label": "Loki"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "title": "DevOps Demo",
+  "version": 2,
+  "weekStart": ""
+}
