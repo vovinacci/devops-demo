@@ -32,11 +32,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install pre-commit
 
-      - name: Configure git for authentication
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin https://${{ secrets.PR_PAT_TOKEN }}@github.com/${{ github.repository }}.git
+#      - name: Configure git for authentication
+#        run: |
+#          git config --global user.name "github-actions[bot]"
+#          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+#          git remote set-url origin https://${{ secrets.PR_PAT_TOKEN }}@github.com/${{ github.repository }}.git
 
       - name: Update pre-commit hooks
         id: update
@@ -56,6 +56,7 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.PR_PAT_TOKEN }}
+          author: '${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>'
           commit-message: 'chore(ci): update pre-commit hooks to latest versions'
           title: 'chore(ci): update pre-commit hooks to latest versions'
           body: |
