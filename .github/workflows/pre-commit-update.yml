@@ -36,11 +36,12 @@ jobs:
         id: update
         run: |
           pre-commit autoupdate
-          git diff --exit-code .pre-commit-config.yaml || echo "updated=true" >> $GITHUB_OUTPUT
-          if [ "${{ steps.update.outputs.updated }}" == "true" ]; then
+          if ! git diff --exit-code .pre-commit-config.yaml > /dev/null; then
+            echo "updated=true" >> $GITHUB_OUTPUT
             echo "Changes detected in .pre-commit-config.yaml"
             git diff .pre-commit-config.yaml
           else
+            echo "updated=false" >> $GITHUB_OUTPUT
             echo "No updates available"
           fi
 
