@@ -15,6 +15,10 @@ jobs:
       pull-requests: write
       issues: write
 
+    # PR_PAT_TOKEN must be configured as a repository secret.
+    # Create a Personal Access Token (PAT) with 'repo' scope and add it to
+    # repository secrets. See https://github.com/peter-evans/create-pull-request?tab=readme-ov-file#token
+    # for detailed instructions on token creation and configuration.
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
