@@ -68,7 +68,7 @@ jobs:
           delete-branch: true
           labels: |
             dependencies
-            automated
+            infra
 
       - name: Create Issue if PR Creation Fails
         if: steps.update.outputs.updated == 'true' && failure()
