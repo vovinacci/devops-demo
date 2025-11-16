@@ -13,12 +13,18 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: write
 
+    # PR_PAT_TOKEN must be configured as a repository secret.
+    # Create a Personal Access Token (PAT) with 'repo' scope and add it to
+    # repository secrets. See https://github.com/peter-evans/create-pull-request?tab=readme-ov-file#token
+    # for detailed instructions on token creation and configuration.
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PR_PAT_TOKEN }}
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -34,15 +40,22 @@ jobs:
         id: update
         run: |
           pre-commit autoupdate
-          git diff --exit-code .pre-commit-config.yaml || echo "updated=true" >> $GITHUB_OUTPUT
+          if ! git diff --exit-code .pre-commit-config.yaml > /dev/null; then
+            echo "updated=true" >> $GITHUB_OUTPUT
+            echo "Changes detected in .pre-commit-config.yaml"
+            git diff .pre-commit-config.yaml
+          else
+            echo "updated=false" >> $GITHUB_OUTPUT
+            echo "No updates available"
+          fi
 
       - name: Create Pull Request
         if: steps.update.outputs.updated == 'true'
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: 'chore: update pre-commit hooks to latest versions'
-          title: 'chore: update pre-commit hooks to latest versions'
+          token: ${{ secrets.PR_PAT_TOKEN }}
+          commit-message: 'chore(ci): update pre-commit hooks to latest versions'
+          title: 'chore(ci): update pre-commit hooks to latest versions'
           body: |
             This PR automatically updates pre-commit hooks to their latest versions.
 
@@ -57,3 +70,30 @@ jobs:
             This PR was created automatically by the [Update Pre-commit Hooks](.github/workflows/pre-commit-update.yml) workflow.
           branch: chore/update-pre-commit-hooks
           delete-branch: true
+          labels: |
+            dependencies
+            infra
+
+      - name: Create Issue if PR Creation Fails
+        if: steps.update.outputs.updated == 'true' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '⚠️ Pre-commit hooks update available (manual PR needed)',
+              body: `Pre-commit hooks have been updated but automatic PR creation failed.
+
+            **Branch:** \`chore/update-pre-commit-hooks\`
+
+            **To create the PR manually:**
+            1. Checkout the branch: \`chore/update-pre-commit-hooks\`
+            2. Review the changes in \`.pre-commit-config.yaml\`
+            3. Create a PR from that branch to \`main\`
+
+            **Note:** If this keeps happening, consider:
+            - Adding a Personal Access Token (PAT) with \`repo\` scope to repository secrets as \`PR_PAT_TOKEN\`
+            - Or checking repository settings to allow GitHub Actions to create pull requests
+            `
+            })
