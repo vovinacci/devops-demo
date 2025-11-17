@@ -539,6 +539,7 @@ This document describes the knowledge and skills necessary to understand and wor
 - **General Resources**
   - **DevOps:**
     - [DevOps Roadmap](https://roadmap.sh/devops) - Roadmap for DevOps engineers
+    - [DevOps Roadmap](https://github.com/milanm/DevOps-Roadmap) - Simplified and cleaner roadmap for DevOps engineers
     - [Awesome DevOps](https://github.com/bregman-arie/awesome-devops) - DevOps resources collection
   - **Best Practices:**
     - [12 Factor App](https://12factor.net/) - Methodology for SaaS applications
