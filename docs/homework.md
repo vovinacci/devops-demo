@@ -336,7 +336,7 @@ improvements.
 
 ---
 
-### 2.2. Update Python from 3.11 to 3.12 (Backend + Infrastructure)
+### 2.2. Update Python from 3.12 to 3.13 (Backend + Infrastructure)
 
 **Objective:** Learn to update Python version, check code and dependency compatibility with new version.
 
@@ -344,17 +344,17 @@ improvements.
 
 1. **Update Configuration:**
     - Open `backend/pyproject.toml`
-    - Update `requires-python = ">=3.12"`
-    - Update `target-version = ["py312"]` in `.ruff.toml`
-    - Update `python_version = "3.12"` in `[tool.mypy]` section in `pyproject.toml`
+    - Update `requires-python = ">=3.13"`
+    - Update `target-version = ["py313"]` in `.ruff.toml`
+    - Update `python_version = "3.13"` in `[tool.mypy]` section in `pyproject.toml`
 
 2. **Code Check:**
-    - Verify code works on Python 3.12
+    - Verify code works on Python 3.13
     - Fix all deprecation warnings
-    - Check new Python 3.12 features (if needed)
+    - Check new Python 3.13 features (if needed)
 
 3. **Testing:**
-    - Install Python 3.12 locally
+    - Install Python 3.13 locally
     - Create new virtualenv: `python3.12 -m venv .venv`
     - Install dependencies: `pip install -e ".[dev]"`
     - Run tests: `make test-backend`
@@ -363,8 +363,8 @@ improvements.
 
 1. **Update Dockerfile:**
     - Open `backend/Dockerfile`
-    - Update base image: `FROM python:3.12-slim`
-    - Verify all commands work with Python 3.12
+    - Update base image: `FROM python:3.13-slim`
+    - Verify all commands work with Python 3.13
 
 2. **Rebuild Images:**
     - Rebuild Docker images: `make build-image`
@@ -374,12 +374,12 @@ improvements.
 3. **Update Documentation:**
     - Update `README.md` with new Python version
     - Update `docs/prerequisites.md` with new version
-    - Update `docs/local-setup.md` with instructions for Python 3.12
+    - Update `docs/local-setup.md` with instructions for Python 3.13
 
 4. **Functionality Check:**
     - Run tests in Docker: `make test-docker`
     - Check Python version in container: `docker compose exec api python --version`
-    - Should show: `Python 3.12.x`
+    - Should show: `Python 3.13.x`
 
 **Verification:**
 
@@ -387,7 +387,7 @@ improvements.
 make build-image
 make up
 make test-docker
-docker compose exec api python --version  # Should show 3.12.x
+docker compose exec api python --version  # Should show 3.13.x
 ```
 
 ---
@@ -1024,35 +1024,7 @@ versions.
 
 ---
 
-### 4.4. Migrate to Python 3.13 (Backend + Infrastructure)
-
-**Objective:** Learn to migrate project to new major Python version, check compatibility, and use new language features.
-
-**Backend Tasks:**
-
-1. **Update Version:**
-    - Update `requires-python = ">=3.13"` in `pyproject.toml`
-    - Update ruff and mypy configuration
-
-2. **Compatibility Check:**
-    - Check compatibility of all dependencies with Python 3.13
-    - Fix deprecation warnings
-    - Update type hints for new features
-
-3. **Testing:**
-    - Run all tests
-    - Check performance
-
-**Infrastructure Tasks:**
-
-1. **Update Docker:**
-    - Update base image to `python:3.13-slim`
-    - Rebuild images
-    - Update CI/CD pipeline
-
----
-
-### 4.5. Add JSON Metadata with Search (Backend + Frontend + Infrastructure)
+### 4.4. Add JSON Metadata with Search (Backend + Frontend + Infrastructure)
 
 **Objective:** Learn to use JSONB types in PostgreSQL, implement search on JSON fields, and manage structured metadata.
 
