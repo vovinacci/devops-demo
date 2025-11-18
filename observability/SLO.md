@@ -416,4 +416,7 @@ To verify SLO calculation correctness:
 
 ---
 
-**Additional Information:** Detailed documentation about Prometheus and Grafana is available in the [official Prometheus documentation](https://prometheus.io/docs/) and [Grafana documentation](https://grafana.com/docs/).
+**Additional Information:**
+
+Detailed documentation about Prometheus and Grafana is available in the [official Prometheus documentation](https://prometheus.io/docs/) and
+[Grafana documentation](https://grafana.com/docs/).

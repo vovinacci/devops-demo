@@ -18,7 +18,7 @@ web application performance metrics.
 
 ### System Requirements
 
-- Node.js version 20 or newer
+- Node.js version 24 or newer
 - npm (installed with Node.js) or yarn
 - Backend API should be running on `http://localhost:8000` (for full functionality)
 

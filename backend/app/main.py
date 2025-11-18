@@ -23,9 +23,9 @@ app = FastAPI(title="DevOps Demo API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
-# Middleware for HTTP metrics and logging
 @app.middleware("http")
 async def metrics_mw(request: Request, call_next) -> Response:
+    """Middleware for HTTP metrics and logging"""
     start = time.time()
     logger.info(f"Request: {request.method} {request.url.path}")
     try:
