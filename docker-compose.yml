@@ -56,7 +56,7 @@ services:
         #  memory: 2G
 
   prometheus:
-    image: prom/prometheus:v3.7.3
+    image: prom/prometheus:v3.8.0
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./observability/prometheus_slo_rules.yml:/etc/prometheus/prometheus_slo_rules.yml:ro
@@ -123,7 +123,7 @@ services:
   # Promtail is deprecated (EOL March 2026), migrated to Grafana Alloy
   # See: https://grafana.com/docs/alloy/latest/set-up/migrate/from-promtail/
   alloy:
-    image: grafana/alloy:v1.11.3
+    image: grafana/alloy:v1.12.0
     command: run --server.http.listen-addr=0.0.0.0:9080 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
     volumes:
       - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
