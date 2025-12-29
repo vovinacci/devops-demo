@@ -151,7 +151,7 @@ services:
       start_period: 10s
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
     privileged: true
     devices:
       - /dev/kmsg:/dev/kmsg
