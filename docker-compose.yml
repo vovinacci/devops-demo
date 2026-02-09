@@ -67,7 +67,7 @@ services:
     restart: unless-stopped
 
   postgres_exporter:
-    image: prometheuscommunity/postgres-exporter:v0.18.1
+    image: prometheuscommunity/postgres-exporter:v0.19.0
     environment:
       DATA_SOURCE_NAME: postgresql://app:app@db:5432/appdb?sslmode=disable
     depends_on:
@@ -103,7 +103,7 @@ services:
     restart: unless-stopped
 
   loki:
-    image: grafana/loki:3.6.4
+    image: grafana/loki:3.6.5
     command: -config.file=/etc/loki/config.yml -target=all
     volumes:
       - ./observability/loki/config.yml:/etc/loki/config.yml:ro
@@ -123,7 +123,7 @@ services:
   # Promtail is deprecated (EOL March 2026), migrated to Grafana Alloy
   # See: https://grafana.com/docs/alloy/latest/set-up/migrate/from-promtail/
   alloy:
-    image: grafana/alloy:v1.12.2
+    image: grafana/alloy:v1.13.0
     command: run --server.http.listen-addr=0.0.0.0:9080 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
     volumes:
       - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
