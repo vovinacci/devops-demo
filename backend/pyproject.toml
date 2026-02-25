@@ -10,13 +10,13 @@ name = "devops-demo-backend"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi==0.128.5",
-    "uvicorn[standard]==0.40.0",
+    "fastapi==0.131.0",
+    "uvicorn[standard]==0.41.0",
     "pydantic==2.12.5",
-    "psycopg[binary]==3.3.2",
+    "psycopg[binary]==3.3.3",
     "SQLAlchemy[asyncio]==2.0.46",
     "asyncpg==0.31.0",
-    "alembic==1.18.3",
+    "alembic==1.18.4",
     "python-dotenv==1.2.1",
     "prometheus-client==0.24.1",
     "httpx==0.28.1",
@@ -27,7 +27,7 @@ dev = [
     "mypy==1.19.1",
     "pytest==9.0.2",
     "pytest-asyncio==1.3.0",
-    "ruff==0.15.0",
+    "ruff==0.15.2",
 ]
 
 [tool.setuptools]
