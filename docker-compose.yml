@@ -123,7 +123,7 @@ services:
   # Promtail is deprecated (EOL March 2026), migrated to Grafana Alloy
   # See: https://grafana.com/docs/alloy/latest/set-up/migrate/from-promtail/
   alloy:
-    image: grafana/alloy:v1.14.0
+    image: grafana/alloy:v1.14.1
     command: run --server.http.listen-addr=0.0.0.0:9080 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
     volumes:
       - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
