@@ -94,6 +94,7 @@ function App() {
 
   // Load items on component mount
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch on mount
     fetchItems()
   }, [])
 
