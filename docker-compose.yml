@@ -56,7 +56,7 @@ services:
         #  memory: 2G
 
   prometheus:
-    image: prom/prometheus:v3.11.3
+    image: prom/prometheus:v3.12.0
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./observability/prometheus_slo_rules.yml:/etc/prometheus/prometheus_slo_rules.yml:ro
