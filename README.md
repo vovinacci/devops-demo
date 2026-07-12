@@ -22,6 +22,7 @@ devops-demo/
 │       └── docker-compose.yml   # Main Docker Compose configuration
 │
 ├── docs/                        # Documentation (see index below)
+│   ├── adr/                     # Architecture Decision Records
 │   ├── rfc/                     # Request for Comments -- design documents
 │   └── exercises/               # Student exercises
 │
@@ -37,9 +38,14 @@ devops-demo/
 │   ├── backend/                 #   tests, README each)
 │   └── frontend/
 │
+├── .devcontainer/               # Devcontainer / GitHub Codespaces setup
+├── .env.example                 # Compose overrides template (see local-setup)
+├── .mise.toml                   # Pinned toolchain versions (source of truth)
 ├── AGENTS.md                    # Canonical instructions for AI coding agents
+├── LICENSE                      # MIT
 ├── Makefile                     # Single operational entry point (make help)
-└── README.md                    # This file
+├── README.md                    # This file
+└── SECURITY.md                  # How to report a vulnerability
 ```
 
 ## Quick Start
