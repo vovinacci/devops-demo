@@ -395,7 +395,7 @@ make test-frontend
    ```
 
 3. **Check Network tab in DevTools:**
-    - Open DevTools → Network
+    - Open DevTools -> Network
     - Load page
     - Find POST requests to `/metrics/frontend`
     - Check response status (should be 200 or 204)

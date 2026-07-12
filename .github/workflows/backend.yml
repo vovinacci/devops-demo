@@ -1,10 +1,16 @@
-name: PR Checks
+name: Backend
 
 on:
   pull_request:
+    paths:
+      - "services/backend/**"
+      - ".github/workflows/backend.yml"
   push:
     branches:
       - main
+    paths:
+      - "services/backend/**"
+      - ".github/workflows/backend.yml"
 
 jobs:
   lint-backend:
@@ -32,42 +38,6 @@ jobs:
       - name: Run mypy type check
         run: |
           make type-check
-
-  lint-frontend:
-    name: Lint Frontend
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: "npm"
-          cache-dependency-path: services/frontend/package-lock.json
-
-      - name: Install dependencies
-        working-directory: services/frontend
-        run: |
-          npm ci
-
-      - name: Run ESLint
-        run: |
-          make lint-frontend
-
-  lint-infra:
-    name: Lint Infrastructure
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: 'services/backend/pyproject.toml'
-
-      - name: Run pre-commit
-        uses: pre-commit/action@v3.0.1
 
   test-backend:
     name: Test Backend
@@ -118,25 +88,3 @@ jobs:
           ALEMBIC_DATABASE_URL: postgresql+psycopg://app:app@localhost:5432/appdb
         run: |
           pytest -v
-
-  test-frontend:
-    name: Test Frontend
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: "npm"
-          cache-dependency-path: services/frontend/package-lock.json
-
-      - name: Install dependencies
-        working-directory: services/frontend
-        run: |
-          npm ci
-
-      - name: Run tests
-        run: |
-          make test-frontend

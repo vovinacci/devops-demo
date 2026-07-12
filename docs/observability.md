@@ -43,7 +43,7 @@ Centralized logging is implemented through Grafana Alloy and Loki:
 
 Log access:
 
-- Via Grafana: Explore → select Loki datasource → LogQL queries
+- Via Grafana: Explore -> select Loki datasource -> LogQL queries
 - Via API: http://localhost:3100/loki/api/v1/query
 - Via Docker: `docker compose logs -f [service_name]`
 

@@ -1,0 +1,48 @@
+name: Checks
+
+# Cross-cutting gates that run on every PR regardless of changed paths.
+# These are the checks marked as required in branch protection (see
+# docs/ci.md) -- path-filtered workflows cannot be required because a
+# skipped workflow leaves its checks pending forever.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  push:
+    branches:
+      - main
+
+jobs:
+  hooks:
+    name: Git hooks (prek)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Same tool and config as local `prek run --all-files` / `make lint-infra`
+      - name: Run prek
+        uses: j178/prek-action@v1
+
+  commitlint:
+    name: PR title (Conventional Commits)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install commitlint
+        run: |
+          npm install -g @commitlint/cli @commitlint/config-conventional
+
+      # Squash-merge repo: the PR title becomes the commit message that
+      # release-please reads, so the title is linted, not branch commits.
+      - name: Lint PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "$PR_TITLE" | commitlint --config commitlint.config.mjs

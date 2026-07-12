@@ -1,0 +1,42 @@
+name: Images
+
+# Build each service image and scan it with Trivy (RFC-0001 D13):
+# a critical CVE in a shipped image fails the pipeline.
+
+on:
+  pull_request:
+    paths:
+      - "services/**"
+      - "deploy/compose/**"
+      - ".github/workflows/images.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "services/**"
+      - "deploy/compose/**"
+      - ".github/workflows/images.yml"
+
+jobs:
+  build-scan:
+    name: Build + Trivy scan (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build image
+        run: |
+          docker build -t devops-demo-${{ matrix.service }}:ci services/${{ matrix.service }}
+
+      - name: Trivy scan (fail on critical)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: devops-demo-${{ matrix.service }}:ci
+          format: table
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true

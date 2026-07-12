@@ -208,7 +208,7 @@ SLO metrics are displayed in the main dashboard **DevOps Demo Dashboard** (avail
 
 1. Open Grafana: http://localhost:3000
 2. Login with credentials: `admin/admin`
-3. Navigate to "Dashboards" → "DevOps Demo Dashboard"
+3. Navigate to "Dashboards" -> "DevOps Demo Dashboard"
 4. Find SLO panels at the top of the dashboard
 
 ## SLO Verification

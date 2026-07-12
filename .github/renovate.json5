@@ -1,0 +1,44 @@
+// Renovate configuration (RFC-0001 D12): automated dependency updates
+// across all ecosystems, small and continuous. Dependabot is the
+// documented fallback (.github/dependabot.yml removed when this landed).
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
+    // Ship pinned, run pinned (RFC-0001 D12)
+    'docker:pinDigests',
+    'helpers:pinGitHubActionDigests',
+  ],
+  // PR titles must be Conventional Commits (commitlint gate)
+  semanticCommits: 'enabled',
+  schedule: ['before 6am on monday'],
+  // Hook versions in .pre-commit-config.yaml are dependencies too
+  'pre-commit': {
+    enabled: true,
+  },
+  packageRules: [
+    {
+      matchFileNames: ['services/backend/**'],
+      matchUpdateTypes: ['minor', 'patch'],
+      groupName: 'backend',
+    },
+    {
+      matchFileNames: ['services/frontend/**'],
+      matchUpdateTypes: ['minor', 'patch'],
+      groupName: 'frontend',
+    },
+    {
+      matchManagers: ['github-actions'],
+      groupName: 'github-actions',
+    },
+    {
+      matchManagers: ['pre-commit'],
+      groupName: 'git-hooks',
+    },
+    {
+      matchManagers: ['dockerfile', 'docker-compose'],
+      matchUpdateTypes: ['minor', 'patch', 'digest', 'pin'],
+      groupName: 'docker',
+    },
+  ],
+}

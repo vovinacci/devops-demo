@@ -8,6 +8,10 @@ PRINT_TARGET = @echo "▶ make → $@"
 # relative paths and the project name resolving from the repo root
 COMPOSE = docker compose -f deploy/compose/docker-compose.yml --project-directory .
 
+# Git hooks runner: prek preferred, classic pre-commit is the documented
+# fallback (RFC-0001 D14); both read .pre-commit-config.yaml
+PREK = $(shell command -v prek 2>/dev/null || echo pre-commit)
+
 ##@ Help
 
 .PHONY: help
@@ -164,10 +168,10 @@ lint-frontend: ## Frontend code quality check via eslint
 	cd services/frontend && npm run lint
 
 .PHONY: lint-infra
-lint-infra: ## CI: Infrastructure validation via pre-commit (single source of truth)
+lint-infra: ## CI: Infrastructure validation via prek hooks (single source of truth)
 	$(PRINT_TARGET)
-	command -v pre-commit >/dev/null 2>&1 || { echo "pre-commit is not installed. Install: pip install pre-commit"; exit 1; }
-	pre-commit run --all-files
+	command -v $(PREK) >/dev/null 2>&1 || { echo "prek is not installed. Install: see docs/ci.md (fallback: pip install pre-commit)"; exit 1; }
+	$(PREK) run --all-files
 
 .PHONY: format
 format: format-backend format-frontend ## Format code for entire project (backend + frontend + infra)
@@ -189,22 +193,30 @@ type-check: ## Type checking via mypy
 	$(PRINT_TARGET)
 	cd services/backend && mypy app
 
-##@ Pre-commit
+##@ CI
+
+.PHONY: ci
+ci: ## Run exactly what CI runs (hooks + lint + tests); divergence from CI is a bug
+	$(PRINT_TARGET)
+	$(MAKE) lint
+	$(MAKE) test
+
+##@ Git hooks
 
 .PHONY: pre-commit-install
-pre-commit-install: ## Install pre-commit hooks
+pre-commit-install: ## Install git hooks (prek or pre-commit)
 	$(PRINT_TARGET)
-	pre-commit install
+	$(PREK) install
 
 .PHONY: pre-commit-run
-pre-commit-run: ## Run pre-commit on all files
+pre-commit-run: ## Run hooks on all files
 	$(PRINT_TARGET)
-	pre-commit run --all-files
+	$(PREK) run --all-files
 
 .PHONY: pre-commit-update
-pre-commit-update: ## Update pre-commit hooks to latest versions
+pre-commit-update: ## Update hook versions in .pre-commit-config.yaml
 	$(PRINT_TARGET)
-	pre-commit autoupdate
+	$(PREK) autoupdate
 
 ##@ Container images
 
