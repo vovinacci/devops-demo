@@ -47,7 +47,9 @@
     // Python and Go move by patch only -- minor/major runtime bumps are
     // deliberate decisions, not dependency chores
     {
-      matchDepNames: ['python', 'go', 'golang'],
+      // full image name: the devcontainer manager reports the base image
+      // as its registry path, not as 'python'
+      matchDepNames: ['python', 'go', 'golang', 'mcr.microsoft.com/devcontainers/python'],
       matchUpdateTypes: ['major', 'minor'],
       enabled: false,
     },

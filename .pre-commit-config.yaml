@@ -79,20 +79,36 @@ repos:
         args: [--negate]
         files: \.md$
         exclude: ^CHANGELOG\.md$
+  # Toolchain drift gate: .mise.toml is the single source of truth for
+  # runtime versions; consumers that cannot import it must agree with it
+  - repo: local
+    hooks:
+      - id: toolchain-drift
+        name: toolchain versions match .mise.toml
+        entry: bash scripts/check-toolchain-drift.sh
+        language: system
+        files: ^(\.mise\.toml|\.devcontainer/devcontainer\.json|services/frontend/\.nvmrc|services/.*/Dockerfile|services/backend/pyproject\.toml)$
+        pass_filenames: false
   # Secret scanning (RFC-0001 D13)
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.24.3
     hooks:
       - id: gitleaks
-  # Shell linting
-  - repo: https://github.com/jumanjihouse/pre-commit-hooks
-    rev: 3.0.0
+  # Shell linting: managed environments (pip wheel / Go module), no
+  # system binaries -- identical tool versions locally and in CI
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
     hooks:
       - id: shellcheck
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.13.1-1
+    hooks:
       - id: shfmt
         args:
-          - "-i 2"
+          - "-i"
+          - "2"
           - "-ci"
+          - "-w"
   # YAML linting
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.38.0

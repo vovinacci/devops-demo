@@ -61,7 +61,16 @@ This document contains detailed instructions for setting up the local developmen
 
 ### Checking System Requirements
 
-Before starting, ensure all necessary tools are installed and available:
+The first command after cloning -- verifies every tool, version, the
+Docker daemon, and available resources, with actionable errors:
+
+```shell
+make doctor
+```
+
+Toolchain versions are pinned in `.mise.toml`; with
+[mise](https://mise.jdx.dev) installed, `mise install` provides the
+pinned Python and Node automatically. Manual check, if you prefer:
 
 ```shell
 # Check Python
