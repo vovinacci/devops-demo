@@ -57,8 +57,12 @@ compatible).
 - **PR title commitlint:** squash-merge repo -- PR titles become the commit
   history release-please reads, so titles are linted as Conventional
   Commits, not branch commits.
-- **Trivy image scan:** every service image is built and scanned on change;
-  a critical, fixable CVE fails the pipeline (RFC-0001 D13).
+- **Trivy image scan:** every service image is built and scanned on change,
+  plus a weekly scheduled rescan -- new CVEs appear without commits; a
+  critical, fixable CVE fails the pipeline (RFC-0001 D13).
+- **Secret scanning, two layers:** gitleaks runs in the hooks (working
+  tree, every commit) and as a weekly full-git-history scan in CI -- a
+  secret committed and later removed is invisible to the hook layer.
 - **Planned (later phases):** `buf lint` + `buf breaking` on proto/,
   load-profile parity test, compose e2e stage with k6 thresholds, nightly
   full-profile workflow, per-service dependency audits.

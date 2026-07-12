@@ -4,6 +4,9 @@ name: Images
 # a critical CVE in a shipped image fails the pipeline.
 
 on:
+  # weekly rescan of unchanged images: new CVEs appear without commits
+  schedule:
+    - cron: "0 4 * * 1"
   pull_request:
     paths:
       - "services/**"
