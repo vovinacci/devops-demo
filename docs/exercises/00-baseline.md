@@ -1,7 +1,10 @@
-# Homework Assignments for Students
+# Exercises -- baseline platform
 
-This document contains a structured set of homework assignments of varying difficulty levels for students learning DevOps practices using the DevOps Demo
-project as an example. The assignments cover backend development, frontend development, infrastructure configuration, and observability.
+Structured exercises of varying difficulty levels for students learning
+DevOps practices on the baseline platform (RFC-0000). The exercises cover
+backend development, frontend development, infrastructure configuration,
+and observability. Later platform phases add their own exercise files in
+this directory (one per phase, RFC-0001 Section 9).
 
 - **Level 1: Beginner**
 

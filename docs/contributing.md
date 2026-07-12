@@ -9,7 +9,7 @@ This document contains detailed guidelines for contributing to the DevOps Demo p
 - [Backend Linting](#backend-linting)
 - [Frontend Linting](#frontend-linting)
 - [Infrastructure Linting](#infrastructure-linting)
-- [Pre-commit Setup](#pre-commit-setup)
+- [Git Hooks Setup](#git-hooks-setup)
 - [Code Style](#code-style)
 - [Testing](#testing)
 - [CI/CD](#cicd)
@@ -21,13 +21,12 @@ This document contains detailed guidelines for contributing to the DevOps Demo p
 
 Install all necessary tools and set up the development environment. Detailed instructions are available in [Local setup](local-setup.md).
 
-**Minimum requirements:**
+Toolchain versions are pinned in `.mise.toml` (the single source of truth);
+verify your environment with:
 
-- Python 3.12
-- Node.js >= 20
-- Docker and Docker Compose
-- Make (recommended)
-- Git
+```bash
+make doctor
+```
 
 ### Making Changes
 
@@ -43,50 +42,35 @@ After setting up the environment, you can start making changes to the code. Make
 
 ### Commits
 
-Commit messages should follow the [Conventional Commits](https://www.conventionalcommits.org/) style.
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/):
+`<type>(<scope>): <subject>`, e.g. `feat(backend): add item tags`.
+Common scopes here: `backend`, `frontend`, `api`, `db`, `infra`.
 
-**Format:** `<type>(<scope>): <subject>`
+**The PR title matters most**: this is a squash-merge repository, so the PR
+title becomes the commit message on `main` -- it is linted by CI and drives
+automated releases (see [CI/CD architecture](ci.md)). Branch commits are
+work-in-progress and disappear at merge.
 
-**Examples:**
-
-- `fix(backend): resolve database connection pool issue`
-- `feat(frontend): add dark mode toggle`
-- `docs: update local setup instructions`
-- `test(backend): add integration tests for items API`
-- `refactor(api): simplify error handling logic`
-- `chore: update dependencies`
-
-**Most important types:**
-
-- `fix:` - Bug fixes (SemVer patch)
-- `feat:` - New features (SemVer minor)
-- `feat!:`, `fix!:`, `refactor!:` - Breaking changes (SemVer major)
-- `docs:` - Documentation changes
-- `test:` - Adding or changing tests
-- `refactor:` - Code refactoring without changing functionality
-- `chore:` - Maintenance tasks (dependency updates, configuration)
-
-**Scope (optional):**
-
-- `backend` - Changes in backend code
-- `frontend` - Changes in frontend code
-- `api` - Changes in API endpoints
-- `db` - Changes in migrations or database models
-- `infra` - Changes in infrastructure
+Why this workflow: [engineering principles](engineering-principles.md)
+Section 4.
 
 ### Submitting Pull Request
 
-After making changes and committing, create a Pull Request with a detailed description of changes. Make sure all tests pass and code meets quality standards.
+Create a Pull Request and fill in the template: *why* (with a link to the
+RFC/ADR/issue it serves) and, for non-trivial changes, the **Change model**
+section -- affected components, touched Hard rules, assumptions, plan.
+Reviewers read the model before the diff.
 
 ### Code Review
 
-Project maintainer will review your Pull Request and leave comments if needed. It's better to add additional commits instead of amending and force-pushing, as this complicates tracking changes during review.
-
-**Commits will be squashed into one commit when merging.**
+Review culture and the escalation path (write a proposal, don't argue) are
+described in [engineering principles](engineering-principles.md) Section 4.
+Practical note: add new commits instead of amending and force-pushing --
+it keeps review threads readable; everything is squashed at merge anyway.
 
 ## Linting and Testing
 
-All code quality checks are performed automatically via [pre-commit] hooks and can be run manually via Make commands.
+All code quality checks run automatically via git hooks (prek) and can be run manually via Make commands.
 
 ### Quick Commands
 
@@ -244,7 +228,7 @@ This command checks:
 
 - YAML files (docker-compose, observability configs)
 - GitHub Actions workflows (`.github/workflows/*.yml`)
-- Dependabot configuration (`.github/dependabot.yml`)
+- Renovate configuration (`.github/renovate.json5`)
 - Docker Compose validation
 - Dockerfiles via hadolint
 
@@ -264,7 +248,7 @@ yamllint -c .yamllint.yml deploy/compose/docker-compose.yml
 
 ```bash
 # Check deploy/compose/docker-compose.yml syntax
-docker compose config --quiet
+docker compose -f deploy/compose/docker-compose.yml --project-directory . config --quiet
 ```
 
 **Dockerfile linting:**
@@ -278,23 +262,19 @@ docker compose config --quiet
 hadolint --config .hadolint.yaml services/backend/Dockerfile
 ```
 
-## Pre-commit Setup
+## Git Hooks Setup
 
-Pre-commit hooks automatically run linting and formatting checks before each Git commit.
+Git hooks run linting and formatting checks before each commit. The runner
+is [prek](https://github.com/j178/prek) (single binary, pre-commit
+compatible); classic [pre-commit](https://pre-commit.com/) works as a
+fallback with the same config. CI runs the identical tool and config --
+hooks cannot drift between local and CI (see [CI/CD architecture](ci.md)).
 
 ### Installation
 
 ```bash
-# Install pre-commit hooks
+# Install git hooks (uses prek when available)
 make pre-commit-install
-```
-
-Or manually:
-
-```bash
-cd services/backend
-.venv/bin/pip install pre-commit
-.venv/bin/pre-commit install
 ```
 
 ### Manual Run
@@ -302,51 +282,23 @@ cd services/backend
 ```bash
 # Run on all files
 make pre-commit-run
-
-# Or manually
-cd services/backend
-.venv/bin/pre-commit run --all-files
 ```
 
 ### Configured Hooks
 
-**Backend:**
-
-- `ruff` - Python linting and automatic fixing
-- `ruff-format` - Python code formatting
-- `mypy` - Type checking
-- `bandit` - Security linting (security check)
-- `detect-secrets` - Secret detection in code
-
-**Frontend:**
-
-- `eslint` - JavaScript/React linting
-- `prettier` - Code formatting
-
-**Infrastructure:**
-
-- `yamllint` - YAML linting
-- `hadolint` - Dockerfile linting
-- `docker-compose-validate` - Docker Compose validation
-- `makefile-check` - Makefile syntax check
-
-**General:**
-
-- `trailing-whitespace` - Remove trailing whitespace at end of lines
-- `end-of-file-fixer` - Add newline at end of files
-- `check-yaml` - YAML syntax validation
-- `check-json` - JSON syntax validation
-- `check-toml` - TOML syntax validation
+The authoritative list is [.pre-commit-config.yaml](../.pre-commit-config.yaml)
+-- a list copied here would only drift. Highlights: whitespace/format
+fixers, YAML/JSON/TOML checks, compose validation, hadolint, markdownlint,
+ASCII-only docs linter, shellcheck/shfmt, gitleaks secret scanning, and the
+toolchain drift gate.
 
 ### Updating Hooks
 
-```bash
-# Update hooks to latest versions
-make pre-commit-update
+Hook versions are dependencies: Renovate updates them automatically
+(grouped as `git-hooks`). Manual bump if needed:
 
-# Or manually
-cd services/backend
-.venv/bin/pre-commit autoupdate
+```bash
+make pre-commit-update
 ```
 
 ## Code Style
@@ -558,25 +510,10 @@ Detailed information about running tests is available in [Running tests](running
 
 ## CI/CD
 
-All Pull Requests are automatically checked via GitHub Actions:
-
-**Backend checks:**
-
-- Linting (ruff, mypy)
-- Testing (pytest)
-
-**Frontend checks:**
-
-- Linting (ESLint)
-- Testing (Vitest)
-
-**Infrastructure checks:**
-
-- YAML validation (yamllint)
-- Docker Compose validation
-- Dockerfile linting (hadolint)
-
-**Make sure all CI checks pass before requesting review.**
+Pipeline topology, gates, releases, and branch protection are documented in
+[CI/CD architecture](ci.md). The contract that matters while contributing:
+`make ci` runs locally exactly what the pipeline runs -- green locally
+means green in CI.
 
 ## Reference
 
