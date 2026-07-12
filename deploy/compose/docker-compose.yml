@@ -113,12 +113,9 @@ services:
     networks:
       - devnet
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
+    # no container healthcheck: grafana/loki images are distroless since 3.5
+    # (no shell, no wget -- nothing to exec); readiness is observed from
+    # outside via /ready (Prometheus scrape; blackbox probe in a later phase)
 
   # Promtail is deprecated (EOL March 2026), migrated to Grafana Alloy
   # See: https://grafana.com/docs/alloy/latest/set-up/migrate/from-promtail/
@@ -131,20 +128,17 @@ services:
       - alloy-data:/var/lib/alloy/data
     depends_on:
       loki:
-        condition: service_healthy
+        # service_started, not service_healthy: the distroless loki image
+        # cannot carry a container healthcheck (see loki service above)
+        condition: service_started
     networks:
       - devnet
     restart: unless-stopped
     healthcheck:
-      # Check both readiness and metrics for write errors
-      # This ensures Alloy fails fast if it cannot write to Loki
-      # The healthcheck monitors Alloy metrics and marks the container as unhealthy
-      # if there are write errors, making failures visible
-      # With restart: no, the container will remain stopped/unhealthy, making the failure visible
-      test: >
-        wget --no-verbose --tries=1 --spider http://localhost:9080/-/ready > /dev/null 2>&1 &&
-        (wget --no-verbose --tries=1 -O- http://localhost:9080/metrics 2>/dev/null | grep -q 'loki_write_dropped_lines_total 0' || exit 1) ||
-        exit 1
+      # readiness only, probed via bash /dev/tcp -- the alloy image ships no
+      # wget/curl. Write-error visibility (dropped lines) is a Prometheus
+      # concern, not a container healthcheck.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/9080 && printf 'GET /-/ready HTTP/1.0\r\n\r\n' >&3 && head -n1 <&3 | grep -q 200"]
       interval: 10s
       timeout: 5s
       retries: 3

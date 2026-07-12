@@ -129,7 +129,7 @@ VITE_API_URL=http://localhost:8000
 **Access variables in code:**
 
 ```javascript
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 ```
 
 **Note:** In production via nginx proxy, the `/api` path is used, which automatically redirects to the backend API.
@@ -211,27 +211,27 @@ Metrics are automatically sent to the backend on page load and user interaction.
 Metrics are configured in `src/main.jsx` via the `web-vitals` library:
 
 ```javascript
-import {onCLS, onINP, onLCP, onFCP, onTTFB} from 'web-vitals';
+import { onCLS, onINP, onLCP, onFCP, onTTFB } from 'web-vitals'
 
 // Send metrics to backend
 function sendToAnalytics(metric) {
-    fetch('/metrics/frontend', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            name: metric.name,
-            value: metric.value,
-            url: window.location.pathname
-        })
-    });
+  fetch('/metrics/frontend', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: metric.name,
+      value: metric.value,
+      url: window.location.pathname,
+    }),
+  })
 }
 
 // Subscribe to metrics
-onCLS(sendToAnalytics);
-onINP(sendToAnalytics);
-onLCP(sendToAnalytics);
-onFCP(sendToAnalytics);
-onTTFB(sendToAnalytics);
+onCLS(sendToAnalytics)
+onINP(sendToAnalytics)
+onLCP(sendToAnalytics)
+onFCP(sendToAnalytics)
+onTTFB(sendToAnalytics)
 ```
 
 ## Styling
@@ -261,17 +261,13 @@ touch src/components/NewComponent.jsx
 **Component Structure:**
 
 ```javascript
-import {useState} from 'react';
-import './NewComponent.css';
+import { useState } from 'react'
+import './NewComponent.css'
 
 export function NewComponent() {
-    const [state, setState] = useState('');
+  const [state, setState] = useState('')
 
-    return (
-        <div className="new-component">
-            {/* Component content */}
-        </div>
-    );
+  return <div className="new-component">{/* Component content */}</div>
 }
 ```
 
@@ -357,8 +353,8 @@ make test-frontend
    ```
 
 2. **Check CORS settings on backend:**
-    - Backend should allow requests from `http://localhost:5173` (development)
-    - Or from `http://localhost:8080` (production via nginx)
+   - Backend should allow requests from `http://localhost:5173` (development)
+   - Or from `http://localhost:8080` (production via nginx)
 
 3. **Check `VITE_API_URL` in `.env` file:**
 
@@ -382,9 +378,9 @@ make test-frontend
 **Solution:**
 
 1. **Check browser console for errors:**
-    - Open DevTools (F12)
-    - Go to Console tab
-    - Check for JavaScript errors
+   - Open DevTools (F12)
+   - Go to Console tab
+   - Check for JavaScript errors
 
 2. **Verify `/metrics/frontend` endpoint is accessible:**
 
@@ -395,10 +391,10 @@ make test-frontend
    ```
 
 3. **Check Network tab in DevTools:**
-    - Open DevTools -> Network
-    - Load page
-    - Find POST requests to `/metrics/frontend`
-    - Check response status (should be 200 or 204)
+   - Open DevTools -> Network
+   - Load page
+   - Find POST requests to `/metrics/frontend`
+   - Check response status (should be 200 or 204)
 
 4. **Verify web-vitals library is installed:**
 
@@ -422,8 +418,8 @@ make test-frontend
 
 2. **Check `.dockerignore` file:**
 
-    - Ensure `node_modules`, `.git`, and other unnecessary files are excluded
-    - This will reduce build context size
+   - Ensure `node_modules`, `.git`, and other unnecessary files are excluded
+   - This will reduce build context size
 
 3. **Check build logs:**
 
@@ -469,9 +465,9 @@ make test-frontend
    ```
 
 4. **Clear browser cache:**
-    - Open DevTools (F12)
-    - Right-click on refresh button
-    - Select "Empty Cache and Hard Reload"
+   - Open DevTools (F12)
+   - Right-click on refresh button
+   - Select "Empty Cache and Hard Reload"
 
 ### Production Build Issues
 
