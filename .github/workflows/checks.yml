@@ -11,6 +11,9 @@ on:
   push:
     branches:
       - main
+  # weekly full-history secret scan (the prek hook only sees the working tree)
+  schedule:
+    - cron: "0 4 * * 1"
 
 jobs:
   hooks:
@@ -46,3 +49,18 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           echo "$PR_TITLE" | commitlint --config commitlint.config.mjs
+
+  gitleaks-history:
+    name: Secret scan (full git history)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # the whole point: scan every commit, not the checkout
+          fetch-depth: 0
+
+      - name: Run gitleaks over history
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
