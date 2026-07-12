@@ -100,11 +100,11 @@ test-backend: ## Run backend tests locally via virtualenv
 		done; \
 	fi; \
 	echo "Running DB migrations..."; \
-	cd backend && DATABASE_URL="postgresql+asyncpg://app:app@localhost:5432/appdb" \
+	cd services/backend && DATABASE_URL="postgresql+asyncpg://app:app@localhost:5432/appdb" \
 		ALEMBIC_DATABASE_URL="postgresql+psycopg://app:app@localhost:5432/appdb" \
 		python -m alembic -c alembic.ini upgrade head || true; \
 	echo "Running backend tests via virtualenv..."; \
-	cd backend && DATABASE_URL="postgresql+asyncpg://app:app@localhost:5432/appdb" \
+	cd services/backend && DATABASE_URL="postgresql+asyncpg://app:app@localhost:5432/appdb" \
 		ALEMBIC_DATABASE_URL="postgresql+psycopg://app:app@localhost:5432/appdb" \
 		pytest -q; \
 	TEST_EXIT_CODE=$$?; \
@@ -134,14 +134,14 @@ test-docker: ## Run tests in Docker container (for CI/CD)
 	fi
 	@echo "Running tests in Docker container..."
 	docker compose run --rm \
-		-v "$(PWD)/backend/tests:/app/tests:ro" \
+		-v "$(PWD)/services/backend/tests:/app/tests:ro" \
 		api sh -c "pip install --user -e '.[dev]' && python -m alembic -c /app/alembic.ini upgrade head && pytest tests -q -v"
 
 .PHONY: test-frontend
 test-frontend: ## Run frontend unit tests
 	$(PRINT_TARGET)
-	cd frontend && ([ -d node_modules ] && [ -f node_modules/.bin/vitest ] || npm install)
-	cd frontend && npm run test
+	cd services/frontend && ([ -d node_modules ] && [ -f node_modules/.bin/vitest ] || npm install)
+	cd services/frontend && npm run test
 
 ##@ Code Quality
 
@@ -151,13 +151,13 @@ lint: lint-infra lint-backend type-check lint-frontend ## Code quality check for
 .PHONY: lint-backend
 lint-backend: ## Backend code quality check via ruff
 	$(PRINT_TARGET)
-	cd backend && ruff check .
+	cd services/backend && ruff check .
 
 .PHONY: lint-frontend
 lint-frontend: ## Frontend code quality check via eslint
 	$(PRINT_TARGET)
-	cd frontend && ([ -d node_modules ] && [ -f node_modules/.bin/eslint ] || npm install)
-	cd frontend && npm run lint
+	cd services/frontend && ([ -d node_modules ] && [ -f node_modules/.bin/eslint ] || npm install)
+	cd services/frontend && npm run lint
 
 .PHONY: lint-infra
 lint-infra: ## CI: Infrastructure validation via pre-commit (single source of truth)
@@ -171,19 +171,19 @@ format: format-backend format-frontend ## Format code for entire project (backen
 .PHONY: format-backend
 format-backend: ## Backend code formatting via ruff (format + auto-fix linting)
 	$(PRINT_TARGET)
-	cd backend && ruff format .
-	cd backend && ruff check . --fix || true
+	cd services/backend && ruff format .
+	cd services/backend && ruff check . --fix || true
 
 .PHONY: format-frontend
 format-frontend: ## Frontend code formatting via prettier
 	$(PRINT_TARGET)
-	cd frontend && ([ -d node_modules ] && [ -f node_modules/.bin/prettier ] || npm install)
-	cd frontend && npm run format
+	cd services/frontend && ([ -d node_modules ] && [ -f node_modules/.bin/prettier ] || npm install)
+	cd services/frontend && npm run format
 
 .PHONY: type-check
 type-check: ## Type checking via mypy
 	$(PRINT_TARGET)
-	cd backend && mypy app
+	cd services/backend && mypy app
 
 ##@ Pre-commit
 
@@ -207,8 +207,8 @@ pre-commit-update: ## Update pre-commit hooks to latest versions
 .PHONY: build-images
 build-images: ## Build Docker images
 	$(PRINT_TARGET)
-	docker build -t devops-demo-backend:latest ./backend
-	docker build -t devops-demo-frontend:latest ./frontend
+	docker build -t devops-demo-backend:latest ./services/backend
+	docker build -t devops-demo-frontend:latest ./services/frontend
 
 .PHONY: image-sizes
 image-sizes: build-images ## Display Docker image sizes
@@ -221,37 +221,37 @@ image-sizes: build-images ## Display Docker image sizes
 .PHONY: frontend-dev
 frontend-dev: ## Run frontend in development mode
 	$(PRINT_TARGET)
-	cd frontend && npm install && npm run dev
+	cd services/frontend && npm install && npm run dev
 
 .PHONY: frontend-build
 frontend-build: ## Build frontend for production
 	$(PRINT_TARGET)
-	cd frontend && npm install && npm run build
+	cd services/frontend && npm install && npm run build
 
 .PHONY: frontend-lint
 frontend-lint: ## Frontend code quality check (eslint)
 	$(PRINT_TARGET)
 	@echo "Checking npm dependencies..."
-	@cd frontend && ([ -d node_modules ] && [ -f node_modules/.bin/eslint ] || npm install)
-	@cd frontend && npm run lint
+	@cd services/frontend && ([ -d node_modules ] && [ -f node_modules/.bin/eslint ] || npm install)
+	@cd services/frontend && npm run lint
 
 .PHONY: frontend-lint-fix
 frontend-lint-fix: ## Fix eslint errors in frontend
 	$(PRINT_TARGET)
 	@echo "Checking npm dependencies..."
-	@cd frontend && ([ -d node_modules ] && [ -f node_modules/.bin/eslint ] || npm install)
-	@cd frontend && npm run lint:fix
+	@cd services/frontend && ([ -d node_modules ] && [ -f node_modules/.bin/eslint ] || npm install)
+	@cd services/frontend && npm run lint:fix
 
 .PHONY: frontend-format
 frontend-format: ## Frontend code formatting (prettier)
 	$(PRINT_TARGET)
 	@echo "Checking npm dependencies..."
-	@cd frontend && ([ -d node_modules ] && [ -f node_modules/.bin/prettier ] || npm install)
-	@cd frontend && npm run format
+	@cd services/frontend && ([ -d node_modules ] && [ -f node_modules/.bin/prettier ] || npm install)
+	@cd services/frontend && npm run format
 
 .PHONY: frontend-format-check
 frontend-format-check: ## Check frontend formatting (no changes)
 	$(PRINT_TARGET)
 	@echo "Checking npm dependencies..."
-	@cd frontend && ([ -d node_modules ] && [ -f node_modules/.bin/prettier ] || npm install)
-	@cd frontend && npm run format:check
+	@cd services/frontend && ([ -d node_modules ] && [ -f node_modules/.bin/prettier ] || npm install)
+	@cd services/frontend && npm run format:check

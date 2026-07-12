@@ -4,7 +4,7 @@ The project is built on a microservices architecture with clear separation of re
 
 ## System Components
 
-- **Frontend** ([readme](../frontend/README.md))
+- **Frontend** ([readme](../services/frontend/README.md))
   - React 18 with Vite as build tool
   - Web Vitals metrics for performance monitoring
   - Nginx for static hosting in production

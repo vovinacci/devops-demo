@@ -20,7 +20,7 @@ services:
 
   api:
     build:
-      context: ./backend
+      context: ./services/backend
       target: runtime
     environment:
       - DATABASE_URL=postgresql+asyncpg://app:app@db:5432/appdb
@@ -169,7 +169,7 @@ services:
 
   web:
     build:
-      context: ./frontend
+      context: ./services/frontend
       target: runtime
     ports:
       - "8080:80"

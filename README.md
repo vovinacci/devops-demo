@@ -7,21 +7,22 @@ The project structure is as follows:
 
 ```text
 devops-demo/
-├── backend/                     # Backend service
-│   ├── app/                     # FastAPI application
-│   ├── alembic/                 # Database migrations
-│   ├── tests/                   # Backend tests
-│   ├── Dockerfile               # Production Dockerfile
-│   └── pyproject.toml           # Python dependencies and configuration
-│
 ├── docs/                        # Documentation
 │
-├── frontend/                    # Frontend application
-│   ├── src/                     # React components
-│   ├── public/                  # Static files
-│   ├── Dockerfile               # Production Dockerfile
-│   ├── package.json             # Node.js dependencies
-│   └── vite.config.js           # Vite configuration
+├── services/                    # Self-contained services
+│   ├── backend/                 # Backend service
+│   │   ├── app/                 # FastAPI application
+│   │   ├── alembic/             # Database migrations
+│   │   ├── tests/               # Backend tests
+│   │   ├── Dockerfile           # Production Dockerfile
+│   │   └── pyproject.toml       # Python dependencies and configuration
+│   │
+│   └── frontend/                # Frontend application
+│       ├── src/                 # React components
+│       ├── public/              # Static files
+│       ├── Dockerfile           # Production Dockerfile
+│       ├── package.json         # Node.js dependencies
+│       └── vite.config.js       # Vite configuration
 │
 ├── observability/               # Observability configuration
 │   ├── prometheus.yml           # Prometheus configuration

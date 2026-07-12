@@ -92,7 +92,7 @@ make venv-install
 
 This command performs the following actions:
 
-- Creates Python 3.12 virtualenv in `backend/.venv` (idempotent operation - does not recreate if already exists)
+- Creates Python 3.12 virtualenv in `services/backend/.venv` (idempotent operation - does not recreate if already exists)
 - Updates pip, setuptools, and wheel to latest versions
 - Installs all production and development dependencies from `pyproject.toml`
 - Includes development dependencies (pytest, ruff, mypy, etc.)
@@ -103,7 +103,7 @@ If you don't use Make or need more control over the process:
 
 ```shell
 # Navigate to backend directory
-cd backend
+cd services/backend
 
 # Create Python virtualenv
 python3.12 -m venv .venv
@@ -133,7 +133,7 @@ After installation, verify that all tools are available:
 
 ```shell
 # Navigate to backend directory
-cd backend
+cd services/backend
 
 # Check Python version (should be 3.12.x)
 .venv/bin/python --version
@@ -153,7 +153,7 @@ cd backend
 
   ```shell
   # Navigate to frontend directory
-  cd frontend
+  cd services/frontend
 
   # Install all npm dependencies
   npm install
@@ -169,7 +169,7 @@ cd backend
 
   ```shell
   # Check tool versions
-  cd frontend
+  cd services/frontend
 
   # Check ESLint
   npm run lint --version  # or npx eslint --version
@@ -280,12 +280,12 @@ For backend development without Docker container:
 
 ```shell
 # Activate virtualenv
-source backend/.venv/bin/activate  # Linux/macOS
+source services/backend/.venv/bin/activate  # Linux/macOS
 # or
 backend\.venv\Scripts\activate  # Windows
 
 # Navigate to backend directory
-cd backend
+cd services/backend
 
 # Apply database migrations
 alembic -c alembic.ini upgrade head
@@ -321,7 +321,7 @@ For frontend development without Docker container:
 
 ```shell
 # Navigate to frontend directory
-cd frontend
+cd services/frontend
 
 # Start development server
 npm run dev
@@ -342,13 +342,13 @@ You can run backend locally and frontend via Docker, or vice versa:
 ```shell
 # Option 1: Backend locally, Frontend via Docker
 docker compose up -d db web  # Only DB and frontend
-source backend/.venv/bin/activate
-cd backend
+source services/backend/.venv/bin/activate
+cd services/backend
 uvicorn app.main:app --reload --port 8000
 
 # Option 2: Backend via Docker, Frontend locally
 docker compose up -d db api  # Only DB and backend
-cd frontend
+cd services/frontend
 npm run dev
 ```
 
@@ -368,7 +368,7 @@ make pre-commit-install
 
 ```shell
 # Install pre-commit (if not already installed)
-cd backend
+cd services/backend
 .venv/bin/pip install pre-commit
 
 # Install Git hooks
@@ -390,7 +390,7 @@ make pre-commit-run
 **Manually:**
 
 ```shell
-cd backend
+cd services/backend
 .venv/bin/pre-commit run --all-files
 ```
 
@@ -436,7 +436,7 @@ make pre-commit-update
 Or manually:
 
 ```shell
-cd backend
+cd services/backend
 .venv/bin/pre-commit autoupdate
 ```
 

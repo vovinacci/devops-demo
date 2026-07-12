@@ -49,23 +49,23 @@ with frontend and infrastructure components.
 **Backend Tasks:**
 
 1. **Update Model:**
-    - Open `backend/app/models.py`
+    - Open `services/backend/app/models.py`
     - Add field `description: Mapped[str | None] = mapped_column(String(500), nullable=True)` to the `Item` model
     - Ensure the field has the correct type and length constraints
 
 2. **Create Migration:**
     - Execute command to generate migration: `alembic revision --autogenerate -m "add_description_to_items"`
-    - Check the generated migration file in `backend/alembic/versions/`
+    - Check the generated migration file in `services/backend/alembic/versions/`
     - Ensure the migration adds column `description VARCHAR(500) NULL` to the `items` table
 
 3. **Update Pydantic Schemas:**
-    - Open `backend/app/schemas.py`
+    - Open `services/backend/app/schemas.py`
     - Add field `description: str | None = None` to `ItemCreate` schema
     - Add field `description: str | None` to `ItemOut` schema
     - Add validation: `Field(None, max_length=500)` to limit length
 
 4. **Update CRUD Operations:**
-    - Verify that CRUD operations in `backend/app/crud.py` automatically work with the new field
+    - Verify that CRUD operations in `services/backend/app/crud.py` automatically work with the new field
     - If needed, add explicit handling for the new field
 
 5. **API-Level Validation:**
@@ -75,7 +75,7 @@ with frontend and infrastructure components.
 **Frontend Tasks:**
 
 1. **Update Creation Form:**
-    - Open `frontend/src/App.jsx`
+    - Open `services/frontend/src/App.jsx`
     - Add `<textarea>` element for entering description
     - Add state for storing description value: `const [description, setDescription] = useState('')`
     - Add change handler: `onChange={(e) => setDescription(e.target.value)}`
@@ -101,7 +101,7 @@ with frontend and infrastructure components.
     - Command should be: `python -m alembic -c /app/alembic.ini upgrade head`
 
 2. **Prometheus Metrics:**
-    - Open `backend/app/metrics.py`
+    - Open `services/backend/app/metrics.py`
     - Add metric for counting items with description: `items_with_description = Counter('items_with_description_total', 'Items with description')`
     - Add metric for items without description: `items_without_description = Counter('items_without_description_total', 'Items without description')`
     - Update CRUD operations to increment corresponding metrics
@@ -284,7 +284,7 @@ improvements.
 **Backend Tasks:**
 
 1. **Check Current Versions:**
-    - Open `backend/pyproject.toml`
+    - Open `services/backend/pyproject.toml`
     - Check current versions of all dependencies
     - Use `pip list --outdated` to check for outdated packages
 
@@ -343,7 +343,7 @@ improvements.
 **Backend Tasks:**
 
 1. **Update Configuration:**
-    - Open `backend/pyproject.toml`
+    - Open `services/backend/pyproject.toml`
     - Update `requires-python = ">=3.13"`
     - Update `target-version = ["py313"]` in `.ruff.toml`
     - Update `python_version = "3.13"` in `[tool.mypy]` section in `pyproject.toml`
@@ -362,7 +362,7 @@ improvements.
 **Infrastructure Tasks:**
 
 1. **Update Dockerfile:**
-    - Open `backend/Dockerfile`
+    - Open `services/backend/Dockerfile`
     - Update base image: `FROM python:3.13-slim`
     - Verify all commands work with Python 3.13
 
@@ -1104,7 +1104,7 @@ versions.
 # 3. Update CRUD (crud.py)
 # 4. Update endpoints (main.py)
 # 5. Create migration
-cd backend
+cd services/backend
 alembic revision --autogenerate -m "add_field_name"
 # 6. Verify migration
 alembic upgrade head
@@ -1117,7 +1117,7 @@ alembic upgrade head
 # 2. Add fields to forms
 # 3. Update data display
 # 4. Verify in browser
-cd frontend
+cd services/frontend
 npm run dev
 ```
 

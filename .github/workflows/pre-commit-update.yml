@@ -29,7 +29,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version-file: 'backend/pyproject.toml'
+          python-version-file: 'services/backend/pyproject.toml'
 
       - name: Install pre-commit
         run: |
