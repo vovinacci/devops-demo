@@ -7,13 +7,13 @@ repos:
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
-        exclude: ^(frontend/|observability/grafana/dashboards/)
+        exclude: ^(services/frontend/|observability/grafana/dashboards/)
       - id: end-of-file-fixer
-        exclude: ^(frontend/|observability/grafana/dashboards/)
+        exclude: ^(services/frontend/|observability/grafana/dashboards/)
       - id: check-yaml
         args: ['--unsafe']  # Allow custom YAML tags (for Grafana dashboards)
       - id: check-json
-        exclude: ^(frontend/node_modules/|observability/grafana/dashboards/)
+        exclude: ^(services/frontend/node_modules/|observability/grafana/dashboards/)
       - id: check-toml
       - id: check-added-large-files
         args: ['--maxkb=1000']
@@ -80,4 +80,4 @@ repos:
           - "-c=.yamllint.yml"
           - "-s"
         files: \.(yaml|yml)$
-        exclude: ^(frontend/node_modules/|observability/grafana/dashboards/)
+        exclude: ^(services/frontend/node_modules/|observability/grafana/dashboards/)

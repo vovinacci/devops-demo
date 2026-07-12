@@ -35,10 +35,10 @@ After setting up the environment, you can start making changes to the code. Make
 
 **Main directories:**
 
-- `backend/app/` - Backend code (FastAPI)
-- `frontend/src/` - Frontend code (React)
-- `backend/tests/` - Backend tests
-- `frontend/src/*.test.jsx` - Frontend tests
+- `services/backend/app/` - Backend code (FastAPI)
+- `services/frontend/src/` - Frontend code (React)
+- `services/backend/tests/` - Backend tests
+- `services/frontend/src/*.test.jsx` - Frontend tests
 - `observability/` - Observability stack configuration
 
 ### Commits
@@ -116,7 +116,7 @@ Python code is checked via [ruff] for linting and [mypy] for type checking.
 
 ```bash
 # Check code for errors
-cd backend
+cd services/backend
 .venv/bin/ruff check .
 
 # Automatically fix possible errors
@@ -130,7 +130,7 @@ cd backend
 
 ```bash
 # Format code
-cd backend
+cd services/backend
 .venv/bin/ruff format .
 
 # Check formatting without changes
@@ -146,7 +146,7 @@ make format-backend    # Code formatting
 
 **Ruff configuration:**
 
-- Configuration is located in `backend/.ruff.toml`
+- Configuration is located in `services/backend/.ruff.toml`
 - Ruff automatically ignores `.venv/`, `__pycache__/`, and `alembic/versions/` directories
 - Maximum line length: 160 characters
 - Use double quotes for strings
@@ -156,7 +156,7 @@ make format-backend    # Code formatting
 **Type checking:**
 
 ```bash
-cd backend
+cd services/backend
 .venv/bin/mypy app
 ```
 
@@ -168,7 +168,7 @@ make type-check
 
 **Mypy configuration:**
 
-- Configuration is located in `backend/pyproject.toml` in `[tool.mypy]` section
+- Configuration is located in `services/backend/pyproject.toml` in `[tool.mypy]` section
 - Mypy checks only code in `app/` directory
 - Strict mode is used for better type checking
 
@@ -187,7 +187,7 @@ Frontend code is checked via [ESLint] for linting and [Prettier] for formatting.
 **Linting check:**
 
 ```bash
-cd frontend
+cd services/frontend
 npm run lint
 
 # Automatically fix possible errors
@@ -202,7 +202,7 @@ make lint-frontend
 
 **ESLint configuration:**
 
-- Configuration is located in `frontend/eslint.config.js`
+- Configuration is located in `services/frontend/eslint.config.js`
 - Recommended rules for React are used
 - Additional rules for better code quality
 
@@ -211,7 +211,7 @@ make lint-frontend
 **Code formatting:**
 
 ```bash
-cd frontend
+cd services/frontend
 npm run format
 
 # Check formatting without changes
@@ -226,7 +226,7 @@ make format-frontend
 
 **Prettier configuration:**
 
-- Configuration is located in `frontend/.prettierrc.json`
+- Configuration is located in `services/frontend/.prettierrc.json`
 - Prettier is integrated with ESLint via `eslint-config-prettier`
 
 ## Infrastructure Linting
@@ -275,7 +275,7 @@ docker compose config --quiet
 # Linux: https://github.com/hadolint/hadolint#install
 
 # Check Dockerfile
-hadolint --config .hadolint.yaml backend/Dockerfile
+hadolint --config .hadolint.yaml services/backend/Dockerfile
 ```
 
 ## Pre-commit Setup
@@ -292,7 +292,7 @@ make pre-commit-install
 Or manually:
 
 ```bash
-cd backend
+cd services/backend
 .venv/bin/pip install pre-commit
 .venv/bin/pre-commit install
 ```
@@ -304,7 +304,7 @@ cd backend
 make pre-commit-run
 
 # Or manually
-cd backend
+cd services/backend
 .venv/bin/pre-commit run --all-files
 ```
 
@@ -345,7 +345,7 @@ cd backend
 make pre-commit-update
 
 # Or manually
-cd backend
+cd services/backend
 .venv/bin/pre-commit autoupdate
 ```
 
@@ -499,7 +499,7 @@ environment:-DATABASE_URL=postgresql://localhost/db
 
 **Backend tests:**
 
-- Place tests in `backend/tests/` directory
+- Place tests in `services/backend/tests/` directory
 - Use pytest fixtures for test environment setup
 - Tests should be independent and not depend on execution order
 - Use descriptive test names
@@ -583,10 +583,10 @@ All Pull Requests are automatically checked via GitHub Actions:
 ### Configuration Files
 
 - [pre-commit](../.pre-commit-config.yaml) - Pre-commit hooks configuration
-- [ruff](../backend/.ruff.toml) - Ruff configuration
-- [mypy](../backend/pyproject.toml#tool.mypy) - Mypy configuration
-- [ESLint](../frontend/eslint.config.js) - ESLint configuration
-- [Prettier](../frontend/.prettierrc.json) - Prettier configuration
+- [ruff](../services/backend/.ruff.toml) - Ruff configuration
+- [mypy](../services/backend/pyproject.toml#tool.mypy) - Mypy configuration
+- [ESLint](../services/frontend/eslint.config.js) - ESLint configuration
+- [Prettier](../services/frontend/.prettierrc.json) - Prettier configuration
 - [yamllint](../.yamllint.yml) - yamllint configuration
 - [hadolint](../.hadolint.yaml) - hadolint configuration
 

@@ -15,7 +15,7 @@ Database migrations are managed through Alembic and executed automatically on AP
 - **Migration structure:**
 
   ```text
-  backend/alembic/
+  services/backend/alembic/
   ├── env.py              # Alembic configuration
   └── versions/           # Migration files
       └── 20251026_0001_init_items.py
@@ -24,7 +24,7 @@ Database migrations are managed through Alembic and executed automatically on AP
 - **Creating a new migration:**
 
   ```shell
-  cd backend
+  cd services/backend
   alembic revision --autogenerate -m "change description"
   ```
 

@@ -61,7 +61,7 @@ make test-frontend
 
 ## Backend Tests
 
-Backend tests are written using pytest and pytest-asyncio for async code support. All tests are located in the `backend/tests/` directory.
+Backend tests are written using pytest and pytest-asyncio for async code support. All tests are located in the `services/backend/tests/` directory.
 
 ### Local Execution (Virtualenv)
 
@@ -78,7 +78,7 @@ docker compose exec db pg_isready -U app -d appdb
 make test-backend
 
 # Or manually
-cd backend
+cd services/backend
 source .venv/bin/activate
 pytest -v
 ```
@@ -120,21 +120,21 @@ This command:
 **Running specific test file:**
 
 ```shell
-cd backend
+cd services/backend
 .venv/bin/pytest tests/test_items.py -v
 ```
 
 **Running specific test function:**
 
 ```shell
-cd backend
+cd services/backend
 .venv/bin/pytest tests/test_items.py::test_items_crud -v
 ```
 
 **Running tests with detailed output:**
 
 ```shell
-cd backend
+cd services/backend
 .venv/bin/pytest -v  # Verbose mode
 .venv/bin/pytest -vv  # Even more detailed output
 ```
@@ -142,14 +142,14 @@ cd backend
 **Running tests with code coverage:**
 
 ```shell
-cd backend
+cd services/backend
 .venv/bin/pytest --cov=app --cov-report=html --cov-report=term
 ```
 
 **Running tests in parallel mode (if pytest-xdist is installed):**
 
 ```shell
-cd backend
+cd services/backend
 .venv/bin/pytest -n auto  # Automatic worker count detection
 .venv/bin/pytest -n 4  # Use 4 workers
 ```
@@ -157,14 +157,14 @@ cd backend
 **Running only failed tests from previous run:**
 
 ```shell
-cd backend
+cd services/backend
 .venv/bin/pytest --lf  # Last failed
 ```
 
 **Running tests with name filtering:**
 
 ```shell
-cd backend
+cd services/backend
 .venv/bin/pytest -k "test_items"  # Only tests containing "test_items" in name
 ```
 
@@ -237,7 +237,7 @@ Frontend tests are written using Vitest and React Testing Library. All tests are
   Via `npm`
 
   ```shell
-  cd frontend
+  cd services/frontend
   npm run test
   ```
 
@@ -282,7 +282,7 @@ npm run test
 **Running tests in watch mode:**
 
 ```shell
-cd frontend
+cd services/frontend
 npm run test:watch
 ```
 
@@ -291,7 +291,7 @@ Watch mode automatically restarts tests on file changes, which is very convenien
 **Running tests with UI:**
 
 ```shell
-cd frontend
+cd services/frontend
 npm run test:ui
 ```
 
@@ -300,21 +300,21 @@ UI mode opens an interactive interface for viewing and running tests in the brow
 **Running specific test file:**
 
 ```shell
-cd frontend
+cd services/frontend
 npm run test -- src/App.test.jsx
 ```
 
 **Running tests with coverage:**
 
 ```shell
-cd frontend
+cd services/frontend
 npm run test -- --coverage
 ```
 
 **Running tests in parallel mode:**
 
 ```shell
-cd frontend
+cd services/frontend
 npm run test -- --threads  # Use threads
 npm run test -- --no-threads  # Sequential execution
 ```
@@ -322,7 +322,7 @@ npm run test -- --no-threads  # Sequential execution
 **Running only failed tests:**
 
 ```shell
-cd frontend
+cd services/frontend
 npm run test -- --reporter=verbose --reporter=json
 ```
 
@@ -469,7 +469,7 @@ This will help avoid failed CI/CD checks and save time.
 **Generating coverage report:**
 
 ```shell
-cd backend
+cd services/backend
 
 # Install pytest-cov if not already installed
 .venv/bin/pip install pytest-cov
@@ -504,7 +504,7 @@ start htmlcov/index.html  # Windows
 **Generating coverage report:**
 
 ```shell
-cd frontend
+cd services/frontend
 
 # Run tests with coverage
 npm run test -- --coverage
@@ -554,10 +554,10 @@ docker compose exec db psql -U app -d appdb -c "SELECT 1;"
 
 ```shell
 # Make sure virtualenv is activated
-source backend/.venv/bin/activate
+source services/backend/.venv/bin/activate
 
 # Check that package is installed
-cd backend
+cd services/backend
 .venv/bin/python -c "import app; print(app.__file__)"
 
 # Reinstall dependencies if needed
@@ -568,7 +568,7 @@ pip install -e ".[dev]"
 
 ```shell
 # Make sure current directory is in PYTHONPATH
-cd backend
+cd services/backend
 export PYTHONPATH="${PYTHONPATH}:$(pwd)"
 ```
 
@@ -584,7 +584,7 @@ These errors are usually resolved automatically through test fixtures. If issues
 # Make sure it's set: asyncio_mode = "auto"
 
 # Reinstall pytest-asyncio
-cd backend
+cd services/backend
 .venv/bin/pip install --upgrade pytest-asyncio
 ```
 
@@ -595,7 +595,7 @@ cd backend
 **Solution:**
 
 ```shell
-cd frontend
+cd services/frontend
 
 # Remove node_modules and reinstall
 rm -rf node_modules package-lock.json

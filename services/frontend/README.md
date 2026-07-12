@@ -118,7 +118,7 @@ Metrics are sent to the `/metrics/frontend` backend endpoint via POST requests w
 
 ### Environment Variables
 
-Create a `.env` file in the root of the `frontend/` directory (or use `.env.example` as a base):
+Create a `.env` file in the root of the `services/frontend/` directory (or use `.env.example` as a base):
 
 ```env
 VITE_API_URL=http://localhost:8000
@@ -151,7 +151,7 @@ For local development with Docker:
 
 ```shell
 # Build image
-docker build -t devops-demo-frontend ./frontend
+docker build -t devops-demo-frontend ./services/frontend
 
 # Run container
 docker run -p 8080:80 devops-demo-frontend
@@ -363,7 +363,7 @@ make test-frontend
 3. **Check `VITE_API_URL` in `.env` file:**
 
    ```shell
-   cat frontend/.env
+   cat services/frontend/.env
    # Should contain: VITE_API_URL=http://localhost:8000
    ```
 
@@ -428,7 +428,7 @@ make test-frontend
 3. **Check build logs:**
 
    ```shell
-   docker build -t devops-demo-frontend ./frontend --progress=plain
+   docker build -t devops-demo-frontend ./services/frontend --progress=plain
    ```
 
 4. **Check container logs:**

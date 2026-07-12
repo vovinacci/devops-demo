@@ -182,7 +182,7 @@ netstat -ano | findstr :5432
 
 ```shell
 # Remove existing virtualenv
-rm -rf backend/.venv
+rm -rf services/backend/.venv
 
 # Recreate and install dependencies
 make venv-install
@@ -192,7 +192,7 @@ make venv-install
 
 ```shell
 # After activation check:
-which python  # Should point to backend/.venv/bin/python
+which python  # Should point to services/backend/.venv/bin/python
 python --version  # Should be 3.12.x
 ```
 
@@ -200,8 +200,8 @@ python --version  # Should be 3.12.x
 
 ```shell
 # Make sure execution permissions exist
-chmod +x backend/.venv/bin/python
-chmod +x backend/.venv/bin/pip
+chmod +x services/backend/.venv/bin/python
+chmod +x services/backend/.venv/bin/pip
 ```
 
 ### npm Issues
@@ -211,7 +211,7 @@ chmod +x backend/.venv/bin/pip
 **Full reinstallation:**
 
 ```shell
-cd frontend
+cd services/frontend
 
 # Remove node_modules and lock file
 rm -rf node_modules package-lock.json
@@ -324,7 +324,7 @@ docker compose exec api alembic history
 docker compose exec api alembic upgrade head
 
 # Or locally (if backend is running without Docker)
-cd backend
+cd services/backend
 source .venv/bin/activate
 alembic -c alembic.ini upgrade head
 ```
