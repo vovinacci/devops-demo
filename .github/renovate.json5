@@ -43,5 +43,19 @@
       matchUpdateTypes: ['minor', 'patch', 'digest', 'pin'],
       groupName: 'docker',
     },
+    // Runtime version policy (last rules win over the groups above):
+    // Python and Go move by patch only -- minor/major runtime bumps are
+    // deliberate decisions, not dependency chores
+    {
+      matchDepNames: ['python', 'go', 'golang'],
+      matchUpdateTypes: ['major', 'minor'],
+      enabled: false,
+    },
+    // Node: minor/patch flow automatically, majors are manual
+    {
+      matchDepNames: ['node', 'nodejs'],
+      matchUpdateTypes: ['major'],
+      enabled: false,
+    },
   ],
 }
