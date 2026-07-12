@@ -257,13 +257,13 @@ This command checks:
 pip install yamllint
 
 # Check specific file
-yamllint -c .yamllint.yml docker-compose.yml
+yamllint -c .yamllint.yml deploy/compose/docker-compose.yml
 ```
 
 **Docker Compose validation:**
 
 ```bash
-# Check docker-compose.yml syntax
+# Check deploy/compose/docker-compose.yml syntax
 docker compose config --quiet
 ```
 

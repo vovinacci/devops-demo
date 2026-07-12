@@ -161,7 +161,7 @@ Frontend will be available at http://localhost:8080.
 
 ### Production (via docker-compose)
 
-Frontend is automatically built and started via `docker-compose.yml`:
+Frontend is automatically built and started via `deploy/compose/docker-compose.yml`:
 
 ```shell
 # Start only frontend service

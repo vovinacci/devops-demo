@@ -34,7 +34,10 @@ devops-demo/
 │   ├── loki/                    # Loki configuration
 │   └── alloy/                   # Grafana Alloy configuration
 │
-├── docker-compose.yml           # Main Docker Compose configuration
+├── deploy/                      # Deployment configuration
+│   └── compose/
+│       └── docker-compose.yml   # Main Docker Compose configuration
+│
 ├── Makefile                     # Convenience commands
 └── README.md                    # This file
 ```
