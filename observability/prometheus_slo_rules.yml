@@ -111,12 +111,18 @@ groups:
 
       # Actual error rate (5xx / total)
       - record: slo:error_rate:actual_5xx_ratio7d
+        # numerator falls back to vector(0): with zero 5xx requests the
+        # rate() vector is empty and the whole ratio would be "no data"
+        # instead of a healthy 0
         expr: |
-          sum(rate(http_requests_total{
-            endpoint=~"/health|/items",
-            method=~"GET|POST|DELETE",
-            status=~"5.."
-          }[5m]))
+          (
+            sum(rate(http_requests_total{
+              endpoint=~"/health|/items",
+              method=~"GET|POST|DELETE",
+              status=~"5.."
+            }[5m]))
+            or vector(0)
+          )
           /
           sum(rate(http_requests_total{
             endpoint=~"/health|/items",
