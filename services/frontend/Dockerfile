@@ -5,7 +5,7 @@
 # ----------------------------------------------------------------------------
 # Stage 1: Builder - build React application
 # ----------------------------------------------------------------------------
-FROM node:24-alpine AS builder
+FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS builder
 
 WORKDIR /build
 
@@ -24,7 +24,7 @@ RUN npm run build
 # ----------------------------------------------------------------------------
 # Stage 2: Runtime - nginx for static hosting
 # ----------------------------------------------------------------------------
-FROM nginx:alpine AS runtime
+FROM nginx:alpine@sha256:54f2a904c251d5a34adf545a72d32515a15e08418dae0266e23be2e18c66fefa AS runtime
 
 # Copy built application from builder stage
 COPY --from=builder /build/dist /usr/share/nginx/html
