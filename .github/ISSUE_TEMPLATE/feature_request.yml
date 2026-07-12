@@ -1,0 +1,32 @@
+name: Feature request
+description: Propose an addition or change
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is missing or awkward today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What you suggest, roughly.
+    validations:
+      required: true
+  - type: textarea
+    id: teaching-value
+    attributes:
+      label: Teaching value
+      description: >
+        This repository is a curriculum: every addition must make an
+        operational difference visible on a dashboard or teach a practice
+        (RFC-0001). What does this one teach?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

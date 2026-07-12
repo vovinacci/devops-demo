@@ -1,63 +1,62 @@
 # DevOps Demo
 
-A complete DevOps project example: from code to a working service with tests, containerization, deployment, and basic observability.
-The project demonstrates modern development and DevOps practices, including test automation, monitoring, logging, and metrics visualization.
+A teaching platform: a complete example of taking a service from code to an
+operated system -- tested, containerized, monitored, documented. "Done" means
+*operable*, not "the endpoint returns 200".
 
-The project structure is as follows:
+The *process* is part of the product: decisions live in RFCs and ADRs,
+conventions in the engineering principles, and every change follows them.
+The platform is evolving from the current two-service baseline into a
+polyglot system (Python, JS, Go, Rust, Kotlin) with contract-first gRPC,
+shaped load generation, and three-layer monitoring -- see
+[RFC-0001](docs/rfc/0001-polyglot-platform.md) for the plan and
+[RFC-0000](docs/rfc/0000-baseline-retrospective.md) for the baseline.
+
+## Structure
 
 ```text
 devops-demo/
-├── docs/                        # Documentation
+├── .github/                     # Workflows, PR/issue templates, Renovate config
+├── deploy/
+│   └── compose/
+│       └── docker-compose.yml   # Main Docker Compose configuration
 │
-├── services/                    # Self-contained services
-│   ├── backend/                 # Backend service
-│   │   ├── app/                 # FastAPI application
-│   │   ├── alembic/             # Database migrations
-│   │   ├── tests/               # Backend tests
-│   │   ├── Dockerfile           # Production Dockerfile
-│   │   └── pyproject.toml       # Python dependencies and configuration
-│   │
-│   └── frontend/                # Frontend application
-│       ├── src/                 # React components
-│       ├── public/              # Static files
-│       ├── Dockerfile           # Production Dockerfile
-│       ├── package.json         # Node.js dependencies
-│       └── vite.config.js       # Vite configuration
+├── docs/                        # Documentation (see index below)
+│   ├── rfc/                     # Request for Comments -- design documents
+│   └── exercises/               # Student exercises
 │
 ├── observability/               # Observability configuration
 │   ├── prometheus.yml           # Prometheus configuration
 │   ├── prometheus_slo_rules.yml # SLO rules
-│   ├── grafana/                 # Grafana configuration
-│   │   ├── dashboards/          # JSON dashboards
-│   │   ├── provisioning/        # Automatic configuration
-│   │   └── grafana.ini          # Grafana settings
+│   ├── grafana/                 # Dashboards (JSON) + provisioning
 │   ├── loki/                    # Loki configuration
 │   └── alloy/                   # Grafana Alloy configuration
 │
-├── deploy/                      # Deployment configuration
-│   └── compose/
-│       └── docker-compose.yml   # Main Docker Compose configuration
+├── scripts/                     # Doctor, toolchain drift gate
+├── services/                    # Self-contained services (own Dockerfile,
+│   ├── backend/                 #   tests, README each)
+│   └── frontend/
 │
-├── Makefile                     # Convenience commands
+├── AGENTS.md                    # Canonical instructions for AI coding agents
+├── Makefile                     # Single operational entry point (make help)
 └── README.md                    # This file
 ```
 
-The project contains detailed documentation for various aspects of development and usage:
-
-- [Prerequisites](docs/prerequisites.md) - Required knowledge and skills for working with the project, recommended learning resources
-- [Local setup](docs/local-setup.md) - Local development environment setup, dependency installation, Docker configuration, and troubleshooting common issues
-- [Running tests](docs/running-tests.md) - Detailed guide on running tests, including unit and integration tests for backend and frontend
-- [Contributing](docs/contributing.md) - Contribution guidelines, code standards, code review process, and best practices
-
 ## Quick Start
 
-### System Requirements
+### Requirements
 
-- Docker version 24 or newer
-- Docker Compose version 2.24 or newer
-- Make version 3.81 or newer
-- Minimum 2GB free RAM
-- Minimum 3GB free disk space
+Verify everything with one command -- it checks tools, versions, the Docker
+daemon, and resources, and tells you how to fix what is missing:
+
+```shell
+make doctor
+```
+
+Toolchain versions are pinned in `.mise.toml`
+([mise](https://mise.jdx.dev) installs them; any other way to provide the
+same versions works too). Minimum: Docker with Compose v2, GNU Make, 2 GB
+free RAM, 3 GB free disk.
 
 ### Running the Project
 
@@ -87,46 +86,38 @@ After successful startup, all services will be available at the following URLs:
 | **Postgres Exporter** | http://localhost:9187       | -           | PostgreSQL metrics in Prometheus format                  |
 | **cAdvisor**          | http://localhost:8081       | -           | Container and resource metrics                           |
 
-**Notes**:
+For the full command list run `make help`.
 
-- On first login to Grafana, the system will prompt you to change the administrator password. For development environments, this can be skipped.
-- Detailed interactive API documentation is available via Swagger UI at http://localhost:8000/docs or via ReDoc at http://localhost:8000/redoc.
-- For a complete list of available convenience make targets, run:
+## Documentation
 
-  ```shell
-  make help
-  ```
+### Using and operating
 
-For more detailed information, please refer to [local setup](./docs/local-setup.md).
+- [Prerequisites](docs/prerequisites.md) -- required knowledge and learning resources
+- [Local setup](docs/local-setup.md) -- development environment, dependencies, Docker
+- [Architecture](docs/architecture.md) -- system components and how they connect
+- [Observability](docs/observability.md) -- metrics, logs, dashboards, SLOs
+- [Database and data](docs/data.md) -- schema, migrations, seeding
+- [Running tests](docs/running-tests.md) -- unit and integration tests
+- [Troubleshooting](docs/troubleshooting.md) -- common issues and solutions
 
-## Architecture
+### Process and decisions
 
-See the [architecture overview](./docs/architecture.md) for detailed information.
+- [Engineering principles](docs/engineering-principles.md) -- how and why we
+  build this way; RFC/ADR lifecycle, change workflow, testing philosophy
+- [RFCs](docs/rfc/) -- design documents; start with
+  [RFC-0001](docs/rfc/0001-polyglot-platform.md)
+- [CI/CD architecture](docs/ci.md) -- pipeline topology, gates, releases,
+  branch protection
+- [Contributing](docs/contributing.md) -- practical guide: commits, hooks,
+  linting, tests
+- [AGENTS.md](AGENTS.md) -- canonical instructions for AI coding agents
 
-## Observability
+### Learning
 
-See the [observability overview](./docs/observability.md) for detailed information.
-
-## Database and data seeding
-
-See the [data overview](./docs/data.md) for detailed information.
-
-## Troubleshooting
-
-See the [troubleshooting guide](./docs/troubleshooting.md) for common issues and solutions.
-
-### Usage in Educational Process
-
-The project can be used for:
-
-- Demonstrating DevOps practices with practical examples
-- Practical classes on containerization and orchestration
-- Learning observability and monitoring
-- Practice with CI/CD and automation
-- Understanding production-ready code and architecture
-
-See [homework assignments](docs/homework.md) with various difficulty levels for students.
+- [Exercises](docs/exercises/00-baseline.md) -- structured assignments with
+  difficulty levels; new exercise sets arrive with each platform phase
 
 ## License
 
-This project is intended for educational purposes and licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is intended for educational purposes and licensed under the MIT
+License -- see the [LICENSE](LICENSE) file for details.
