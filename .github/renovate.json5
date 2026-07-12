@@ -11,7 +11,10 @@
   ],
   // PR titles must be Conventional Commits (commitlint gate)
   semanticCommits: 'enabled',
-  schedule: ['before 6am on monday'],
+  // no in-config schedule: the workflow cron (renovate.yml) is the single
+  // cadence control, so a manual dispatch acts immediately
+  // no dependency-dashboard issue: updates arrive as PRs, nothing else
+  dependencyDashboard: false,
   // Hook versions in .pre-commit-config.yaml are dependencies too
   'pre-commit': {
     enabled: true,
