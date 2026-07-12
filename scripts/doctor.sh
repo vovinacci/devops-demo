@@ -64,7 +64,7 @@ if command -v python3 >/dev/null 2>&1; then
   if [ "$py" = "$PYTHON_MINOR" ]; then
     pass "python ${py}"
   else
-    warn "python ${py}, expected ${PYTHON_MINOR}" "run 'mise install' to get the pinned toolchain"
+    warn "python ${py}, expected ${PYTHON_MINOR}" "mise install, then activate mise in your shell: eval \"\$(mise activate zsh)\" in ~/.zshrc"
   fi
 fi
 
@@ -73,7 +73,7 @@ if command -v node >/dev/null 2>&1; then
   if [ "$nv" = "$NODE_MAJOR" ]; then
     pass "node ${nv}"
   else
-    warn "node ${nv}, expected ${NODE_MAJOR}" "run 'mise install' to get the pinned toolchain"
+    warn "node ${nv}, expected ${NODE_MAJOR}" "mise install, then activate mise in your shell: eval \"\$(mise activate zsh)\" in ~/.zshrc"
   fi
 fi
 

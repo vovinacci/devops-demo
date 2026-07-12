@@ -2,6 +2,9 @@
 # Install mise (https://mise.jdx.dev), then run: mise install
 # Verify the full environment with: make doctor
 #
+# Careful: bare "mise use <tool>" REWRITES this file with "latest" --
+# pin explicitly ("mise use python@3.12") or just edit this file.
+#
 # Versions are pinned at minor level: the patch floats at install time,
 # and the Renovate runtime policy allows patch-only bumps for Python/Go.
 # Toolchains for future services (Go, Rust, JDK, buf, k6) are added in
