@@ -3,7 +3,7 @@
 # runtime versions. Some consumers cannot import a value from another
 # file (Dockerfile FROM, devcontainer image strings, .nvmrc), so the
 # duplication is physical -- this gate makes it un-driftable, the same
-# construction as the load-profile parity test (RFC-0001 D5).
+# construction as the load-profile parity test (ADR-0003).
 # Runs as a prek hook locally and in CI (same config).
 
 set -euo pipefail

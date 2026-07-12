@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Toolchain doctor (RFC-0001 D14): verifies the local environment and
+# Toolchain doctor (ADR-0012): verifies the local environment and
 # prints actionable errors. The first command to run after cloning.
 # Exit code 1 if any required check fails; warnings do not fail.
 

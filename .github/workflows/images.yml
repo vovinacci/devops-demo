@@ -1,6 +1,6 @@
 name: Images
 
-# Build each service image and scan it with Trivy (RFC-0001 D13):
+# Build each service image and scan it with Trivy (ADR-0011):
 # a critical CVE in a shipped image fails the pipeline.
 
 on:

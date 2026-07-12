@@ -1,11 +1,11 @@
-// Renovate configuration (RFC-0001 D12): automated dependency updates
+// Renovate configuration (ADR-0009): automated dependency updates
 // across all ecosystems, small and continuous. Dependabot is the
 // documented fallback (.github/dependabot.yml removed when this landed).
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
   extends: [
     'config:recommended',
-    // Ship pinned, run pinned (RFC-0001 D12)
+    // Ship pinned, run pinned (ADR-0009)
     'docker:pinDigests',
     'helpers:pinGitHubActionDigests',
   ],

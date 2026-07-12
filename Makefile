@@ -9,7 +9,7 @@ PRINT_TARGET = @echo "▶ make → $@"
 COMPOSE = docker compose -f deploy/compose/docker-compose.yml --project-directory .
 
 # Git hooks runner: prek preferred, classic pre-commit is the documented
-# fallback (RFC-0001 D14); both read .pre-commit-config.yaml
+# fallback (ADR-0012); both read .pre-commit-config.yaml
 PREK = $(shell command -v prek 2>/dev/null || echo pre-commit)
 
 ##@ Help
