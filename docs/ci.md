@@ -86,11 +86,13 @@ ecosystems (pip, npm, GitHub Actions, Dockerfiles, compose images,
 pre-commit hook versions), semantic commit titles, digest pinning for base
 images and actions. Chosen over Dependabot for grouping and monorepo
 awareness (RFC-0001 D12); Dependabot remains the documented fallback if
-Renovate hosting becomes a burden.
+self-hosting becomes a burden.
 
-Prerequisite: the Renovate GitHub App must be installed on the repository
-(or a self-hosted runner configured). The old dependabot.yml was removed
-when this config landed.
+Renovate runs **self-hosted** in GitHub Actions
+(`.github/workflows/renovate.yml`, weekly cron + manual dispatch) rather
+than via the hosted Mend app -- the automation stays in the repository as
+code. Prerequisite: the `PR_PAT_TOKEN` secret (PAT with repo scope), also
+used by release-please.
 
 ## Branch protection (settings as documentation)
 

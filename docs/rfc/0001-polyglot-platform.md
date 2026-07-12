@@ -439,8 +439,12 @@ Conventions:
   five ecosystems via small continuous PRs. Tool: **Renovate** (chosen) over
   **Dependabot** (considered): Dependabot is GitHub-native and near
   zero-config, but Renovate's grouping, scheduling, monorepo awareness, and
-  digest-pinning support fit a five-ecosystem repo far better. Dependabot
-  remains the documented fallback if Renovate hosting becomes a burden.
+  digest-pinning support fit a five-ecosystem repo far better. Renovate runs
+  **self-hosted in GitHub Actions** (renovatebot/github-action on a weekly
+  schedule), not via the hosted Mend app -- the automation stays in the
+  repository as code, at the cost of owning the token and the schedule.
+  Dependabot remains the documented fallback if self-hosting becomes a
+  burden. (Amended during Phase 0: original text assumed hosted Renovate.)
 - **Security gates in every pipeline** (see D13): gitleaks (secret scanning)
   and Trivy (image CVE scan, fail on critical).
 - **Multi-arch images (optional, non-blocking):** `linux/amd64` +
