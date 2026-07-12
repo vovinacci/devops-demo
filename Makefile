@@ -113,13 +113,13 @@ test-backend: ## Run backend tests locally via virtualenv
 		done; \
 	fi; \
 	echo "Running DB migrations..."; \
-	cd services/backend && DATABASE_URL="postgresql+asyncpg://app:app@localhost:5432/appdb" \
+	( cd services/backend && DATABASE_URL="postgresql+asyncpg://app:app@localhost:5432/appdb" \
 		ALEMBIC_DATABASE_URL="postgresql+psycopg://app:app@localhost:5432/appdb" \
-		python -m alembic -c alembic.ini upgrade head || true; \
+		python -m alembic -c alembic.ini upgrade head ) || true; \
 	echo "Running backend tests via virtualenv..."; \
-	cd services/backend && DATABASE_URL="postgresql+asyncpg://app:app@localhost:5432/appdb" \
+	( cd services/backend && DATABASE_URL="postgresql+asyncpg://app:app@localhost:5432/appdb" \
 		ALEMBIC_DATABASE_URL="postgresql+psycopg://app:app@localhost:5432/appdb" \
-		pytest -q; \
+		pytest -q ); \
 	TEST_EXIT_CODE=$$?; \
 	if [ "$$DB_WAS_RUNNING" = "no" ]; then \
 		echo ""; \
