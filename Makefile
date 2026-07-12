@@ -22,6 +22,11 @@ help: ## Display this help message
 
 ##@ Development
 
+.PHONY: doctor
+doctor: ## Verify local toolchain (versions, Docker, RAM) -- run this first
+	$(PRINT_TARGET)
+	@bash scripts/doctor.sh
+
 .PHONY: up
 up: ## Start all services
 	$(PRINT_TARGET)

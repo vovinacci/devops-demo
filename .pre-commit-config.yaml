@@ -79,6 +79,16 @@ repos:
         args: [--negate]
         files: \.md$
         exclude: ^CHANGELOG\.md$
+  # Toolchain drift gate: .mise.toml is the single source of truth for
+  # runtime versions; consumers that cannot import it must agree with it
+  - repo: local
+    hooks:
+      - id: toolchain-drift
+        name: toolchain versions match .mise.toml
+        entry: bash scripts/check-toolchain-drift.sh
+        language: system
+        files: ^(\.mise\.toml|\.devcontainer/devcontainer\.json|services/frontend/\.nvmrc|services/.*/Dockerfile|services/backend/pyproject\.toml)$
+        pass_filenames: false
   # Secret scanning (RFC-0001 D13)
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.24.3
