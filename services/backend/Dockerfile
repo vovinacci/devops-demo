@@ -6,7 +6,7 @@
 # ----------------------------------------------------------------------------
 # Stage 1: Builder - install dependencies and compile
 # ----------------------------------------------------------------------------
-FROM python:3.12.13-slim AS builder
+FROM python:3.12.13-slim@sha256:423ed6ab25b1921a477529254bfeeabf5855151dc2c3141699a1bfc852199fbf AS builder
 
 # Install system dependencies for compiling Python packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -40,7 +40,7 @@ RUN pip install --upgrade pip setuptools wheel && \
 # ----------------------------------------------------------------------------
 # Stage 2: Runtime - minimal production image
 # ----------------------------------------------------------------------------
-FROM python:3.12.13-slim AS runtime
+FROM python:3.12.13-slim@sha256:423ed6ab25b1921a477529254bfeeabf5855151dc2c3141699a1bfc852199fbf AS runtime
 
 # Image metadata (for production tracking)
 LABEL maintainer="DevOps Demo Team" \
