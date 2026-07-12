@@ -1,0 +1,28 @@
+name: Release Please
+
+# Maintains a release PR from Conventional Commit history (RFC-0001 D12).
+# Merging the release PR tags vX.Y.Z and publishes a GitHub Release,
+# which triggers release.yml. Squash-merge only: PR titles are the
+# commit messages this action reads (enforced by the commitlint check).
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # PAT (if configured) lets CI run on the release PR;
+          # the default GITHUB_TOKEN does not trigger workflows.
+          token: ${{ secrets.PR_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

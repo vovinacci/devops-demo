@@ -292,11 +292,11 @@ improvements.
     - Check latest stable versions on PyPI
     - Update versions in `pyproject.toml` or `requirements.txt`
     - For production, use specific versions (not `latest`)
-    - Example: `fastapi = "^0.115.0"` → `fastapi = "^0.120.0"`
+    - Example: `fastapi = "^0.115.0"` -> `fastapi = "^0.120.0"`
 
 3. **Compatibility Check:**
     - Check changelog of updated packages for breaking changes
-    - Pay special attention to major versions (1.0 → 2.0)
+    - Pay special attention to major versions (1.0 -> 2.0)
 
 4. **Testing After Update:**
     - Install updated dependencies: `pip install -e ".[dev]"`
@@ -840,10 +840,10 @@ functionality.
     - Update all dependencies to latest major versions
     - Check changelog of each library for breaking changes
     - Example updates:
-        - FastAPI 0.115 → 0.120+
-        - SQLAlchemy 2.0.36 → 2.0.40+
-        - Pydantic 2.9.2 → 2.10+
-        - Uvicorn 0.30.0 → 0.32+
+        - FastAPI 0.115 -> 0.120+
+        - SQLAlchemy 2.0.36 -> 2.0.40+
+        - Pydantic 2.9.2 -> 2.10+
+        - Uvicorn 0.30.0 -> 0.32+
 
 2. **Fix Breaking Changes:**
     - Fix API changes (deprecated functions, parameter changes)

@@ -1,6 +1,7 @@
-# Pre-commit hooks configuration
-# Installation: pip install pre-commit && pre-commit install
-# Manual run: pre-commit run --all-files
+# Git hooks configuration (prek, pre-commit-compatible -- RFC-0001 D14)
+# Installation: prek install        (fallback: pip install pre-commit && pre-commit install)
+# Manual run:   prek run --all-files (or: make lint-infra)
+# CI runs the same config via j178/prek-action -- local == CI by construction.
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -61,6 +62,24 @@ repos:
       - id: markdownlint
         args:
           - "-fix"
+  # ASCII-only docs (engineering-principles.md Section 1); box-drawing
+  # range is allowed anywhere in .md -- pygrep cannot see fence context
+  - repo: local
+    hooks:
+      - id: docs-ascii-lint
+        name: ASCII-only docs (use --, ->, x, "Section N")
+        language: pygrep
+        # bytes regex (pygrep compiles patterns as bytes): a clean line is
+        # ASCII or UTF-8 box-drawing (U+2500-257F = e2 94/95 xx); --negate
+        # reports every line that is not clean
+        entry: '^(?:[\x00-\x7f]|\xe2[\x94\x95][\x80-\xbf])*$'
+        args: [--negate]
+        files: \.md$
+  # Secret scanning (RFC-0001 D13)
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.3
+    hooks:
+      - id: gitleaks
   # Shell linting
   - repo: https://github.com/jumanjihouse/pre-commit-hooks
     rev: 3.0.0
