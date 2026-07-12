@@ -1,0 +1,31 @@
+name: Renovate
+
+# Self-hosted Renovate (RFC-0001 D12): runs inside our own Actions on a
+# schedule instead of the hosted Mend app -- the automation stays in the
+# repository as code. Repository config: .github/renovate.json5 (picked up
+# by Renovate itself, not passed here). Requires the PR_PAT_TOKEN secret
+# (PAT with repo scope) so the PRs it creates trigger CI.
+
+on:
+  schedule:
+    # Monday 03:00 UTC -- inside the config's "before 6am on monday" window
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: renovate
+
+jobs:
+  renovate:
+    name: Renovate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run Renovate
+        uses: renovatebot/github-action@v46.1.18
+        with:
+          token: ${{ secrets.PR_PAT_TOKEN }}
+        env:
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          LOG_LEVEL: info
