@@ -1,9 +1,10 @@
 # RFC-0001: Polyglot service platform, traffic generation, and repository restructure
 
-- **Status:** Draft
+- **Status:** Accepted
 - **Author:** vovin
 - **Created:** 2026-07-10
-- **Discussion:** (link PR here)
+- **Accepted:** 2026-07-12
+- **Discussion:** https://github.com/vovinacci/devops-demo/pull/117
 
 ## 1. Summary
 

@@ -1,74 +1,82 @@
 # Architecture overview
 
-The project is built on a microservices architecture with clear separation of responsibilities between components.
+Two application services plus a full observability stack, wired by Docker
+Compose. Design rationale and history live in the RFCs:
+[RFC-0000](rfc/0000-baseline-retrospective.md) documents this baseline;
+[RFC-0001](rfc/0001-polyglot-platform.md) is the plan it evolves under.
 
-## System Components
+```mermaid
+flowchart LR
+    subgraph app [Application]
+        fe["frontend (React + nginx)<br/>:8080"]
+        be["api (FastAPI)<br/>:8000"]
+        pg[("db (PostgreSQL)<br/>:5432")]
+    end
 
-- **Frontend** ([readme](../services/frontend/README.md))
-  - React 18 with Vite as build tool
-  - Web Vitals metrics for performance monitoring
-  - Nginx for static hosting in production
-  - Responsive UI with CRUD operations
+    subgraph obs [Observability]
+        pgx["postgres-exporter"]
+        cad["cAdvisor"]
+        prom["Prometheus<br/>+ SLO rules"]
+        alloy["Alloy"]
+        loki["Loki"]
+        graf["Grafana"]
+    end
 
-- **Backend**
-  - FastAPI (Python 3.12) with async support
-  - SQLAlchemy with async driver (asyncpg)
-  - Pydantic for data validation and serialization
-  - Alembic for database migration management
-  - Prometheus client for metrics collection
+    fe -->|HTTP| be
+    be -->|SQLAlchemy / Alembic| pg
+    pgx --> pg
+    prom -->|scrape| be
+    prom -->|scrape| pgx
+    prom -->|scrape| cad
+    alloy -->|container logs| loki
+    graf --> prom
+    graf --> loki
+```
 
-- **Database**
-  - PostgreSQL 16 (Alpine-based image)
-  - Automatic migrations on service startup
-  - Health checks for state monitoring
+This diagram tracks the code: a change that alters the topology updates it
+in the same PR (engineering-principles.md Section 1).
 
-- **Observability Stack**
-  - **Prometheus** - Metrics collection and storage
-  - **Grafana** - Metrics visualization and dashboards
-  - **Loki** - Centralized log storage
-  - **Grafana Alloy** - Log collection from containers (replacement for Promtail)
-  - **Postgres Exporter** - PostgreSQL metrics
+## Components
 
-- **Infrastructure**
-  - Docker and Docker Compose for orchestration
-  - Multi-stage Dockerfile for image size optimization
-  - Health checks for all critical services
-  - Network isolation through Docker networks
+- **Frontend** ([readme](../services/frontend/README.md)) -- React + Vite
+  CRUD UI, Web Vitals reporting, nginx for static hosting in production.
+- **Backend** -- FastAPI (async), SQLAlchemy + asyncpg, Pydantic
+  validation, Alembic migrations, Prometheus client.
+- **Database** -- PostgreSQL; migrations applied on api startup;
+  healthchecked.
+- **Observability** -- Prometheus (+ SLO rules), Grafana (provisioned
+  dashboards), Loki + Grafana Alloy (logs), postgres-exporter, cAdvisor.
+  Details: [observability.md](observability.md).
+- **Infrastructure** -- Docker Compose (`deploy/compose/`), multi-stage
+  Dockerfiles, healthchecks, isolated network. Runtime versions are pinned
+  (`.mise.toml` for toolchains, digests for images).
 
-## Technology Stack
+## Technology stack
 
 | Component          | Technology    |
 |--------------------|---------------|
-| Backend Runtime    | Python        |
-| Web Framework      | FastAPI       |
+| Backend runtime    | Python        |
+| Web framework      | FastAPI       |
 | ORM                | SQLAlchemy    |
 | Database           | PostgreSQL    |
-| Frontend Framework | React         |
-| Build Tool         | Vite          |
+| Frontend framework | React         |
+| Build tool         | Vite          |
 | Metrics            | Prometheus    |
 | Visualization      | Grafana       |
 | Logs               | Loki          |
-| Log Collector      | Grafana Alloy |
+| Log collector      | Grafana Alloy |
 
-### Additional resources
+## Further reading
 
-- **Backend:**
-  - [FastAPI Documentation](https://fastapi.tiangolo.com/) - Official FastAPI documentation
-  - [SQLAlchemy Documentation](https://docs.sqlalchemy.org/) - SQLAlchemy ORM documentation
-  - [Alembic Documentation](https://alembic.sqlalchemy.org/) - Database migration documentation
-  - [Pydantic Documentation](https://docs.pydantic.dev/) - Data validation documentation
-
-- **Frontend:**
-  - [React Documentation](https://react.dev/) - Official React documentation
-  - [Vite Documentation](https://vitejs.dev/) - Vite build tool documentation
-
-- **Observability:**
-  - [Prometheus Documentation](https://prometheus.io/docs/) - Prometheus documentation
-  - [Grafana Documentation](https://grafana.com/docs/) - Grafana documentation
-  - [Loki Documentation](https://grafana.com/docs/loki/latest/) - Loki documentation
-  - [Grafana Alloy Documentation](https://grafana.com/docs/alloy/latest/) - Grafana Alloy documentation
-
-- **Infrastructure:**
-  - [Docker Documentation](https://docs.docker.com/) - Docker documentation
-  - [Docker Compose Documentation](https://docs.docker.com/compose/) - Docker Compose documentation
-  - [PostgreSQL Documentation](https://www.postgresql.org/docs/) - PostgreSQL documentation
+- [FastAPI](https://fastapi.tiangolo.com/),
+  [SQLAlchemy](https://docs.sqlalchemy.org/),
+  [Alembic](https://alembic.sqlalchemy.org/),
+  [Pydantic](https://docs.pydantic.dev/)
+- [React](https://react.dev/), [Vite](https://vitejs.dev/)
+- [Prometheus](https://prometheus.io/docs/),
+  [Grafana](https://grafana.com/docs/),
+  [Loki](https://grafana.com/docs/loki/latest/),
+  [Alloy](https://grafana.com/docs/alloy/latest/)
+- [Docker](https://docs.docker.com/),
+  [Compose](https://docs.docker.com/compose/),
+  [PostgreSQL](https://www.postgresql.org/docs/)

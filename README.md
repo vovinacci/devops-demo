@@ -113,6 +113,8 @@ For the full command list run `make help`.
 - [Contributing](docs/contributing.md) -- practical guide: commits, hooks,
   linting, tests
 - [AGENTS.md](AGENTS.md) -- canonical instructions for AI coding agents
+- [Security policy](SECURITY.md) -- how to report a vulnerability, scope
+  notes for the intentional local-stack defaults
 
 ### Learning
 

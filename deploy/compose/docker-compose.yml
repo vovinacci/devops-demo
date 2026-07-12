@@ -2,15 +2,15 @@ services:
   db:
     image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
     environment:
-      POSTGRES_DB: appdb
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: app
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
     volumes:
       - dbdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app -d appdb"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-appdb}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -23,8 +23,8 @@ services:
       context: ./services/backend
       target: runtime
     environment:
-      - DATABASE_URL=postgresql+asyncpg://app:app@db:5432/appdb
-      - ALEMBIC_DATABASE_URL=postgresql+psycopg://app:app@db:5432/appdb
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@db:5432/${POSTGRES_DB:-appdb}
+      - ALEMBIC_DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@db:5432/${POSTGRES_DB:-appdb}
       - ENVIRONMENT=${ENVIRONMENT:-development}
     depends_on:
       db:
@@ -69,7 +69,7 @@ services:
   postgres_exporter:
     image: prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e
     environment:
-      DATA_SOURCE_NAME: postgresql://app:app@db:5432/appdb?sslmode=disable
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@db:5432/${POSTGRES_DB:-appdb}?sslmode=disable
     depends_on:
       db:
         condition: service_healthy
