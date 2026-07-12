@@ -5,6 +5,37 @@ Compose. Design rationale and history live in the RFCs:
 [RFC-0000](rfc/0000-baseline-retrospective.md) documents this baseline;
 [RFC-0001](rfc/0001-polyglot-platform.md) is the plan it evolves under.
 
+```mermaid
+flowchart LR
+    subgraph app [Application]
+        fe["frontend (React + nginx)<br/>:8080"]
+        be["api (FastAPI)<br/>:8000"]
+        pg[("db (PostgreSQL)<br/>:5432")]
+    end
+
+    subgraph obs [Observability]
+        pgx["postgres-exporter"]
+        cad["cAdvisor"]
+        prom["Prometheus<br/>+ SLO rules"]
+        alloy["Alloy"]
+        loki["Loki"]
+        graf["Grafana"]
+    end
+
+    fe -->|HTTP| be
+    be -->|SQLAlchemy / Alembic| pg
+    pgx --> pg
+    prom -->|scrape| be
+    prom -->|scrape| pgx
+    prom -->|scrape| cad
+    alloy -->|container logs| loki
+    graf --> prom
+    graf --> loki
+```
+
+This diagram tracks the code: a change that alters the topology updates it
+in the same PR (engineering-principles.md Section 1).
+
 ## Components
 
 - **Frontend** ([readme](../services/frontend/README.md)) -- React + Vite
