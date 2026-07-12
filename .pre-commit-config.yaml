@@ -1,4 +1,4 @@
-# Git hooks configuration (prek, pre-commit-compatible -- RFC-0001 D14)
+# Git hooks configuration (prek, pre-commit-compatible -- ADR-0012)
 # Installation: prek install        (fallback: pip install pre-commit && pre-commit install)
 # Manual run:   prek run --all-files (or: make lint-infra)
 # CI runs the same config via j178/prek-action -- local == CI by construction.
@@ -89,7 +89,7 @@ repos:
         language: system
         files: ^(\.mise\.toml|\.devcontainer/devcontainer\.json|services/frontend/\.nvmrc|services/.*/Dockerfile|services/backend/pyproject\.toml)$
         pass_filenames: false
-  # Secret scanning (RFC-0001 D13)
+  # Secret scanning (ADR-0011)
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.24.3
     hooks:

@@ -1,4 +1,4 @@
-# Reproducible developer toolchain (RFC-0001 D14).
+# Reproducible developer toolchain (ADR-0012).
 # Install mise (https://mise.jdx.dev), then run: mise install
 # Verify the full environment with: make doctor
 #

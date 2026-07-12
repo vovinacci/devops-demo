@@ -106,6 +106,8 @@ For the full command list run `make help`.
   build this way; RFC/ADR lifecycle, change workflow, testing philosophy
 - [RFCs](docs/rfc/) -- design documents; start with
   [RFC-0001](docs/rfc/0001-polyglot-platform.md)
+- [ADRs](docs/adr/) -- one durable decision per file, extracted from the
+  RFCs; immutable once accepted
 - [CI/CD architecture](docs/ci.md) -- pipeline topology, gates, releases,
   branch protection
 - [Contributing](docs/contributing.md) -- practical guide: commits, hooks,

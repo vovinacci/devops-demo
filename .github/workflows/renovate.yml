@@ -1,6 +1,6 @@
 name: Renovate
 
-# Self-hosted Renovate (RFC-0001 D12): runs inside our own Actions on a
+# Self-hosted Renovate (ADR-0009): runs inside our own Actions on a
 # schedule instead of the hosted Mend app -- the automation stays in the
 # repository as code. Repository config: .github/renovate.json5 (picked up
 # by Renovate itself, not passed here). Requires the PR_PAT_TOKEN secret
