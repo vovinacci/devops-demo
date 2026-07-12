@@ -97,7 +97,7 @@ with frontend and infrastructure components.
 **Infrastructure Tasks:**
 
 1. **Automatic Migration Application:**
-    - Verify that `docker-compose.yml` contains command for applying migrations on startup
+    - Verify that `deploy/compose/docker-compose.yml` contains command for applying migrations on startup
     - Command should be: `python -m alembic -c /app/alembic.ini upgrade head`
 
 2. **Prometheus Metrics:**
@@ -317,7 +317,7 @@ improvements.
     - Compare sizes before and after update
 
 3. **Update docker-compose:**
-    - Check if changes needed in `docker-compose.yml`
+    - Check if changes needed in `deploy/compose/docker-compose.yml`
     - Update service versions if needed (Prometheus, Grafana, etc.)
 
 4. **Functionality Check:**
@@ -805,7 +805,7 @@ functionality.
 **Infrastructure Tasks:**
 
 1. **Volume for Files:**
-    - Configure volume in `docker-compose.yml`: `volumes: - ./data/uploads:/app/data/uploads`
+    - Configure volume in `deploy/compose/docker-compose.yml`: `volumes: - ./data/uploads:/app/data/uploads`
     - Ensure directory is created automatically
     - Configure access permissions
 
@@ -869,7 +869,7 @@ functionality.
 
 2. **Compatibility Check:**
     - Check compatibility with other services (Prometheus, Grafana, Loki)
-    - Update service versions in docker-compose.yml if needed
+    - Update service versions in deploy/compose/docker-compose.yml if needed
 
 3. **CI/CD Pipeline:**
     - Update CI/CD pipeline for new versions

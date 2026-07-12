@@ -247,7 +247,7 @@ export DATABASE_URL="postgresql+asyncpg://app:app@localhost:5432/appdb"
 export ALEMBIC_DATABASE_URL="postgresql+psycopg://app:app@localhost:5432/appdb"
 ```
 
-**Note:** These variables are automatically set when using Docker Compose via `docker-compose.yml`.
+**Note:** These variables are automatically set when using Docker Compose via `deploy/compose/docker-compose.yml`.
 
 ### Creating .env File (Optional)
 

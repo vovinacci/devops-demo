@@ -4,6 +4,10 @@
 # Variable for target name output (DRY principle)
 PRINT_TARGET = @echo "▶ make → $@"
 
+# Compose entrypoint: file lives in deploy/compose/, --project-directory keeps
+# relative paths and the project name resolving from the repo root
+COMPOSE = docker compose -f deploy/compose/docker-compose.yml --project-directory .
+
 ##@ Help
 
 .PHONY: help
@@ -17,18 +21,18 @@ help: ## Display this help message
 .PHONY: up
 up: ## Start all services
 	$(PRINT_TARGET)
-	docker compose up -d --build
+	$(COMPOSE) up -d --build
 
 .PHONY: down
 down: ## Stop all services
 	$(PRINT_TARGET)
-	docker compose down
+	$(COMPOSE) down
 
 .PHONY: clean
 clean: down ## Complete project cleanup (containers, images, volumes, networks, local artifacts)
 	$(PRINT_TARGET)
 	@echo "Stopping and removing containers..."
-	-docker compose down -v --remove-orphans
+	-$(COMPOSE) down -v --remove-orphans
 	@echo "Removing project images..."
 	-docker images --filter "reference=devops-demo*" -q | xargs docker rmi -f
 	-docker images --filter "reference=*devops-demo*" -q | xargs docker rmi -f
@@ -58,22 +62,22 @@ clean: down ## Complete project cleanup (containers, images, volumes, networks, 
 .PHONY: logs
 logs: ## View API logs (follow mode)
 	$(PRINT_TARGET)
-	docker compose logs -f api
+	$(COMPOSE) logs -f api
 
 .PHONY: seed
 seed: ## Add seed data (20 items)
 	$(PRINT_TARGET)
-	docker compose run --rm api sh -c "python -m alembic -c /app/alembic.ini upgrade head && python -m app.seed --count 20"
+	$(COMPOSE) run --rm api sh -c "python -m alembic -c /app/alembic.ini upgrade head && python -m app.seed --count 20"
 
 .PHONY: seed-reset
 seed-reset: ## Clear and add seed data
 	$(PRINT_TARGET)
-	docker compose run --rm api sh -c "python -m alembic -c /app/alembic.ini upgrade head && python -m app.seed --only-reset"
+	$(COMPOSE) run --rm api sh -c "python -m alembic -c /app/alembic.ini upgrade head && python -m app.seed --only-reset"
 
 .PHONY: seed-dry
 seed-dry: ## Dry run seed (show what will be created)
 	$(PRINT_TARGET)
-	docker compose run --rm api sh -c "python -m app.seed --dry-run --count 10"
+	$(COMPOSE) run --rm api sh -c "python -m app.seed --dry-run --count 10"
 
 ##@ Testing
 
@@ -84,15 +88,15 @@ test: test-backend test-frontend ## Run all tests (backend + frontend)
 test-backend: ## Run backend tests locally via virtualenv
 	$(PRINT_TARGET)
 	@echo "Checking database availability..."
-	DB_WAS_RUNNING=$$(docker compose ps db 2>/dev/null | grep -q "Up" && echo "yes" || echo "no"); \
+	DB_WAS_RUNNING=$$($(COMPOSE) ps db 2>/dev/null | grep -q "Up" && echo "yes" || echo "no"); \
 	if [ "$$DB_WAS_RUNNING" = "no" ]; then \
 		echo ""; \
 		echo "⚠️  Database is not running. Starting DB only..."; \
-		docker compose up -d db || true; \
+		$(COMPOSE) up -d db || true; \
 		echo "Waiting for DB readiness..."; \
 		timeout=30; \
 		while [ $$timeout -gt 0 ]; do \
-			if docker compose exec -T db pg_isready -U app -d appdb; then \
+			if $(COMPOSE) exec -T db pg_isready -U app -d appdb; then \
 				break; \
 			fi; \
 			sleep 1; \
@@ -111,7 +115,7 @@ test-backend: ## Run backend tests locally via virtualenv
 	if [ "$$DB_WAS_RUNNING" = "no" ]; then \
 		echo ""; \
 		echo "Stopping database started for tests..."; \
-		docker compose stop db || true; \
+		$(COMPOSE) stop db || true; \
 	fi; \
 	exit $$TEST_EXIT_CODE
 
@@ -119,13 +123,13 @@ test-backend: ## Run backend tests locally via virtualenv
 test-docker: ## Run tests in Docker container (for CI/CD)
 	$(PRINT_TARGET)
 	@echo "Checking database availability..."
-	if ! docker compose ps db 2>/dev/null | grep -q "Up"; then \
+	if ! $(COMPOSE) ps db 2>/dev/null | grep -q "Up"; then \
 		echo "⚠️  Database is not running. Starting DB..."; \
-		docker compose up -d db || true; \
+		$(COMPOSE) up -d db || true; \
 		echo "Waiting for DB readiness..."; \
 		timeout=30; \
 		while [ $$timeout -gt 0 ]; do \
-			if docker compose exec -T db pg_isready -U app -d appdb; then \
+			if $(COMPOSE) exec -T db pg_isready -U app -d appdb; then \
 				break; \
 			fi; \
 			sleep 1; \
@@ -133,7 +137,7 @@ test-docker: ## Run tests in Docker container (for CI/CD)
 		done; \
 	fi
 	@echo "Running tests in Docker container..."
-	docker compose run --rm \
+	$(COMPOSE) run --rm \
 		-v "$(PWD)/services/backend/tests:/app/tests:ro" \
 		api sh -c "pip install --user -e '.[dev]' && python -m alembic -c /app/alembic.ini upgrade head && pytest tests -q -v"
 

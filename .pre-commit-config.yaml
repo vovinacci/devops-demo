@@ -29,7 +29,7 @@ repos:
     hooks:
       - id: docker-compose-validate
         name: docker-compose validate
-        entry: bash -c 'docker compose config --quiet || (echo "docker-compose config validation failed" && exit 1)'
+        entry: bash -c 'docker compose -f deploy/compose/docker-compose.yml --project-directory . config --quiet || (echo "docker-compose config validation failed" && exit 1)'
         language: system
         files: docker-compose\.(yaml|yml)$
         pass_filenames: false

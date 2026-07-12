@@ -159,9 +159,9 @@ netstat -ano | findstr :5432
 **Solution:**
 
 1. **Change ports in configuration:**
-    - API (8000): Change in `docker-compose.yml` or use `--port` flag for uvicorn
-    - PostgreSQL (5432): Change in `docker-compose.yml`
-    - Frontend (8080): Change in `docker-compose.yml`
+    - API (8000): Change in `deploy/compose/docker-compose.yml` or use `--port` flag for uvicorn
+    - PostgreSQL (5432): Change in `deploy/compose/docker-compose.yml`
+    - Frontend (8080): Change in `deploy/compose/docker-compose.yml`
     - Vite dev server (5173): Change in `vite.config.js`
 
 2. **Stop conflicting processes:**
