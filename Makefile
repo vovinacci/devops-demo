@@ -27,6 +27,14 @@ doctor: ## Verify local toolchain (versions, Docker, RAM) -- run this first
 	$(PRINT_TARGET)
 	@bash scripts/doctor.sh
 
+.PHONY: venv-install
+venv-install: ## Create backend virtualenv (services/backend/.venv) with dev deps; idempotent
+	$(PRINT_TARGET)
+	python3 -m venv services/backend/.venv
+	services/backend/.venv/bin/pip install --quiet --upgrade pip setuptools wheel
+	services/backend/.venv/bin/pip install --quiet -e "services/backend[dev]"
+	@echo "Activate with: source services/backend/.venv/bin/activate"
+
 .PHONY: up
 up: ## Start all services
 	$(PRINT_TARGET)

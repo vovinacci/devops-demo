@@ -1,56 +1,42 @@
 # Database and data seeding
 
-## Database Structure
+## Schema
 
-The project uses PostgreSQL 16 with the following structure:
+PostgreSQL, single table:
 
-- **Table `items`**
-  - `id` (SERIAL PRIMARY KEY) - unique identifier
-  - `name` (VARCHAR(100) UNIQUE NOT NULL) - item name
+- **`items`**
+  - `id` (SERIAL PRIMARY KEY)
+  - `name` (VARCHAR(100) UNIQUE NOT NULL)
+
+Credentials default to `app`/`app`/`appdb`, overridable via `.env`
+(see `.env.example`).
 
 ## Migrations
 
-Database migrations are managed through Alembic and executed automatically on API service startup.
+Managed by Alembic; applied automatically when the api service starts.
 
-- **Migration structure:**
-
-  ```text
-  services/backend/alembic/
-  ├── env.py              # Alembic configuration
-  └── versions/           # Migration files
-      └── 20251026_0001_init_items.py
-  ```
-
-- **Creating a new migration:**
+- Migration sources: `services/backend/alembic/versions/`
+- Create a new migration (backend venv, db running):
 
   ```shell
   cd services/backend
   alembic revision --autogenerate -m "change description"
   ```
 
-- **Applying migrations manually:**
+- Apply manually inside the running container:
 
   ```shell
-  docker compose exec api alembic upgrade head
+  docker compose -f deploy/compose/docker-compose.yml --project-directory . \
+    exec api python -m alembic -c /app/alembic.ini upgrade head
   ```
 
-## Seed Data
-
-For testing and development, commands are available to add test data:
+## Seed data
 
 ```shell
-# Add 20 test items (default)
-make seed
-
-# Clear all data and add new seed data
-make seed-reset
-
-# Dry run - show what will be created without actual write
-make seed-dry
+make seed        # add 20 test items
+make seed-reset  # clear all data, then reseed
+make seed-dry    # show what would be created, no writes
 ```
 
-**Seed script parameters:**
-
-- `--count N` - number of items to create (default: 20)
-- `--only-reset` - clear all data and add new
-- `--dry-run` - show what will be created without writing
+Seed script flags (`python -m app.seed`): `--count N`, `--only-reset`,
+`--dry-run`.

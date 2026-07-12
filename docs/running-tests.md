@@ -1,679 +1,199 @@
 # Running Tests
 
-This document contains detailed instructions for running tests in the DevOps Demo project. It covers unit tests, integration tests, backend and frontend tests, as well as code coverage setup and troubleshooting common issues.
-
-## Table of Contents
-
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Backend Tests](#backend-tests)
-- [Frontend Tests](#frontend-tests)
-- [Integration Tests](#integration-tests)
-- [CI/CD Tests](#cicd-tests)
-- [Code Coverage](#code-coverage)
-- [Troubleshooting](#troubleshooting)
-- [Reference](#reference)
-
 ## Prerequisites
 
-Before running tests, you need to install all dependencies and set up the development environment. Detailed instructions are available in [Local setup](local-setup.md).
-
-- **Minimum requirements:**
-
-  - Python 3.12 with backend dependencies installed
-  - Node.js >= 24 with frontend dependencies installed
-  - PostgreSQL database (can be run via Docker)
-  - Docker and Docker Compose (for integration tests)
+Environment setup is covered in [Local setup](local-setup.md). Run `make doctor` to verify
+Python and Node versions are correct. DB credentials default to `app/app/appdb`; override via
+`.env` (see `.env.example`).
 
 ## Quick Start
 
-### Running All Tests
+| Goal | Command |
+| ------ | --------- |
+| All tests | `make test` |
+| Backend only | `make test-backend` |
+| Frontend only | `make test-frontend` |
+| Inside Docker | `make test-docker` |
+| Full CI check | `make ci` |
 
-The easiest way to run all project tests:
-
-```shell
-# Run all tests (backend + frontend)
-make test
-```
-
-This command automatically:
-
-- Checks if database is running, starts it if needed
-- Runs backend tests via virtualenv
-- Runs frontend tests via npm
-- Shows summary information about test results
-
-### Running Only Backend Tests
-
-```shell
-# Locally via virtualenv (recommended for development)
-make test-backend
-
-# Or in Docker container (for CI/CD or production-like environments)
-make test-docker
-```
-
-### Running Only Frontend Tests
-
-```shell
-make test-frontend
-```
+`make test-backend` starts the DB container if absent, runs migrations, runs pytest, and stops
+the DB if it started it. `make ci` runs exactly what CI runs -- see [CI docs](ci.md) for
+pipeline details. Lint/format specifics are in [Contributing](contributing.md).
 
 ## Backend Tests
 
-Backend tests are written using pytest and pytest-asyncio for async code support. All tests are located in the `services/backend/tests/` directory.
+Tests live in `services/backend/tests/` and use pytest + pytest-asyncio.
 
-### Local Execution (Virtualenv)
-
-For local development, using virtualenv is recommended:
+Install the backend editable in any virtualenv:
 
 ```shell
-# Make sure database is running
-docker compose up -d db
+pip install -e "services/backend[dev]"
+```
 
-# Wait for DB readiness
-docker compose exec db pg_isready -U app -d appdb
+Run via make (recommended):
 
-# Run all backend tests
+```shell
 make test-backend
-
-# Or manually
-cd services/backend
-source .venv/bin/activate
-pytest -v
 ```
 
-**Advantages of local execution:**
-
-- Faster startup (no Docker overhead)
-- Easier debugging with IDE
-- Ability to use breakpoints
-- Faster feedback loop
-
-### Docker Execution
-
-For testing in production-like environments or in CI/CD:
+Or invoke pytest directly from an activated virtualenv:
 
 ```shell
-# Run tests in Docker container
-make test-docker
+# run all
+pytest -v services/backend
+
+# run one file
+pytest services/backend/tests/test_items.py -v
+
+# run one test
+pytest services/backend/tests/test_items.py::test_items_crud -v
+
+# with markers / keyword filter
+pytest services/backend -k "test_items" -v
+
+# with coverage
+pytest services/backend --cov=app --cov-report=term --cov-report=html
+# open services/backend/htmlcov/index.html in a browser
+
+# retry only failures from last run
+pytest services/backend --lf
 ```
-
-This command:
-
-- Checks if database is running, starts it if needed
-- Creates temporary container with backend code
-- Installs dependencies in container
-- Applies database migrations
-- Runs tests via pytest
-- Automatically cleans up container after execution
-
-**When to use Docker tests:**
-
-- CI/CD pipelines
-- Testing in production-like environments
-- When local virtualenv is unavailable
-- For checking compatibility with production image
-
-### Test Options
-
-**Running specific test file:**
-
-```shell
-cd services/backend
-.venv/bin/pytest tests/test_items.py -v
-```
-
-**Running specific test function:**
-
-```shell
-cd services/backend
-.venv/bin/pytest tests/test_items.py::test_items_crud -v
-```
-
-**Running tests with detailed output:**
-
-```shell
-cd services/backend
-.venv/bin/pytest -v  # Verbose mode
-.venv/bin/pytest -vv  # Even more detailed output
-```
-
-**Running tests with code coverage:**
-
-```shell
-cd services/backend
-.venv/bin/pytest --cov=app --cov-report=html --cov-report=term
-```
-
-**Running tests in parallel mode (if pytest-xdist is installed):**
-
-```shell
-cd services/backend
-.venv/bin/pytest -n auto  # Automatic worker count detection
-.venv/bin/pytest -n 4  # Use 4 workers
-```
-
-**Running only failed tests from previous run:**
-
-```shell
-cd services/backend
-.venv/bin/pytest --lf  # Last failed
-```
-
-**Running tests with name filtering:**
-
-```shell
-cd services/backend
-.venv/bin/pytest -k "test_items"  # Only tests containing "test_items" in name
-```
-
-### Test Structure
-
-Tests are organized by functionality:
-
-**`tests/test_health.py`**
-
-- Health check endpoint tests (`/health`)
-- Service status and database connection verification
-- Tests for various scenarios (normal operation, DB issues)
-
-**`tests/test_items.py`**
-
-- CRUD operation tests for items
-- Creating, reading, deleting items
-- Data validation and error handling
-- Field uniqueness verification
-
-**`tests/test_seeded_items.py`**
-
-- Integration tests with seed data
-- Tests working with pre-populated database
-- Complex scenario verification with real data
-
-**`tests/test_cleanup.py`**
-
-- Database cleanup verification tests
-- Verification that tests don't leave "garbage" after execution
-- Database state validation before and after tests
-
-**`tests/conftest.py`**
-
-- Pytest fixtures and configuration
-- Test database setup
-- Fixtures for creating test data
-- Async event loop configuration
 
 ### Test Database
 
-Tests use a separate test database. Test fixtures automatically:
+Tests connect to `postgresql+asyncpg://app:app@localhost:5432/appdb` by default (override via
+`.env`). Fixtures reset state before each test, apply migrations, seed 10 items, then remove
+only items created by that test after it finishes.
 
-**Before each test:**
+### Test Files
 
-- Reset database state
-- Apply all migrations
-- Create deterministic test data (10 items by default)
+| File | What it covers |
+| ------ | ---------------- |
+| `tests/test_health.py` | `/health` endpoint, DB connectivity |
+| `tests/test_items.py` | CRUD, validation, uniqueness |
+| `tests/test_seeded_items.py` | Scenarios against pre-seeded data |
+| `tests/test_cleanup.py` | Verifies tests leave no residue |
+| `tests/conftest.py` | Fixtures, async loop config, DB setup |
 
-**After each test:**
+### Docker Execution
 
-- Remove only items created during the test
-- Leave seed data untouched
-- Clean up all changes made by the test
+```shell
+make test-docker
+```
 
-**Important:** Tests automatically clean up after themselves, removing only items created during test execution. Seed data remains for subsequent tests.
-
-**Test database configuration:**
-
-- Connection string: `postgresql+asyncpg://app:app@localhost:5432/appdb`
-- Tests use the same database as development (but with automatic cleanup)
-- For isolation, you can use a separate test database via environment variable
+Builds a container, installs deps, runs migrations, runs pytest, cleans up. Use for
+production-like validation or when a local virtualenv is unavailable.
 
 ## Frontend Tests
 
-Frontend tests are written using Vitest and React Testing Library. All tests are located next to components (`.test.jsx` files).
+Tests live next to source files (`*.test.jsx`) and use Vitest + React Testing Library.
 
-- **Basic run:**
+```shell
+make test-frontend
 
-  Via `npm`
-
-  ```shell
-  cd services/frontend
-  npm run test
-  ```
-
-  Or via Make
-
-  ```shell
-  make test-frontend
-  ```
+# or directly
+cd services/frontend && npm run test
+```
 
 ### Modes
 
-Frontend tests support two operation modes:
-
-- **Mocked API (default)**
-  - Uses mocked `fetch` for fast execution
-  - Doesn't require running backend
-  - Faster execution
-  - Ideal for component unit tests
-
-- **Real API**
-  - Uses real backend API
-  - Requires running backend service
-  - More realistic testing
-  - Ideal for integration tests
-
-**Switching to Real API mode:**
+By default tests mock `fetch`. To run against a live API:
 
 ```shell
-# Set environment variable
 export VITE_TEST_API_URL="http://localhost:8000"
-# or
-export VITEST_TEST_API_URL="http://localhost:8000"
-
-# Run tests
-npm run test
+make test-frontend
 ```
 
-**Note:** When using Real API mode, tests automatically clean up created items after execution.
-
-### Options
-
-**Running tests in watch mode:**
+### Useful Vitest Flags
 
 ```shell
 cd services/frontend
-npm run test:watch
+
+npm run test:watch          # re-run on file change
+npm run test:ui             # interactive browser UI
+npm run test -- --coverage  # coverage report in coverage/
+npm run test -- src/App.test.jsx  # single file
 ```
 
-Watch mode automatically restarts tests on file changes, which is very convenient during development.
+### Frontend Test Files
 
-**Running tests with UI:**
-
-```shell
-cd services/frontend
-npm run test:ui
-```
-
-UI mode opens an interactive interface for viewing and running tests in the browser.
-
-**Running specific test file:**
-
-```shell
-cd services/frontend
-npm run test -- src/App.test.jsx
-```
-
-**Running tests with coverage:**
-
-```shell
-cd services/frontend
-npm run test -- --coverage
-```
-
-**Running tests in parallel mode:**
-
-```shell
-cd services/frontend
-npm run test -- --threads  # Use threads
-npm run test -- --no-threads  # Sequential execution
-```
-
-**Running only failed tests:**
-
-```shell
-cd services/frontend
-npm run test -- --reporter=verbose --reporter=json
-```
-
-### Structure
-
-**`src/App.test.jsx`**
-
-- Main App component tests
-- CRUD operations via UI
-- User interaction testing
-- Data display verification
-- Error handling tests
-
-**`src/main.test.jsx`**
-
-- Web Vitals metrics integration tests
-- Metrics sending to backend verification
-- Tests for different metric types (LCP, INP, CLS, FCP, TTFB)
-
-**`src/test/setup.js`**
-
-- Test environment setup
-- Vitest configuration
-- Mock and global fixture setup
-- Import additional matchers (@testing-library/jest-dom)
+| File | What it covers |
+| ------ | ---------------- |
+| `src/App.test.jsx` | CRUD via UI, user interactions, error handling |
+| `src/main.test.jsx` | Web Vitals metrics (LCP, INP, CLS, FCP, TTFB) |
+| `src/test/setup.js` | Vitest env setup, mocks, jest-dom matchers |
 
 ## Integration Tests
 
-Integration tests verify interaction between backend and frontend components.
-
-### Running Integration Tests
-
-**Full stack (Backend + Frontend):**
+Run backend and frontend together against live services:
 
 ```shell
-# Start all services
+# start full stack
 make up
 
-# Wait for all services to be ready
-sleep 10  # Or check health checks
-
-# Run backend integration tests
+# backend tests (uses real DB already up)
 make test-backend
 
-# Run frontend tests against real API
+# frontend tests against real API
 export VITE_TEST_API_URL="http://localhost:8000"
 make test-frontend
 ```
 
-**Backend integration tests only:**
+If you need to start only the DB and API via compose:
 
 ```shell
-# Start only DB and API
-docker compose up -d db api
-
-# Wait for readiness
-docker compose exec api python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
-
-# Run tests
-make test-backend
+docker compose -f deploy/compose/docker-compose.yml --project-directory . up -d db api
 ```
-
-**Frontend integration tests only:**
-
-```shell
-# Start backend
-docker compose up -d db api
-
-# Configure frontend to use real API
-export VITE_TEST_API_URL="http://localhost:8000"
-
-# Run frontend tests
-make test-frontend
-```
-
-### Types of Integration Tests
-
-**Backend integration tests:**
-
-- Tests using real database
-- Tests with seed data (`test_seeded_items.py`)
-- Cleanup verification tests (`test_cleanup.py`)
-- Tests verifying full CRUD operation cycle
-
-**Frontend integration tests:**
-
-- Tests using real API (with `VITE_TEST_API_URL`)
-- Web Vitals metrics sending tests
-- Full user interaction cycle with API tests
-
-## CI/CD Tests
-
-Tests automatically run in GitHub Actions when:
-
-- Creating Pull Request to `main`, `master`, or `develop`
-- Pushing to these branches
-- Manual workflow trigger
-
-### CI/CD Configuration
-
-CI/CD configuration is located in `.github/workflows/pr.yml` and includes:
-
-**Backend tests:**
-
-- Python 3.12 installation
-- Dependency installation
-- Running linting (ruff, mypy)
-- Running tests via pytest in Docker
-
-**Frontend tests:**
-
-- Node.js installation
-- npm dependency installation
-- Running linting (ESLint)
-- Running tests via Vitest
-
-**Infrastructure tests:**
-
-- YAML file validation
-- Docker Compose configuration check
-- Dockerfile linting
-
-### Local Check Before Commit
-
-Before creating a Pull Request, it's recommended to run all checks locally:
-
-```shell
-# Run all linting checks
-make lint
-
-# Run all tests
-make test
-
-# Run pre-commit hooks
-make pre-commit-run
-```
-
-This will help avoid failed CI/CD checks and save time.
-
-## Code Coverage
-
-### Backend Coverage
-
-**Generating coverage report:**
-
-```shell
-cd services/backend
-
-# Install pytest-cov if not already installed
-.venv/bin/pip install pytest-cov
-
-# Run tests with coverage
-.venv/bin/pytest --cov=app --cov-report=html --cov-report=term
-
-# View HTML report
-open htmlcov/index.html  # macOS
-# or
-xdg-open htmlcov/index.html  # Linux
-# or
-start htmlcov/index.html  # Windows
-```
-
-**Report types:**
-
-- `--cov-report=term` - terminal output
-- `--cov-report=html` - HTML report in `htmlcov/`
-- `--cov-report=xml` - XML report for CI/CD integration
-- `--cov-report=json` - JSON report for programmatic processing
-
-**Setting minimum coverage:**
-
-```shell
-# Set minimum coverage (e.g., 80%)
-.venv/bin/pytest --cov=app --cov-fail-under=80
-```
-
-### Frontend Coverage
-
-**Generating coverage report:**
-
-```shell
-cd services/frontend
-
-# Run tests with coverage
-npm run test -- --coverage
-
-# View report (usually opens automatically)
-# Or find in coverage/ directory
-```
-
-**Coverage configuration:**
-Coverage is configured in `vite.config.js` or `vitest.config.js` via `coverage` options.
 
 ## Troubleshooting
 
-### Database Connection Errors (Backend Tests)
-
-**Symptoms:** `ConnectionError`, `OperationalError`, or other database connection errors.
-
-**Solution:**
+**DB connection errors** -- `ConnectionError`, `OperationalError`:
 
 ```shell
-# Make sure DB is running
-docker compose ps db
-
-# Start DB if not running
-docker compose up -d db
-
-# Wait for DB readiness
-docker compose exec db pg_isready -U app -d appdb
-
-# Check environment variables
-echo $DATABASE_URL
-echo $ALEMBIC_DATABASE_URL
+docker compose -f deploy/compose/docker-compose.yml --project-directory . ps db
+docker compose -f deploy/compose/docker-compose.yml --project-directory . exec db pg_isready -U app -d appdb
 ```
 
-**Connection check:**
+`make test-backend` starts the DB automatically, so prefer that over manual compose commands.
+
+**Import errors** -- `ModuleNotFoundError`:
 
 ```shell
-# Try connecting to DB manually
-docker compose exec db psql -U app -d appdb -c "SELECT 1;"
+# verify package is installed editable
+python -c "import app; print(app.__file__)"
+
+# reinstall if needed
+pip install -e "services/backend[dev]"
 ```
 
-### Import Errors (Backend Tests)
+**Event loop errors** -- `RuntimeError: Event loop is closed`:
+Fixtures handle this automatically. If errors persist, check that `asyncio_mode = "auto"` is
+set in `services/backend/pyproject.toml` and upgrade pytest-asyncio.
 
-**Symptoms:** `ModuleNotFoundError`, `ImportError`.
-
-**Solution:**
-
-```shell
-# Make sure virtualenv is activated
-source services/backend/.venv/bin/activate
-
-# Check that package is installed
-cd services/backend
-.venv/bin/python -c "import app; print(app.__file__)"
-
-# Reinstall dependencies if needed
-pip install -e ".[dev]"
-```
-
-**PYTHONPATH check:**
-
-```shell
-# Make sure current directory is in PYTHONPATH
-cd services/backend
-export PYTHONPATH="${PYTHONPATH}:$(pwd)"
-```
-
-### Event Loop Errors (Backend Tests)
-
-**Symptoms:** `RuntimeError: Event loop is closed`, `There is no current event loop`.
-
-**Solution:**
-These errors are usually resolved automatically through test fixtures. If issues persist:
-
-```shell
-# Check pytest-asyncio configuration in pyproject.toml
-# Make sure it's set: asyncio_mode = "auto"
-
-# Reinstall pytest-asyncio
-cd services/backend
-.venv/bin/pip install --upgrade pytest-asyncio
-```
-
-### Module Errors (Frontend Tests)
-
-**Symptoms:** `Cannot find module`, `Module not found`.
-
-**Solution:**
+**Frontend module errors** -- `Cannot find module`:
 
 ```shell
 cd services/frontend
-
-# Remove node_modules and reinstall
-rm -rf node_modules package-lock.json
+rm -rf node_modules
 npm install
-
-# Check that all dependencies are installed
-npm list --depth=0
 ```
 
-### API Connection Errors (Frontend Tests, Real API Mode)
-
-**Symptoms:** `NetworkError`, `Failed to fetch`, timeout errors.
-
-**Solution:**
+**Frontend API errors** (real API mode) -- `NetworkError`, `Failed to fetch`:
 
 ```shell
-# Make sure backend is running
-make up
-
-# Check API health check
 curl http://localhost:8000/health
-
-# Check environment variable
 echo $VITE_TEST_API_URL
-
-# Set correct URL if needed
-export VITE_TEST_API_URL="http://localhost:8000"
 ```
 
-### Timeout Errors
+**Timeout errors**:
 
-**Symptoms:** Tests fail due to timeout.
-
-**Solution:**
-
-- Increase timeout in test configuration
-- Use mocked API mode for faster execution
-- Check database and API performance
-
-**For Vitest:**
-
-```javascript
-// In test file or configuration
-test('my test', async () => {
-  // ...
-}, { timeout: 10000 })  // 10 seconds
-```
-
-**For pytest:**
-
-```shell
-# Set timeout via pytest-timeout
-.venv/bin/pytest --timeout=30  # 30 seconds per test
-```
+- Backend: `pytest --timeout=30`
+- Frontend: pass `{ timeout: 10000 }` as third arg to `test()`
+- Or switch to mocked API mode (no `VITE_TEST_API_URL` set)
 
 ## Reference
 
-### Useful Links
-
-**Backend testing:**
-
-- [pytest Documentation](https://docs.pytest.org/) - Complete pytest documentation
-- [pytest-asyncio Documentation](https://pytest-asyncio.readthedocs.io/) - Async test documentation
-- [httpx Documentation](https://www.python-httpx.org/) - HTTP client for testing
-
-**Frontend testing:**
-
-- [Vitest Documentation](https://vitest.dev/) - Vitest documentation
-- [React Testing Library Documentation](https://testing-library.com/docs/react-testing-library/intro/) - React Testing Library documentation
-- [Testing Library User Event](https://testing-library.com/docs/user-event/intro/) - User interaction simulation
-
-**General:**
-
-- [Test-Driven Development](https://en.wikipedia.org/wiki/Test-driven_development) - TDD methodology
-- [Testing Best Practices](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library) - Best practices for React testing
-
-### Additional Resources
-
-Detailed information about development environment setup is available in [Local setup](local-setup.md).
-
-Information about writing tests and code quality standards is available in [Contributing](contributing.md).
+- [pytest](https://docs.pytest.org/)
+- [pytest-asyncio](https://pytest-asyncio.readthedocs.io/)
+- [Vitest](https://vitest.dev/)
+- [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)

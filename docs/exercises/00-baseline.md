@@ -381,7 +381,7 @@ improvements.
 
 4. **Functionality Check:**
     - Run tests in Docker: `make test-docker`
-    - Check Python version in container: `docker compose exec api python --version`
+    - Check Python version in container: `docker compose -f deploy/compose/docker-compose.yml --project-directory . exec api python --version`
     - Should show: `Python 3.13.x`
 
 **Verification:**
@@ -390,7 +390,7 @@ improvements.
 make build-image
 make up
 make test-docker
-docker compose exec api python --version  # Should show 3.13.x
+docker compose -f deploy/compose/docker-compose.yml --project-directory . exec api python --version  # Should show 3.13.x
 ```
 
 ---
