@@ -18,7 +18,9 @@ function sendToAnalytics(metric) {
 
   const API_URL = getApiUrl()
 
-  // Send metric to backend
+  // Send metric to backend. keepalive lets the request outlive the page:
+  // LCP and CLS flush on tab hide/unload, exactly when a plain fetch may
+  // be dropped by the browser.
   fetch(`${API_URL}/metrics/frontend`, {
     method: 'POST',
     headers: {
@@ -28,6 +30,7 @@ function sendToAnalytics(metric) {
       name: metric.name,
       value: metric.value,
     }),
+    keepalive: true,
   }).catch(err => {
     console.warn('Failed to send metric:', metric.name, err)
   })
