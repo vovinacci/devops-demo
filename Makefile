@@ -105,7 +105,7 @@ test: test-backend test-frontend ## Run all tests (backend + frontend)
 test-backend: ## Run backend tests locally via virtualenv
 	$(PRINT_TARGET)
 	@echo "Checking database availability..."
-	DB_WAS_RUNNING=$$($(COMPOSE) ps db 2>/dev/null | grep -q "Up" && echo "yes" || echo "no"); \
+	DB_WAS_RUNNING=$$($(COMPOSE) ps db 2>/dev/null | grep -qiE "up|running" && echo "yes" || echo "no"); \
 	if [ "$$DB_WAS_RUNNING" = "no" ]; then \
 		echo ""; \
 		echo "⚠️  Database is not running. Starting DB only..."; \
@@ -140,7 +140,7 @@ test-backend: ## Run backend tests locally via virtualenv
 test-docker: ## Run tests in Docker container (for CI/CD)
 	$(PRINT_TARGET)
 	@echo "Checking database availability..."
-	if ! $(COMPOSE) ps db 2>/dev/null | grep -q "Up"; then \
+	if ! $(COMPOSE) ps db 2>/dev/null | grep -qiE "up|running"; then \
 		echo "⚠️  Database is not running. Starting DB..."; \
 		$(COMPOSE) up -d db || true; \
 		echo "Waiting for DB readiness..."; \
@@ -155,7 +155,7 @@ test-docker: ## Run tests in Docker container (for CI/CD)
 	fi
 	@echo "Running tests in Docker container..."
 	$(COMPOSE) run --rm \
-		-v "$(PWD)/services/backend/tests:/app/tests:ro" \
+		-v "$(CURDIR)/services/backend/tests:/app/tests:ro" \
 		api sh -c "pip install --user -e '.[dev]' && python -m alembic -c /app/alembic.ini upgrade head && pytest tests -q -v"
 
 .PHONY: test-frontend

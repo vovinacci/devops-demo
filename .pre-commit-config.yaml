@@ -45,7 +45,7 @@ repos:
           - 'DL3008'
           - '--ignore'
           - 'DL3009'
-        files: Dockerfile
+        files: (^|/)Dockerfile$
   # Makefile validation
   - repo: local
     hooks:

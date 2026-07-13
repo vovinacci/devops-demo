@@ -17,22 +17,28 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
+      # untrusted values reach the shell only via env, never by direct
+      # interpolation into the script body (script-injection guard)
       - name: Get release version
         id: get_version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
           else
-            echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+            echo "version=$TAG_NAME" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Display release info
         run: |
-          echo "🚀 Release workflow triggered"
+          echo "[release] workflow triggered"
           echo "Version: ${{ steps.get_version.outputs.version }}"
           echo "Event: ${{ github.event_name }}"
           echo ""
-          echo "📝 Placeholder: No actual release artifacts are created."
+          echo "[note] Placeholder: no actual release artifacts are created."
           echo "In production, this workflow would:"
           echo "  - Build Docker images"
           echo "  - Push to container registry"
@@ -52,6 +58,6 @@ jobs:
 
       - name: Release summary
         run: |
-          echo "✅ Release workflow completed (placeholder)"
+          echo "[ok] Release workflow completed (placeholder)"
           echo "Version: ${{ steps.get_version.outputs.version }}"
           echo "Commit: ${{ github.sha }}"
