@@ -10,8 +10,12 @@ from starlette.responses import PlainTextResponse
 
 from app.crud import create_item, delete_item, list_items
 from app.deps import get_db
-from app.metrics import HTTP_REQUESTS_TOTAL, REQUEST_LATENCY_SECONDS
+from app.metrics import FE_WEB_VITAL, HTTP_REQUESTS_TOTAL, REQUEST_LATENCY_SECONDS
 from app.schemas import ItemCreate, ItemOut
+
+# Known web-vitals names; the gauge label stays a bounded set by
+# construction, anything else from the network is rejected
+ALLOWED_WEB_VITALS = {"CLS", "FCP", "INP", "LCP", "TTFB"}
 
 # Logging configuration
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
@@ -23,6 +27,18 @@ app = FastAPI(title="DevOps Demo API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
+def _endpoint_label(request: Request) -> str:
+    """Metric label for the endpoint: the matched route template.
+
+    Never the raw URL path -- raw paths (/items/1, /items/2, scanner
+    noise) create unbounded label cardinality, and path parameters make
+    routes like DELETE /items/{item_id} invisible to SLO rules that
+    filter on the endpoint label.
+    """
+    route = request.scope.get("route")
+    return getattr(route, "path", None) or "__unmatched__"
+
+
 @app.middleware("http")
 async def metrics_mw(request: Request, call_next) -> Response:
     """Middleware for HTTP metrics and logging"""
@@ -31,8 +47,9 @@ async def metrics_mw(request: Request, call_next) -> Response:
     try:
         response: Response = await call_next(request)
         duration = time.time() - start
-        REQUEST_LATENCY_SECONDS.labels(request.method, request.url.path).observe(duration)
-        HTTP_REQUESTS_TOTAL.labels(request.method, request.url.path, str(response.status_code)).inc()
+        endpoint = _endpoint_label(request)
+        REQUEST_LATENCY_SECONDS.labels(request.method, endpoint).observe(duration)
+        HTTP_REQUESTS_TOTAL.labels(request.method, endpoint, str(response.status_code)).inc()
         logger.info(f"Response: {request.method} {request.url.path} - {response.status_code} ({duration:.3f}s)")
         return response
     except Exception as e:
@@ -92,13 +109,19 @@ def metrics() -> PlainTextResponse:
     return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
-# Receive web-vitals from frontend (if added)
+# Receive web-vitals reports from the frontend
 @app.post("/metrics/frontend")
 async def metrics_frontend(req: Request) -> dict[str, bool]:
-    data = await req.json()
-    from app.metrics import FE_WEB_VITAL  # import here to avoid cycles
-
-    name = str(data.get("name"))
-    value = float(data.get("value", 0))
+    try:
+        data = await req.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON") from None
+    name = data.get("name")
+    if name not in ALLOWED_WEB_VITALS:
+        raise HTTPException(status_code=400, detail="Unknown metric name")
+    try:
+        value = float(data.get("value"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid metric value") from None
     FE_WEB_VITAL.labels(name=name).set(value)
     return {"ok": True}

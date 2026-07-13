@@ -315,8 +315,8 @@ improvements.
     - Check image sizes before and after update
 
 2. **Rebuild Images:**
-    - Execute: `make build-image`
-    - Check size: `make image-size`
+    - Execute: `make build-images`
+    - Check size: `make image-sizes`
     - Compare sizes before and after update
 
 3. **Update docker-compose:**
@@ -358,7 +358,7 @@ improvements.
 
 3. **Testing:**
     - Install Python 3.13 locally
-    - Create new virtualenv: `python3.12 -m venv .venv`
+    - Create new virtualenv: `python3.13 -m venv .venv`
     - Install dependencies: `pip install -e ".[dev]"`
     - Run tests: `make test-backend`
 
@@ -370,7 +370,7 @@ improvements.
     - Verify all commands work with Python 3.13
 
 2. **Rebuild Images:**
-    - Rebuild Docker images: `make build-image`
+    - Rebuild Docker images: `make build-images`
     - Check image sizes
     - Start services: `make up`
 
@@ -387,7 +387,7 @@ improvements.
 **Verification:**
 
 ```shell
-make build-image
+make build-images
 make up
 make test-docker
 docker compose -f deploy/compose/docker-compose.yml --project-directory . exec api python --version  # Should show 3.13.x
@@ -867,7 +867,7 @@ functionality.
 
 1. **Update Docker Images:**
     - Update base images if needed
-    - Rebuild images: `make build-image`
+    - Rebuild images: `make build-images`
     - Check image sizes
 
 2. **Compatibility Check:**
@@ -1127,7 +1127,7 @@ npm run dev
 **3. Infrastructure:**
 
 ```shell
-# 1. Check docker-compose.yaml
+# 1. Check deploy/compose/docker-compose.yml
 # 2. Add Prometheus metrics (metrics.py)
 # 3. Update Grafana dashboard
 # 4. Restart services
