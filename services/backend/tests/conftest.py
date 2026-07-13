@@ -38,13 +38,17 @@ async def _cleanup_db_pool():
 
             warnings.warn(f"Failed to cleanup items: {e}", stacklevel=2)
 
-    # Then close all connections from pool before closing event loop
-    # This helps avoid "Event loop is closed" errors
-    from contextlib import suppress
 
-    with suppress(Exception):
-        # Close all active connections from pool
-        await engine.dispose()
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def _dispose_engine_pool():
+    """Dispose the shared engine pool once, after the whole session.
+
+    Runs on the session-scoped event loop (see pyproject pytest config),
+    the same loop every pooled connection was created on. The previous
+    per-test dispose existed only to survive per-test loops.
+    """
+    yield
+    await engine.dispose()
 
 
 @pytest_asyncio.fixture
