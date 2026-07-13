@@ -65,13 +65,13 @@ limits_config:
   retention_period: 24h
   # Reject old samples
   reject_old_samples: true
-  reject_old_samples_max_age: 168h  # 7 days
+  # aligned with retention_period: accepting samples older than retention
+  # would queue them for immediate deletion
+  reject_old_samples_max_age: 24h
   # Single-node setup: allow queries even if ingester is not fully ready
   max_query_parallelism: 32
   # Single-node setup: reduce requirements for healthy instances
   max_concurrent_tail_requests: 10
 
-# Table manager for retention
-table_manager:
-  retention_deletes_enabled: true
-  retention_period: 24h
+# retention is handled by the compactor (retention_enabled above);
+# the deprecated table_manager is a no-op for tsdb and is not configured

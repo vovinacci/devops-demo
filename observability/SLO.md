@@ -110,15 +110,15 @@ All SLO metrics are calculated via Prometheus recording rules in the `observabil
 **`slo:availability:error_budget7d`**
 
 - **Type:** Gauge
-- **Description:** Current error budget (0-1, where 1 = full budget)
-- **Formula:** `slo:availability:ratio7d - 0.9995`
-- **Interpretation:** Positive value = within budget, negative = SLO violation
+- **Description:** Consumed failure fraction (near 0 when healthy, grows with errors)
+- **Formula:** `1 - slo:availability:ratio7d`
+- **Interpretation:** Compare against the allowed budget of 0.0005 (100% - 99.95%)
 
 **`slo:availability:error_budget_burn7d`**
 
 - **Type:** Gauge
 - **Description:** Error budget overrun (positive = SLO violation)
-- **Formula:** `0.9995 - slo:availability:ratio7d`
+- **Formula:** `slo:availability:error_budget7d - (1 - 0.9995)`
 - **Interpretation:** > 0 means SLO violation
 
 #### Latency
@@ -127,22 +127,29 @@ All SLO metrics are calculated via Prometheus recording rules in the `observabil
 
 - **Type:** Gauge
 - **Description:** p95 latency over 7 days (in seconds)
-- **Formula:** `histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))`
+- **Formula:** `histogram_quantile(0.95, rate(http_request_latency_seconds_bucket[5m]))`
 - **Target Value:** < 0.2 (200ms)
 
 **`slo:latency:ratio7d`**
 
 - **Type:** Gauge
 - **Description:** Percentage of requests < 200ms (0-1)
-- **Formula:** `rate(http_request_duration_seconds_bucket{le="0.2"}[5m]) / rate(http_request_duration_seconds_count[5m])`
+- **Formula:** `rate(http_request_latency_seconds_bucket{le="0.2"}[5m]) / rate(http_request_latency_seconds_count[5m])`
 - **Target Value:** > 0.95 (95%)
 
 **`slo:latency:error_budget7d`**
 
 - **Type:** Gauge
-- **Description:** Current error budget for latency
-- **Formula:** `slo:latency:ratio7d - 0.95`
-- **Interpretation:** Positive = within budget, negative = violation
+- **Description:** Fraction of requests slower than 200ms (near 0 when healthy)
+- **Formula:** `1 - slo:latency:ratio7d`
+- **Interpretation:** Compare against the allowed budget of 0.05 (100% - 95%)
+
+**`slo:latency:error_budget_burn7d`**
+
+- **Type:** Gauge
+- **Description:** Error budget overrun for latency (positive = SLO violation)
+- **Formula:** `slo:latency:error_budget7d - (1 - 0.95)`
+- **Interpretation:** > 0 means SLO violation
 
 #### Error Rate
 
@@ -152,13 +159,6 @@ All SLO metrics are calculated via Prometheus recording rules in the `observabil
 - **Description:** Actual percentage of 5xx errors
 - **Formula:** `rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m])`
 - **Target Value:** < 0.001 (0.1%)
-
-**`slo:error_rate:ratio7d`**
-
-- **Type:** Gauge
-- **Description:** Percentage of successful requests (without 5xx)
-- **Formula:** `rate(http_requests_total{status!~"5.."}[5m]) / rate(http_requests_total[5m])`
-- **Target Value:** > 0.999 (99.9%)
 
 **`slo:error_rate:error_budget_burn7d`**
 

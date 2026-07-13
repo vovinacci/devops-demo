@@ -16,3 +16,7 @@ scrape_configs:
     static_configs: [{ targets: ["postgres_exporter:9187"] }]
   - job_name: "cadvisor"
     static_configs: [{ targets: ["cadvisor:8080"] }]
+  - job_name: "loki"
+    static_configs: [{ targets: ["loki:3100"] }]
+  - job_name: "alloy"
+    static_configs: [{ targets: ["alloy:9080"] }]

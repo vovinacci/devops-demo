@@ -14,7 +14,7 @@ groups:
       - record: slo:critical_requests_total:rate7d
         expr: |
           sum(rate(http_requests_total{
-            endpoint=~"/health|/items",
+            endpoint=~"/health|/items|/items/\\{item_id\\}",
             method=~"GET|POST|DELETE"
           }[5m])) * 604800
 
@@ -22,7 +22,7 @@ groups:
       - record: slo:critical_requests_success:rate7d
         expr: |
           sum(rate(http_requests_total{
-            endpoint=~"/health|/items",
+            endpoint=~"/health|/items|/items/\\{item_id\\}",
             method=~"GET|POST|DELETE",
             status!~"5.."
           }[5m])) * 604800
@@ -32,13 +32,13 @@ groups:
       - record: slo:availability:ratio7d
         expr: |
           sum(rate(http_requests_total{
-            endpoint=~"/health|/items",
+            endpoint=~"/health|/items|/items/\\{item_id\\}",
             method=~"GET|POST|DELETE",
             status!~"5.."
           }[5m]))
           /
           sum(rate(http_requests_total{
-            endpoint=~"/health|/items",
+            endpoint=~"/health|/items|/items/\\{item_id\\}",
             method=~"GET|POST|DELETE"
           }[5m]))
 
@@ -65,13 +65,13 @@ groups:
       - record: slo:latency:ratio7d
         expr: |
           sum(rate(http_request_latency_seconds_bucket{
-            endpoint=~"/health|/items",
+            endpoint=~"/health|/items|/items/\\{item_id\\}",
             method=~"GET|POST|DELETE",
             le="0.2"
           }[5m]))
           /
           sum(rate(http_request_latency_seconds_count{
-            endpoint=~"/health|/items",
+            endpoint=~"/health|/items|/items/\\{item_id\\}",
             method=~"GET|POST|DELETE"
           }[5m]))
 
@@ -80,7 +80,7 @@ groups:
         expr: |
           histogram_quantile(0.95,
             sum(rate(http_request_latency_seconds_bucket{
-              endpoint=~"/health|/items",
+              endpoint=~"/health|/items|/items/\\{item_id\\}",
               method=~"GET|POST|DELETE"
             }[5m])) by (le)
           )
@@ -90,24 +90,22 @@ groups:
         expr: |
           1 - slo:latency:ratio7d
 
+      # Comparison with target (95% of requests under 200ms)
+      - record: slo:latency:target_ratio7d
+        expr: 0.95
+
+      # Error budget burn (positive value = SLO violation)
+      - record: slo:latency:error_budget_burn7d
+        expr: |
+          slo:latency:error_budget7d - (1 - 0.95)
+
       # ============================================
       # 3. ERROR RATE SLO: < 0.1% for 5xx errors
       # ============================================
 
-      # SLI for error rate (requests without 5xx / total) over the last 7 days
-      # Use rate with short window for more accurate metric
-      - record: slo:error_rate:ratio7d
-        expr: |
-          sum(rate(http_requests_total{
-            endpoint=~"/health|/items",
-            method=~"GET|POST|DELETE",
-            status!~"5.."
-          }[5m]))
-          /
-          sum(rate(http_requests_total{
-            endpoint=~"/health|/items",
-            method=~"GET|POST|DELETE"
-          }[5m]))
+      # NOTE: no slo:error_rate:ratio7d -- it would be byte-identical to
+      # slo:availability:ratio7d (non-5xx / total); the error-rate SLO is
+      # expressed directly through the actual 5xx ratio below
 
       # Actual error rate (5xx / total)
       - record: slo:error_rate:actual_5xx_ratio7d
@@ -117,7 +115,7 @@ groups:
         expr: |
           (
             sum(rate(http_requests_total{
-              endpoint=~"/health|/items",
+              endpoint=~"/health|/items|/items/\\{item_id\\}",
               method=~"GET|POST|DELETE",
               status=~"5.."
             }[5m]))
@@ -125,14 +123,9 @@ groups:
           )
           /
           sum(rate(http_requests_total{
-            endpoint=~"/health|/items",
+            endpoint=~"/health|/items|/items/\\{item_id\\}",
             method=~"GET|POST|DELETE"
           }[5m]))
-
-      # Error budget for error rate (1 - SLI)
-      - record: slo:error_rate:error_budget7d
-        expr: |
-          1 - slo:error_rate:ratio7d
 
       # Comparison with target (0.1% = 0.001)
       - record: slo:error_rate:target_ratio7d
@@ -141,4 +134,4 @@ groups:
       # Error budget burn (positive value = SLO violation)
       - record: slo:error_rate:error_budget_burn7d
         expr: |
-          slo:error_rate:error_budget7d - 0.001
+          slo:error_rate:actual_5xx_ratio7d - 0.001
