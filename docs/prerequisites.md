@@ -129,7 +129,7 @@ CI workflows are documented in [ci.md](ci.md).
 
 - GitHub Actions: workflow YAML, jobs, steps, secrets, matrix builds,
   service containers, artifact caching
-- Dependabot: pip, npm, docker, github-actions ecosystems
+- Renovate: automated dependency updates across all ecosystems (see docs/ci.md)
 
 ### Code Quality Tools
 
@@ -189,7 +189,7 @@ CI workflows are documented in [ci.md](ci.md).
 | Loki docs | <https://grafana.com/docs/loki/latest/> |
 | Grafana Alloy docs | <https://grafana.com/docs/alloy/latest/> |
 | GitHub Actions docs | <https://docs.github.com/en/actions> |
-| Dependabot docs | <https://docs.github.com/en/code-security/dependabot> |
+| Renovate docs | <https://docs.renovatebot.com/> |
 
 ### General
 

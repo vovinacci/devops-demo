@@ -18,13 +18,14 @@ structural changes.
 
 ## Repository map
 
-- `services/<name>/` -- self-contained services (own Dockerfile, Makefile,
-  README, tests). Nested `AGENTS.md` files there add module specifics.
-- `proto/` -- buf-managed Protobuf contracts.
-- `loadprofile/` -- shared load-shape definition + cross-language parity test.
-- `loadgen/` -- k6 scenarios.
-- `observability/` -- Prometheus, Grafana, Loki, Alloy, Alertmanager,
-  blackbox_exporter configs and dashboards (all provisioned from files).
+- `services/<name>/` -- self-contained services (own Dockerfile, README,
+  tests). Nested `AGENTS.md` files there add module specifics.
+- `proto/` (planned) -- buf-managed Protobuf contracts.
+- `loadprofile/` (planned) -- shared load-shape definition + parity test.
+- `loadgen/` (planned) -- k6 scenarios.
+- `observability/` -- Prometheus, Grafana, Loki, Alloy configs and
+  dashboards, all provisioned from files (Alertmanager and
+  blackbox_exporter arrive in later phases).
 - `deploy/compose/` -- Docker Compose (profiles: core + additive).
 - `docs/` -- rfc/, adr/, runbooks/, exercises/, ci.md, engineering-principles.md.
 
@@ -83,9 +84,10 @@ first, the diff second. Applies to human authors equally.
 - `make doctor` -- toolchain sanity (versions pinned in `.mise.toml`).
 - `make ci` -- exactly what CI runs (includes `prek run --all-files`).
   Local/CI divergence is a bug (engineering-principles.md Section 6).
-- Per-service: `make -C services/<name> build test lint`.
-- Full stack when relevant: `make up` (core), `make up-full`, `make seed`,
-  `make incident` / `make heal`.
+- Full stack when relevant: `make up`, `make seed`, `make test`.
+- Planned, not yet implemented (arrive with their RFC-0001 phases; do
+  not invoke today): `make -C services/<name> build test lint`,
+  `make up-full`, `make incident`, `make heal`, `make generate`.
 
 ## When unsure
 

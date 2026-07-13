@@ -72,15 +72,12 @@ The frontend implements a complete set of CRUD operations for managing items:
   - Error handling when fetching data
 
 - **Delete**
-  - Delete button for each item
-  - Deletion confirmation via confirm dialog
+  - Delete button for each item (no confirmation dialog)
   - DELETE request to `/items/{item_id}` endpoint
   - List update after deletion
 
-- **Update**
-  - Ability to edit existing items (if implemented)
-  - Validation of updated data
-  - PATCH or PUT request
+There is no Update operation: neither the UI nor the backend implements
+editing (no PUT/PATCH route).
 
 ### Web Vitals Metrics
 
@@ -165,10 +162,10 @@ Frontend is automatically built and started via `deploy/compose/docker-compose.y
 
 ```shell
 # Start only frontend service
-docker compose up -d web
+docker compose -f deploy/compose/docker-compose.yml --project-directory . up -d web
 
 # Or start all services
-docker compose up -d
+docker compose -f deploy/compose/docker-compose.yml --project-directory . up -d
 ```
 
 **Multi-stage build:**
@@ -411,7 +408,7 @@ make test-frontend
 1. **Ensure Node.js version matches in Dockerfile:**
 
    ```dockerfile
-   FROM node:20-alpine AS builder
+   FROM node:24-alpine AS builder
    ```
 
    Verify version matches local Node.js version.
@@ -430,7 +427,7 @@ make test-frontend
 4. **Check container logs:**
 
    ```shell
-   docker compose logs web
+   docker compose -f deploy/compose/docker-compose.yml --project-directory . logs web
    ```
 
 5. **Clear Docker cache if needed:**
@@ -485,14 +482,14 @@ make test-frontend
 2. **Check nginx configuration:**
 
    ```shell
-   docker compose exec web nginx -t
+   docker compose -f deploy/compose/docker-compose.yml --project-directory . exec web nginx -t
    # Should show: nginx: configuration file /etc/nginx/nginx.conf test is successful
    ```
 
 3. **Check nginx logs:**
 
    ```shell
-   docker compose logs web
+   docker compose -f deploy/compose/docker-compose.yml --project-directory . logs web
    ```
 
 4. **Verify static files are accessible:**
