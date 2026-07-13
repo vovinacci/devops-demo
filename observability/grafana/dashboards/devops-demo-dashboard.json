@@ -96,7 +96,6 @@
           "unit": "percentunit",
           "decimals": 4,
           "min": 0,
-          "max": 0.01,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -121,7 +120,7 @@
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
         },
         {
-          "expr": "slo:latency:error_budget7d",
+          "expr": "slo:latency:error_budget_burn7d",
           "legendFormat": "Latency Error Budget",
           "refId": "B",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
@@ -398,7 +397,7 @@
       "gridPos": { "x": 0, "y": 58, "w": 24, "h": 10 },
       "targets": [
         {
-          "expr": "{service_name!=\"\"} |~ \"(?i)(level=)?(warn|error|fatal|crit|panic|exception|failed|failure)\"",
+          "expr": "{container_name!=\"\"} |~ \"(?i)(level=)?(warn|error|fatal|crit|panic|exception|failed|failure)\"",
           "refId": "A",
           "datasource": { "type": "loki", "uid": "${DS_LOKI}" }
         }
