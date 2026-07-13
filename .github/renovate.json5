@@ -30,6 +30,15 @@
       matchUpdateTypes: ['minor', 'patch'],
       groupName: 'frontend',
     },
+    // Pin frontend npm ranges to exact versions: with caret ranges an
+    // in-range release needs no package.json change, so minor/patch
+    // updates never surfaced as PRs (npm ci reads the stale lockfile).
+    // Apps pin; ship pinned, run pinned (ADR-0009).
+    {
+      matchFileNames: ['services/frontend/**'],
+      matchManagers: ['npm'],
+      rangeStrategy: 'pin',
+    },
     {
       matchManagers: ['github-actions'],
       groupName: 'github-actions',
