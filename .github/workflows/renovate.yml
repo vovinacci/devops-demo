@@ -22,6 +22,15 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
+      - name: Require PR_PAT_TOKEN
+        env:
+          TOKEN: ${{ secrets.PR_PAT_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "PR_PAT_TOKEN secret is not configured (PAT with repo + workflow scope)" >&2
+            exit 1
+          fi
+
       - name: Run Renovate
         uses: renovatebot/github-action@b50d2ba2bd928235abdcc14d06dfafc217f1c565 # v46.1.18
         with:
