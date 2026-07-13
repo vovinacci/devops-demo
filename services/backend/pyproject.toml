@@ -39,7 +39,11 @@ packages = ["app"]
 [tool.pytest.ini_options]
 # Use auto mode for compatibility with anyio (Starlette)
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
+# One event loop for the whole suite: the engine (and its connection
+# pool) is module-global, and pooled asyncpg connections are bound to
+# the loop they were created on -- per-test loops would poison the pool
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 
 [tool.ruff]
 target-version = "py312"
