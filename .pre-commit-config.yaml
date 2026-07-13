@@ -91,7 +91,7 @@ repos:
         pass_filenames: false
   # Secret scanning (ADR-0011)
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.24.3
+    rev: v8.30.1
     hooks:
       - id: gitleaks
   # Shell linting: managed environments (pip wheel / Go module), no
