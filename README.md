@@ -38,8 +38,9 @@ devops-demo/
 │
 ├── scripts/                     # Doctor, toolchain drift gate
 ├── services/                    # Self-contained services (own Dockerfile,
-│   ├── backend/                 #   tests, README each)
-│   └── frontend/
+│   ├── backend/                 #   Makefile, tests, README each)
+│   ├── frontend/
+│   └── canary/                  # Rust synthetic-journey canary (synthetic profile)
 │
 ├── .devcontainer/               # Devcontainer / GitHub Codespaces setup
 ├── .env.example                 # Compose overrides template (see local-setup)
@@ -94,6 +95,7 @@ After successful startup, all services will be available at the following URLs:
 | **Loki**              | http://localhost:3100       | -           | API for accessing logs                                   |
 | **Postgres Exporter** | http://localhost:9187       | -           | PostgreSQL metrics in Prometheus format                  |
 | **cAdvisor**          | http://localhost:8081       | -           | Container and resource metrics                           |
+| **Canary**            | http://localhost:8085       | -           | Synthetic-journey canary (`synthetic` profile)           |
 
 For the full command list run `make help`.
 

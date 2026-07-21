@@ -8,6 +8,7 @@ set -uo pipefail
 # canonical toolchain versions live in .mise.toml (single source of truth)
 PYTHON_MINOR="$(sed -n 's/^python = "\(.*\)"/\1/p' .mise.toml)"
 NODE_MAJOR="$(sed -n 's/^node = "\(.*\)"/\1/p' .mise.toml)"
+RUST_MINOR="$(sed -n 's/^rust = "\(.*\)"/\1/p' .mise.toml)"
 MIN_RAM_GB=4
 MIN_DISK_GB=5
 
@@ -43,6 +44,7 @@ require_cmd docker "install Docker Desktop or OrbStack (macOS) / docker-ce (Linu
 require_cmd python3 "run 'mise install' (see .mise.toml) or install Python ${PYTHON_MINOR}"
 require_cmd node "run 'mise install' (see .mise.toml) or install Node ${NODE_MAJOR}"
 require_cmd npm "ships with Node; run 'mise install'"
+require_cmd cargo "run 'mise install' (see .mise.toml) or install Rust ${RUST_MINOR}"
 
 # --- docker daemon and compose v2 --------------------------------------
 if command -v docker >/dev/null 2>&1; then
@@ -74,6 +76,15 @@ if command -v node >/dev/null 2>&1; then
     pass "node ${nv}"
   else
     warn "node ${nv}, expected ${NODE_MAJOR}" "mise install, then activate mise in your shell: eval \"\$(mise activate zsh)\" in ~/.zshrc"
+  fi
+fi
+
+if command -v cargo >/dev/null 2>&1; then
+  rv="$(cargo --version | awk '{print $2}' | cut -d. -f1,2)"
+  if [ "$rv" = "$RUST_MINOR" ]; then
+    pass "cargo (rust ${rv})"
+  else
+    warn "rust ${rv}, expected ${RUST_MINOR}" "mise install, then activate mise in your shell: eval \"\$(mise activate zsh)\" in ~/.zshrc"
   fi
 fi
 

@@ -30,6 +30,11 @@
       matchUpdateTypes: ['minor', 'patch'],
       groupName: 'frontend',
     },
+    {
+      matchFileNames: ['services/canary/**'],
+      matchUpdateTypes: ['minor', 'patch'],
+      groupName: 'canary',
+    },
     // Pin frontend npm ranges to exact versions: with caret ranges an
     // in-range release needs no package.json change, so minor/patch
     // updates never surfaced as PRs (npm ci reads the stale lockfile).

@@ -9,6 +9,7 @@ Platform support: macOS and Linux only.
 
 - [Backend](#backend)
 - [Frontend](#frontend)
+- [Canary](#canary)
 - [Infrastructure](#infrastructure)
 - [Learning Resources](#learning-resources)
 
@@ -97,6 +98,37 @@ Platform support: macOS and Linux only.
 
 ---
 
+## Canary
+
+### Rust
+
+- Ownership, borrowing, lifetimes; `Option`/`Result` and `?`
+- `async`/`await` on Tokio; tasks, `select!`, graceful shutdown
+- Traits, generics, `impl Trait`
+
+### axum + tokio
+
+- Router, extractors (`State`), handlers returning `IntoResponse`
+- Shared state via `Arc`; `axum::serve` with graceful shutdown
+
+### Observability in Rust
+
+- `prometheus` crate: `Registry`, `CounterVec`/`HistogramVec`/`Gauge`
+- `tracing` + `tracing-subscriber` (JSON layer); `tracing-opentelemetry`
+  and W3C trace-context propagation (see ADR-0010)
+
+### Canary Testing
+
+- `wiremock`: mock HTTP servers for integration tests, no real network
+- `#[tokio::test]` async test functions
+
+### Canary Code Quality
+
+- `cargo fmt`, `cargo clippy -D warnings`
+- `cargo-deny`: license/advisory/source policy (`services/canary/deny.toml`)
+
+---
+
 ## Infrastructure
 
 ### Docker
@@ -177,6 +209,18 @@ CI workflows are documented in [ci.md](ci.md).
 | Vitest docs | <https://vitest.dev/> |
 | React Testing Library | <https://testing-library.com/docs/react-testing-library/intro/> |
 | Web Vitals | <https://web.dev/vitals/> |
+
+### Canary resources
+
+| Topic | Link |
+| --- | --- |
+| The Rust Book | <https://doc.rust-lang.org/book/> |
+| Tokio docs | <https://tokio.rs/tokio/tutorial> |
+| axum docs | <https://docs.rs/axum/latest/axum/> |
+| tracing docs | <https://docs.rs/tracing/latest/tracing/> |
+| OpenTelemetry Rust | <https://opentelemetry.io/docs/languages/rust/> |
+| wiremock docs | <https://docs.rs/wiremock/latest/wiremock/> |
+| cargo-deny docs | <https://embarkstudios.github.io/cargo-deny/> |
 
 ### Infrastructure resources
 

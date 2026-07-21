@@ -104,7 +104,7 @@ seed-dry: ## Dry run seed (show what will be created)
 ##@ Testing
 
 .PHONY: test
-test: test-backend test-frontend ## Run all tests (backend + frontend)
+test: test-backend test-frontend test-canary ## Run all tests (backend + frontend + canary)
 
 .PHONY: test-backend
 test-backend: ## Run backend tests locally via virtualenv
@@ -169,10 +169,15 @@ test-frontend: ## Run frontend unit tests
 	cd services/frontend && ([ -d node_modules ] && [ -f node_modules/.bin/vitest ] || npm install)
 	cd services/frontend && npm run test
 
+.PHONY: test-canary
+test-canary: ## Run canary tests (Rust toolchain from mise -- see .mise.toml)
+	$(PRINT_TARGET)
+	$(MAKE) -C services/canary test
+
 ##@ Code Quality
 
 .PHONY: lint
-lint: lint-infra lint-backend type-check lint-frontend ## Code quality check for entire project (backend + frontend + infra)
+lint: lint-infra lint-backend type-check lint-frontend lint-canary ## Code quality check for entire project (backend + frontend + canary + infra)
 
 .PHONY: lint-backend
 lint-backend: ## Backend code quality check via ruff
@@ -184,6 +189,11 @@ lint-frontend: ## Frontend code quality check via eslint
 	$(PRINT_TARGET)
 	cd services/frontend && ([ -d node_modules ] && [ -f node_modules/.bin/eslint ] || npm install)
 	cd services/frontend && npm run lint
+
+.PHONY: lint-canary
+lint-canary: ## Canary code quality check via cargo fmt + clippy (Rust toolchain from mise)
+	$(PRINT_TARGET)
+	$(MAKE) -C services/canary lint
 
 .PHONY: lint-infra
 lint-infra: ## CI: Infrastructure validation via prek hooks (single source of truth)
@@ -243,12 +253,14 @@ build-images: ## Build Docker images
 	$(PRINT_TARGET)
 	docker build -t devops-demo-backend:latest ./services/backend
 	docker build -t devops-demo-frontend:latest ./services/frontend
+	docker build -t devops-demo-canary:latest ./services/canary
 
 .PHONY: image-sizes
-image-sizes: build-images ## Display Docker image sizes
+image-sizes: build-images ## Display Docker image sizes (the canary vs the rest is the D9 "costs less" exhibit)
 	$(PRINT_TARGET)
 	docker images devops-demo-backend:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
 	docker images devops-demo-frontend:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
+	docker images devops-demo-canary:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
 
 ##@ Frontend
 

@@ -22,11 +22,15 @@ scrape_configs:
   - job_name: "alloy"
     static_configs: [{ targets: ["alloy:9080"] }]
 
-  # synthetic profile only (ADR-0007 D9, ADR-0008 D10): blackbox and the
-  # blackbox_http targets below show "down" on the Prometheus targets page
-  # when `synthetic` is not up -- expected, documented degradation.
+  # synthetic profile only (ADR-0007 D9, ADR-0008 D10): blackbox, canary,
+  # and the blackbox_http targets below show "down" on the Prometheus
+  # targets page when `synthetic` is not up -- expected, documented
+  # degradation.
   - job_name: "blackbox"
     static_configs: [{ targets: ["blackbox:9115"] }]
+
+  - job_name: "canary"
+    static_configs: [{ targets: ["canary:8080"] }]
 
   - job_name: "blackbox_http"
     metrics_path: /probe
@@ -44,6 +48,9 @@ scrape_configs:
           - http://loki:3100/ready
           - http://alloy:9080/-/ready
           - http://cadvisor:8080/healthz
+          # blackbox watching the watcher: the synthetic layer's own
+          # liveness, probed from the outside like every other service
+          - http://canary:8080/healthz
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
