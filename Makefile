@@ -177,7 +177,7 @@ test-canary: ## Run canary tests (Rust toolchain from mise -- see .mise.toml)
 ##@ Code Quality
 
 .PHONY: lint
-lint: lint-infra lint-backend type-check lint-frontend lint-canary ## Code quality check for entire project (backend + frontend + canary + infra)
+lint: lint-infra lint-backend type-check lint-frontend lint-canary lint-proto ## Code quality check for entire project (backend + frontend + canary + proto + infra)
 
 .PHONY: lint-backend
 lint-backend: ## Backend code quality check via ruff
@@ -194,6 +194,12 @@ lint-frontend: ## Frontend code quality check via eslint
 lint-canary: ## Canary code quality check via cargo fmt + clippy (Rust toolchain from mise)
 	$(PRINT_TARGET)
 	$(MAKE) -C services/canary lint
+
+.PHONY: lint-proto
+lint-proto: ## proto/ code quality check via buf lint + buf format --diff
+	$(PRINT_TARGET)
+	cd proto && buf lint
+	cd proto && buf format --diff --exit-code
 
 .PHONY: lint-infra
 lint-infra: ## CI: Infrastructure validation via prek hooks (single source of truth)

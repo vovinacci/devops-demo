@@ -10,6 +10,7 @@ Platform support: macOS and Linux only.
 - [Backend](#backend)
 - [Frontend](#frontend)
 - [Canary](#canary)
+- [Proto](#proto)
 - [Infrastructure](#infrastructure)
 - [Learning Resources](#learning-resources)
 
@@ -129,6 +130,32 @@ Platform support: macOS and Linux only.
 
 ---
 
+## Proto
+
+The `proto/` module (ADR-0002) is the single cross-service source of truth
+for the backend/analytics gRPC contract.
+
+### buf
+
+- Install via `mise install` (pinned in `.mise.toml`); verify with
+  `make doctor`
+- `buf.yaml`: module config, lint rules, breaking-change category
+- `buf.gen.yaml`: codegen plugin config (per-language, generate-in-build --
+  RFC-0001 D8)
+- Commands: `buf lint`, `buf format`, `buf build`, `buf breaking`,
+  `buf generate`
+
+### Protobuf / gRPC
+
+- proto3 syntax: messages, enums, services, well-known types
+  (`google.protobuf.Timestamp`)
+- proto3 field presence: default values vs "unset" (see items.proto
+  comments for the discipline used here)
+- Unary vs server-streaming RPCs; connection direction vs data direction
+  (ADR-0002)
+
+---
+
 ## Infrastructure
 
 ### Docker
@@ -209,6 +236,14 @@ CI workflows are documented in [ci.md](ci.md).
 | Vitest docs | <https://vitest.dev/> |
 | React Testing Library | <https://testing-library.com/docs/react-testing-library/intro/> |
 | Web Vitals | <https://web.dev/vitals/> |
+
+### Proto resources
+
+| Topic | Link |
+| --- | --- |
+| Protobuf docs | <https://protobuf.dev/> |
+| gRPC docs | <https://grpc.io/docs/> |
+| buf docs | <https://buf.build/docs/> |
 
 ### Canary resources
 

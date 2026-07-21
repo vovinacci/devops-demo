@@ -1,0 +1,14 @@
+version: v2
+modules:
+  - path: .
+lint:
+  use:
+    - STANDARD
+  except:
+    # ItemEvent is a domain event type streamed by WatchItemEvents, named
+    # to match RFC-0001 D3 / ADR-0002 verbatim, not a per-RPC response
+    # wrapper -- deliberate, single exception, not a blanket relaxation.
+    - RPC_RESPONSE_STANDARD_NAME
+breaking:
+  use:
+    - FILE

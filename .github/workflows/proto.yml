@@ -1,0 +1,71 @@
+name: Proto
+
+# buf lint + format + breaking-change detection on the proto/ module
+# (RFC-0001 D3/D12, ADR-0002). No BSR push: this repo does not publish to
+# the Buf Schema Registry.
+
+on:
+  pull_request:
+    paths:
+      - "proto/**"
+      - ".github/workflows/proto.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "proto/**"
+      - ".github/workflows/proto.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  lint-proto:
+    name: Lint + format proto
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: buf lint + format
+        uses: bufbuild/buf-action@fd21066df7214747548607aaa45548ba2b9bc1ff # v1.4.0
+        with:
+          version: "1.72.0" # keep in sync with .mise.toml (buf = "1.72")
+          input: proto
+          breaking: false
+          push: false
+
+  breaking-proto:
+    name: buf breaking (against main)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+
+      # main has no proto/ module until this PR merges -- `buf breaking`
+      # against a ref where the module path does not exist errors rather
+      # than skips, so check the baseline first. This guard becomes a
+      # no-op the moment this PR merges (every later PR sees proto/ on
+      # main) and can be removed once that history is old enough to trust.
+      - name: Check baseline exists on main
+        id: baseline
+        run: |
+          if git ls-tree origin/main --name-only | grep -q '^proto$'; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "no proto/ on main yet (first PR) -- skipping buf breaking"
+          fi
+
+      - name: buf breaking
+        if: steps.baseline.outputs.exists == 'true'
+        uses: bufbuild/buf-action@fd21066df7214747548607aaa45548ba2b9bc1ff # v1.4.0
+        with:
+          version: "1.72.0" # keep in sync with .mise.toml (buf = "1.72")
+          input: proto
+          lint: false
+          format: false
+          breaking_against: ".git#branch=main,subdir=proto"
+          push: false
