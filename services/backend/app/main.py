@@ -5,12 +5,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import PlainTextResponse
 
+from app import otel
 from app.crud import create_item, delete_item, list_items
 from app.deps import get_db
 from app.grpc_server import start_grpc_server
@@ -21,9 +23,26 @@ from app.schemas import ItemCreate, ItemOut
 # construction, anything else from the network is rejected
 ALLOWED_WEB_VITALS = {"CLS", "FCP", "INP", "LCP", "TTFB"}
 
-# Logging configuration
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+# Logging configuration. trace_id (RFC-0001 D11/ADR-0010): 32 hex chars,
+# all zeros when the log line was not emitted inside a span -- see
+# app.otel.TraceIdFilter. Still plain text, not JSON (D6 debt, deferred;
+# see services/backend/README.md).
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s [trace_id=%(trace_id)s]",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger(__name__)
+
+otel.setup_tracing()
+otel.install_trace_id_log_filter()
+
+# Health/metrics endpoints excluded from span creation (D11): healthcheck
+# and scrape spam has no diagnostic value and would dominate whatever a
+# future Tempo instance samples. Comma-separated regexes matched with
+# search() against the full URL -- end-anchored so bare "/metrics" does
+# not also swallow the real POST /metrics/frontend web-vitals route.
+_OTEL_EXCLUDED_URLS = "/healthz$,/readyz$,/health$,/metrics$"
 
 
 @asynccontextmanager
@@ -42,6 +61,10 @@ app = FastAPI(title="DevOps Demo API", lifespan=lifespan)
 
 # CORS for frontend
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+# W3C trace-context extraction from incoming HTTP headers (D11) -- the
+# canary already sends `traceparent` on every journey call.
+FastAPIInstrumentor.instrument_app(app, excluded_urls=_OTEL_EXCLUDED_URLS)
 
 
 def _endpoint_label(request: Request) -> str:
