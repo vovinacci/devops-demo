@@ -16,7 +16,7 @@ import (
 // process from dying on a startup race.
 func Connect(ctx context.Context, databaseURL string, attempts int, delay time.Duration) (*pgxpool.Pool, error) {
 	var lastErr error
-	for i := 0; i < attempts; i++ {
+	for i := range attempts {
 		pool, err := pgxpool.New(ctx, databaseURL)
 		if err != nil {
 			lastErr = err
