@@ -23,8 +23,11 @@ async def create_item(db: AsyncSession, data: ItemCreate) -> Item:
     item = Item(name=data.name)
     db.add(item)
     try:
+        # flush assigns the primary key while still inside the transaction;
+        # expire_on_commit=False keeps the attributes live after commit, so
+        # no post-commit refresh roundtrip is needed
+        await db.flush()
         await db.commit()
-        await db.refresh(item)
     except IntegrityError:
         await db.rollback()
         raise
@@ -36,11 +39,13 @@ async def create_item(db: AsyncSession, data: ItemCreate) -> Item:
 
 async def delete_item(db: AsyncSession, item_id: int) -> bool:
     try:
-        item = await db.get(Item, item_id)
-        if item is None:
+        # single atomic DELETE .. RETURNING: no get-then-delete window, so
+        # concurrent deletes of the same row publish exactly one event
+        res = await db.execute(delete(Item).where(Item.id == item_id).returning(Item.name))
+        name = res.scalar_one_or_none()
+        if name is None:
+            await db.rollback()
             return False
-        name = item.name
-        await db.execute(delete(Item).where(Item.id == item_id))
         await db.commit()
     except Exception:
         await db.rollback()

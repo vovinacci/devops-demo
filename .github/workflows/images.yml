@@ -39,6 +39,10 @@ jobs:
             extra_build_args: ""
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          # build+scan only, no pushes back -- do not leave the token in
+          # the local git config
+          persist-credentials: false
 
       - name: Build image
         run: |

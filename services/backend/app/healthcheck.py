@@ -16,14 +16,16 @@ GRPC_PORT = int(os.getenv("GRPC_PORT", "50051"))
 
 def main() -> int:
     try:
-        urllib.request.urlopen("http://localhost:8000/healthz", timeout=5)
+        # both checks run sequentially inside the Docker healthcheck's 10s
+        # budget -- keep the sum of timeouts safely below it
+        urllib.request.urlopen("http://localhost:8000/healthz", timeout=3)
     except Exception:
         return 1
 
     try:
         channel = grpc.insecure_channel(f"localhost:{GRPC_PORT}")
         stub = health_pb2_grpc.HealthStub(channel)
-        resp = stub.Check(health_pb2.HealthCheckRequest(service=""), timeout=5)
+        resp = stub.Check(health_pb2.HealthCheckRequest(service=""), timeout=3)
     except Exception:
         return 1
     return 0 if resp.status == health_pb2.HealthCheckResponse.SERVING else 1

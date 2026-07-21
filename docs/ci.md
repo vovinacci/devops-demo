@@ -74,8 +74,8 @@ compatible).
   (RFC-0001 D6).
 - **No committed generated code (backend):** a `git ls-files
   'services/backend/app/proto_gen/*'` check fails the pipeline if
-  anything under the generate-in-build gRPC stub directory was ever
-  committed (RFC-0001 D8, ADR-0002 -- Hard rule 1). `make generate` then
+  anything under the generate-in-build gRPC stub directory is currently
+  tracked by git (RFC-0001 D8, ADR-0002 -- Hard rule 1). `make generate` then
   runs before tests, since the backend imports the generated stubs at
   module load time.
 - **buf lint + format + breaking (proto/):** `bufbuild/buf-action` runs

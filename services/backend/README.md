@@ -113,7 +113,7 @@ the documented at-most-once-when-disconnected gap.
 
 ```shell
 make venv-install        # from the repo root: creates services/backend/.venv
-source .venv/bin/activate
+source services/backend/.venv/bin/activate
 make generate             # from the repo root: regenerate gRPC stubs
 make test-backend         # from the repo root
 make lint-backend type-check

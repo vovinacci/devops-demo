@@ -104,6 +104,7 @@ seed-dry: ## Dry run seed (show what will be created)
 .PHONY: generate
 generate: ## Generate gRPC/protobuf Python stubs into services/backend/app/proto_gen (never committed -- RFC-0001 D8, ADR-0002)
 	$(PRINT_TARGET)
+	rm -rf services/backend/app/proto_gen
 	mkdir -p services/backend/app/proto_gen
 	python -m grpc_tools.protoc -I proto \
 		--python_out=services/backend/app/proto_gen \
