@@ -85,9 +85,9 @@ ENV PATH=/home/appuser/.local/bin:$PATH
 USER appuser
 
 # Health check for Docker/Kubernetes
-# Checks availability of /health endpoint
+# Checks availability of /healthz endpoint (liveness)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')" || exit 1
 
 # Expose port
 EXPOSE 8000
