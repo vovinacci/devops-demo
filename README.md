@@ -36,6 +36,11 @@ devops-demo/
 │   ├── loki/                    # Loki configuration
 │   └── alloy/                   # Grafana Alloy configuration
 │
+├── proto/                       # buf module -- cross-service gRPC contract (ADR-0002)
+│   ├── buf.yaml                 # Module config: lint rules, breaking-change category
+│   ├── buf.gen.yaml             # Codegen plugin config (generate-in-build, never committed)
+│   └── devopsdemo/items/v1/     # devopsdemo.items.v1: ItemService (backend serves)
+│
 ├── scripts/                     # Doctor, toolchain drift gate
 ├── services/                    # Self-contained services (own Dockerfile,
 │   ├── backend/                 #   Makefile, tests, README each)

@@ -15,6 +15,7 @@ flowchart LR
     pr --> be["backend.yml<br/>lint + test<br/>(services/backend/** only)"]
     pr --> fe["frontend.yml<br/>lint + test<br/>(services/frontend/** only)"]
     pr --> ca["canary.yml<br/>lint + test + audit + image build<br/>(services/canary/** only)"]
+    pr --> proto["proto.yml<br/>buf lint + format + breaking<br/>(proto/** only)"]
     pr --> img["images.yml<br/>docker build + Trivy<br/>(services/** only)"]
     merge[Squash-merge to main] --> rp["release-please.yml<br/>maintains release PR"]
     rp -->|release PR merged| rel["release.yml<br/>tag + publish (placeholder)"]
@@ -26,6 +27,7 @@ flowchart LR
 | backend.yml        | services/backend/** changes        | ruff + mypy, pytest against real Postgres       |
 | frontend.yml       | services/frontend/** changes       | eslint, vitest                                  |
 | canary.yml         | services/canary/** changes         | fmt + clippy, cargo test, cargo-deny, image     |
+| proto.yml          | proto/** changes                   | buf lint + format, buf breaking (against main)  |
 | images.yml         | services/**, deploy/compose/**     | docker build + Trivy scan per service (matrix)  |
 | release-please.yml | push to main                       | maintain release PR from commit history         |
 | release.yml        | release published                  | placeholder (image publishing comes later)      |
@@ -70,9 +72,17 @@ compatible).
   the canary -- the first of the per-service audits; `pip-audit`,
   `govulncheck`, and OWASP dependency-check arrive with their services
   (RFC-0001 D6).
-- **Planned (later phases):** `buf lint` + `buf breaking` on proto/,
-  load-profile parity test, compose e2e stage with k6 thresholds, nightly
-  full-profile workflow.
+- **buf lint + format + breaking (proto/):** `bufbuild/buf-action` runs
+  `buf lint` and `buf format --diff` on every proto/ change, plus
+  `buf breaking` against the `main` branch baseline on pull requests
+  (RFC-0001 D3/D12, ADR-0002). Baseline guard: `main` has no `proto/`
+  module until this gate's own PR merges, and `buf breaking` against a ref
+  where the module path does not exist errors rather than skips -- a shell
+  step checks `git ls-tree origin/main -- proto` first and skips the
+  breaking step cleanly when absent. The guard becomes a permanent no-op
+  once `proto/` exists on `main` (every later PR sees it).
+- **Planned (later phases):** load-profile parity test, compose e2e stage
+  with k6 thresholds, nightly full-profile workflow.
 
 ## Releases
 

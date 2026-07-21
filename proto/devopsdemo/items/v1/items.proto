@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package devopsdemo.items.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Item mirrors services/backend/app/models.py::Item -- the backend
+// Postgres row is the source of truth (ADR-0002); this message is not an
+// independent schema. id is int64 though the column is a 32-bit serial
+// today: a future bigint migration must not be a wire-breaking change.
+message Item {
+  int64 id = 1;
+  string name = 2;
+}
+
+message ListItemsRequest {}
+
+message ListItemsResponse {
+  repeated Item items = 1;
+}
+
+message GetItemStatsRequest {}
+
+// v1 minimal snapshot metric (RFC-0001 Phase 2 handoff): extend with new
+// fields as analytics needs grow, never repurpose total_items.
+message GetItemStatsResponse {
+  int64 total_items = 1;
+}
+
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+  EVENT_TYPE_CREATED = 1;
+  // No backend producer emits this yet (no PUT endpoint) -- included
+  // ahead of the producer, contract-first (RFC-0001 Phase 2 handoff).
+  EVENT_TYPE_UPDATED = 2;
+  EVENT_TYPE_DELETED = 3;
+}
+
+// Item is always the full row state at event time, including for
+// EVENT_TYPE_DELETED (the last known state before removal) -- this
+// avoids proto3's zero-value-vs-unset ambiguity on Item.name (RFC-0001
+// Section 11 risk) without needing explicit field presence tracking.
+message ItemEvent {
+  EventType event_type = 1;
+  Item item = 2;
+  google.protobuf.Timestamp event_time = 3;
+}
+
+message WatchItemEventsRequest {}
+
+// Backend serves, analytics dials (ADR-0002): backend never dials out
+// and has zero awareness of connected consumers. WatchItemEvents is
+// transport-level, at-most-once -- events emitted while no consumer is
+// connected are unrecoverable by design; ListItems is the reconcile
+// snapshot a client pulls on (re)connect (ADR-0002 reconnect sequence).
+service ItemService {
+  rpc ListItems(ListItemsRequest) returns (ListItemsResponse);
+  rpc GetItemStats(GetItemStatsRequest) returns (GetItemStatsResponse);
+  rpc WatchItemEvents(WatchItemEventsRequest) returns (stream ItemEvent);
+}
