@@ -24,11 +24,14 @@ devops-demo/
 ├── docs/                        # Documentation (see index below)
 │   ├── adr/                     # Architecture Decision Records
 │   ├── rfc/                     # Request for Comments -- design documents
-│   └── exercises/               # Student exercises
+│   ├── exercises/               # Student exercises
+│   └── runbooks/                # Alert runbooks (meaning, triage, remediation)
 │
 ├── observability/               # Observability configuration
 │   ├── prometheus.yml           # Prometheus configuration
-│   ├── prometheus_slo_rules.yml # SLO rules
+│   ├── prometheus_slo_rules.yml # SLO recording rules
+│   ├── prometheus_alerts.yml    # Alerting rules
+│   ├── blackbox/                # blackbox_exporter config (synthetic profile)
 │   ├── grafana/                 # Dashboards (JSON) + provisioning
 │   ├── loki/                    # Loki configuration
 │   └── alloy/                   # Grafana Alloy configuration

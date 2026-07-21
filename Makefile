@@ -40,16 +40,21 @@ up: ## Start all services
 	$(PRINT_TARGET)
 	$(COMPOSE) up -d --build
 
-.PHONY: down
-down: ## Stop all services
+.PHONY: up-full
+up-full: ## Start all services incl. optional profiles
 	$(PRINT_TARGET)
-	$(COMPOSE) down
+	$(COMPOSE) --profile synthetic up -d --build
+
+.PHONY: down
+down: ## Stop all services (all profiles; plain "compose down" skips profile-scoped ones)
+	$(PRINT_TARGET)
+	$(COMPOSE) --profile "*" down
 
 .PHONY: clean
 clean: down ## Complete project cleanup (containers, images, volumes, networks, local artifacts)
 	$(PRINT_TARGET)
 	@echo "Stopping and removing containers..."
-	-$(COMPOSE) down -v --remove-orphans
+	-$(COMPOSE) --profile "*" down -v --remove-orphans
 	@echo "Removing project images..."
 	-docker images --filter "reference=devops-demo*" -q | xargs docker rmi -f
 	-docker images --filter "reference=*devops-demo*" -q | xargs docker rmi -f

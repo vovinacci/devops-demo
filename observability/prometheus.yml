@@ -2,9 +2,10 @@ global:
   scrape_interval: 15s
   evaluation_interval: 30s
 
-# Recording rules for SLO
+# Recording rules for SLO, alerting rules
 rule_files:
   - /etc/prometheus/prometheus_slo_rules.yml
+  - /etc/prometheus/prometheus_alerts.yml
 
 scrape_configs:
   - job_name: "prometheus"
@@ -20,3 +21,33 @@ scrape_configs:
     static_configs: [{ targets: ["loki:3100"] }]
   - job_name: "alloy"
     static_configs: [{ targets: ["alloy:9080"] }]
+
+  # synthetic profile only (ADR-0007 D9, ADR-0008 D10): blackbox and the
+  # blackbox_http targets below show "down" on the Prometheus targets page
+  # when `synthetic` is not up -- expected, documented degradation.
+  - job_name: "blackbox"
+    static_configs: [{ targets: ["blackbox:9115"] }]
+
+  - job_name: "blackbox_http"
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          # liveness and readiness both probed -- deliberate, teaching:
+          # they diverge under degraded-but-alive conditions
+          - http://api:8000/healthz
+          - http://api:8000/readyz
+          - http://web:80/
+          - http://grafana:3000/api/health
+          - http://prometheus:9090/-/healthy
+          - http://loki:3100/ready
+          - http://alloy:9080/-/ready
+          - http://cadvisor:8080/healthz
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
