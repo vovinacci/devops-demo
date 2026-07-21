@@ -2,10 +2,70 @@
 
 Go analytics service (RFC-0001 D1, ADR-0005) -- event ingestion,
 aggregation, retention, and historical seed, with its own Postgres
-instance. This PR (`feat/analytics-scaffold`) ships the scaffold only:
-HTTP surface, database, migrations, Docker/CI/compose wiring. The gRPC
-client that actually ingests events from the backend lands in
-`feat/analytics-ingest` (RFC-0001 Phase 3 PR-B).
+instance. Ships the HTTP surface, database, migrations, Docker/CI/compose
+wiring (`feat/analytics-scaffold`) and the gRPC ingest client
+(`feat/analytics-ingest`, RFC-0001 Phase 3 PR-B, ADR-0002): backend
+serves, analytics dials.
+
+## Ingest (RFC-0001 Phase 3 PR-B, ADR-0002)
+
+`internal/ingest` owns the connection to the backend and all reconnect
+logic (the backend never dials out and has zero awareness of connected
+consumers):
+
+1. Dial `ANALYTICS_BACKEND_GRPC_ADDR` (a fresh gRPC connection every
+   cycle, including reconnects -- matches the ADR-0002 sequence diagram's
+   repeated "dial" step rather than relying on gRPC-go's own transparent
+   transport reconnection).
+2. `ListItems` snapshot -> reconcile into `current_items` (upsert every
+   returned item, tombstone every row missing from the snapshot that
+   isn't already tombstoned). This recovers **state**, not missed
+   **events**: intermediate updates and create/delete churn during a
+   disconnect are unrecoverable by design, and the resulting event-count
+   aggregate dip in `event_buckets` stays visible (ADR-0002) -- reconcile
+   never synthesizes rows into `item_events` or `event_buckets`.
+3. Resume `WatchItemEvents`: each event lands a raw `item_events` row
+   (idempotent `ON CONFLICT (item_id, event_type, event_time) DO
+   NOTHING` -- forward-note: two DISTINCT same-type events sharing an
+   exact microsecond `event_time` would silently dedupe too, accepted at
+   demo scale), an hourly `event_buckets` upsert keyed on
+   `date_trunc('hour', event_time, 'UTC')` (**event time, never arrival
+   time** -- Hard rule 7; the explicit `'UTC'` third argument keeps the
+   truncation independent of the connection's session timezone)
+   incremented only when the raw insert was genuinely new (never on a
+   deduplicated replay), and a `current_items` state update (idempotent,
+   last-event-time-wins so an out-of-order older event can't clobber
+   more-recent state, harmless on replays regardless of the item_events
+   dedup outcome).
+4. On any error (dial, snapshot, or stream): exponential backoff +
+   jitter (`ANALYTICS_INGEST_BACKOFF_BASE`/`_MAX`, equal-jitter,
+   env-tunable) and back to step 1.
+
+Metrics (`/metrics`): `analytics_stream_connected` (0/1 gauge),
+`analytics_last_event_time_seconds` (gauge, the degenerate single-source
+watermark, ADR-0005 D1), `analytics_events_ingested_total{event_type}`,
+`analytics_events_deduplicated_total`, `analytics_reconnects_total`,
+`analytics_snapshot_reconciles_total`, `analytics_snapshot_items`.
+
+Tracing: one OTel span per reconnect cycle
+(`analytics.ingest.cycle`), with every log line in that cycle carrying
+its `trace_id` (`internal/logging`); outbound `ListItems`/
+`WatchItemEvents` calls carry W3C trace context via a small manual
+gRPC client interceptor (no `otelgrpc` dependency for two RPC shapes).
+
+## Read API (`/api/v1`)
+
+- `GET /api/v1/items/{item_id}` -- `current_items` row as JSON
+  (`item_id`, `name`, `first_seen`, `last_seen`, `tombstoned`). A row
+  becomes known only via `WatchItemEvents` ingestion or a `ListItems`
+  snapshot reconcile, never synthesized by this handler -- the canary v2
+  pipeline-lag step polls this endpoint after creating an item, so
+  "known" genuinely measures gRPC ingestion progress. `404` means never
+  seen; a deleted-but-once-seen item still returns `200` with
+  `tombstoned: true`, distinct from unknown.
+- `GET /api/v1/stats` -- `event_buckets` totals by `event_type` over the
+  last 24h, a cheap aggregate read (not a report -- real reporting is the
+  Kotlin reports service, a later phase).
 
 ## Semantics (ADR-0005)
 
@@ -18,12 +78,12 @@ client that actually ingests events from the backend lands in
   its bucket; there is no completeness decision to make, so no watermark
   machinery exists.
 - **The current bucket is always partial.** Reports read up to the last
-  *closed* bucket. "Completeness" is approximated by stream-connection
-  liveness and last-received-event-time gauges (arriving with PR-B) --
-  the same signal the canary's pipeline-lag metric measures.
+  *closed* bucket. "Completeness" is approximated by the
+  `analytics_stream_connected` and `analytics_last_event_time_seconds`
+  gauges -- the same signal the canary's pipeline-lag metric measures.
 - **Readiness is database-only.** `/readyz` pings Postgres and nothing
-  else. Upstream gRPC stream health (PR-B) is a metrics/alerting concern,
-  not a readiness concern -- a disconnected stream must not take the HTTP
+  else. Upstream gRPC stream health is a metrics/alerting concern, not a
+  readiness concern -- a disconnected stream must not take the HTTP
   surface out of rotation (RFC-0001 D10 graceful degradation, mirroring
   the canary's own readyz discipline).
 
@@ -43,7 +103,8 @@ client that actually ingests events from the backend lands in
 - `/readyz` -- readiness = Postgres reachable (see Semantics above).
 - `/metrics` -- Prometheus exposition format: Go runtime/process metrics
   plus `analytics_db_up` (mirrors the last `/readyz` outcome as a
-  whitebox metric). Stream/ingest metrics arrive with PR-B.
+  whitebox metric) and the ingest metrics listed above.
+- `/api/v1/items/{item_id}`, `/api/v1/stats` -- ingest read API, see above.
 
 ## Environment variables
 
@@ -51,6 +112,9 @@ client that actually ingests events from the backend lands in
 | -------- | ------- | ------- |
 | `ANALYTICS_HTTP_ADDR` | `:8082` | HTTP listen address |
 | `ANALYTICS_DATABASE_URL` | `postgres://analytics:analytics@localhost:5433/analytics?sslmode=disable` | Postgres connection string (own instance, ADR-0005) |
+| `ANALYTICS_BACKEND_GRPC_ADDR` | `localhost:50051` | Backend `ItemService` gRPC target analytics dials (ADR-0002); compose sets this to `api:50051` |
+| `ANALYTICS_INGEST_BACKOFF_BASE` | `1s` | Reconnect backoff base delay (Go duration syntax) |
+| `ANALYTICS_INGEST_BACKOFF_MAX` | `30s` | Reconnect backoff cap (Go duration syntax) |
 
 ## Database
 
@@ -69,6 +133,8 @@ before the HTTP server starts serving.
 `0001_init`: `item_events` (raw stream, unique on `(item_id, event_type,
 event_time)` so re-reconcile after a stream reconnect is idempotent) and
 `event_buckets` (hourly aggregates, mutable upserts -- see Semantics).
+`0002_current_items`: `current_items` (reconcile target and read-API
+backing store, see Ingest above).
 
 ## Logs and tracing
 
@@ -81,8 +147,9 @@ trace-context propagation set globally, HTTP handlers instrumented via
 `otelhttp` (healthz/readyz/metrics excluded -- polled every few seconds,
 never worth a span). No exporter is configured: spans are generated and
 propagated, then dropped, until the trace backend (Tempo) lands
-(RFC-0001 Section 10). gRPC-metadata trace propagation becomes live with
-the client in PR-B.
+(RFC-0001 Section 10). The ingest client's outbound `ListItems`/
+`WatchItemEvents` calls carry that same W3C context via gRPC metadata
+(see Ingest above).
 
 ## Development
 
@@ -131,8 +198,5 @@ Runs as the image's built-in non-root user.
 
 ## Roadmap
 
-- **PR-B** (`feat/analytics-ingest`): gRPC client dialing
-  `backend:50051`, snapshot reconcile + `WatchItemEvents` stream,
-  event-time bucket upserts, stream/ingest metrics, read API.
 - **PR-C** (`feat/analytics-retention`): aggregate-then-delete raw events
   older than N days (ADR-0005 D7).

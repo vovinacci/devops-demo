@@ -218,9 +218,12 @@ services:
       - devnet
     restart: unless-stopped
 
-  # analytics profile (RFC-0001 D1): the Go analytics service. Scaffold
-  # only in this PR -- no gRPC client yet (PR-B), so it has nothing to
-  # ingest from the backend and no dependency on `api` here.
+  # analytics profile (RFC-0001 D1): the Go analytics service. Ships the
+  # gRPC ingest client (RFC-0001 Phase 3 PR-B): dials the backend's
+  # ItemService and reconnects on its own (ADR-0002) -- no depends_on on
+  # `api` here deliberately, matching D10 graceful degradation: analytics
+  # must tolerate the backend (or the whole `core` profile) being absent
+  # or started later, backing off and reconnecting instead of failing.
   analytics:
     build:
       context: ./services/analytics
@@ -233,6 +236,13 @@ services:
       - analytics
     environment:
       - ANALYTICS_DATABASE_URL=postgres://${ANALYTICS_POSTGRES_USER:-analytics}:${ANALYTICS_POSTGRES_PASSWORD:-analytics}@postgres-analytics:5432/${ANALYTICS_POSTGRES_DB:-analytics}?sslmode=disable
+      # In-network target (ADR-0002): analytics dials `api:50051`, the
+      # same backend gRPC port exposed to the host at localhost:50051
+      # above. The binary's own default (localhost:50051) is for running
+      # `go run ./cmd/analytics serve` against a backend also run
+      # locally, outside compose -- same local-vs-compose split as
+      # ANALYTICS_DATABASE_URL just above.
+      - ANALYTICS_BACKEND_GRPC_ADDR=api:50051
     depends_on:
       postgres-analytics:
         condition: service_healthy

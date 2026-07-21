@@ -28,7 +28,8 @@ flowchart LR
     be -->|SQLAlchemy / Alembic| pg
     pgx --> pg
     an -->|pgx| pgA
-    an -.->|"gRPC client, ItemService.WatchItemEvents<br/>(scaffold only in this phase -- PR-B)"| be
+    an -->|"dials :50051 (TCP direction)"| be
+    be -.->|"WatchItemEvents pushes events (data direction, opposite the dial)"| an
     prom -->|scrape| be
     prom -->|scrape| pgx
     prom -->|scrape| cad
@@ -40,9 +41,18 @@ flowchart LR
 
 This diagram tracks the code: a change that alters the topology updates it
 in the same PR (engineering-principles.md Section 1). The `an -> be` edge
-is dashed and labeled "scaffold only": this PR ships analytics's HTTP
-surface, its own Postgres, and migrations, but no gRPC client yet --
-ingestion lands in RFC-0001 Phase 3 PR-B (`feat/analytics-ingest`).
+is real as of RFC-0001 Phase 3 PR-B (`feat/analytics-ingest`): analytics
+dials the backend and holds one long-lived connection (connection
+direction: analytics -> backend), while the backend pushes `ItemEvent`s
+over it (data direction: backend -> analytics, drawn as the separate
+dashed edge above) -- the two arrows point opposite ways on purpose, the
+classic streaming-direction confusion RFC-0001 D3 calls out explicitly.
+
+The gRPC client owns all reconnect logic (ADR-0002): on (re)connect it
+pulls a `ListItems` snapshot, reconciles it into `current_items`, then
+resumes the event stream; a connection lost while the client is down
+means those events are gone (at-most-once transport), which is the
+motivating exhibit for the NATS capstone (RFC-0001 Section 10).
 
 ## Components
 
@@ -59,11 +69,14 @@ ingestion lands in RFC-0001 Phase 3 PR-B (`feat/analytics-ingest`).
   service, own Postgres instance (`postgres-analytics`, ADR-0005),
   hand-rolled embedded-SQL migrations applied at startup. `analytics`
   compose profile (opt-in via `make up-full` or `--profile analytics`).
-  This phase ships the scaffold: HTTP surface (`/healthz`, `/readyz`
-  DB-only, `/metrics`), structured JSON logs, OpenTelemetry (no exporter
-  yet). The gRPC client that ingests item events from the backend lands
-  in RFC-0001 Phase 3 PR-B -- until then analytics has nothing to
-  aggregate.
+  HTTP surface (`/healthz`, `/readyz` DB-only, `/metrics`), structured
+  JSON logs, OpenTelemetry (no exporter yet). Ships the gRPC ingest
+  client (RFC-0001 Phase 3 PR-B, ADR-0002): dials the backend's
+  `ItemService`, reconciles a `ListItems` snapshot into `current_items`,
+  then consumes the `WatchItemEvents` stream into `item_events` (raw) and
+  `event_buckets` (hourly, event-time keyed) -- reconnecting with
+  backoff+jitter on any error. Read API: `GET /api/v1/items/{item_id}`
+  (the canary v2 pipeline-lag step polls it) and `GET /api/v1/stats`.
 - **Observability** -- Prometheus (+ SLO rules), Grafana (provisioned
   dashboards), Loki + Grafana Alloy (logs), postgres-exporter, cAdvisor.
   Details: [observability.md](observability.md).

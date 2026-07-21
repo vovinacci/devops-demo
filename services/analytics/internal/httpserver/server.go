@@ -1,17 +1,22 @@
 // Package httpserver implements the uniform service contract HTTP
 // surface (RFC-0001 D6): /healthz, /readyz, /metrics, wrapped in OTel
-// HTTP instrumentation.
+// HTTP instrumentation, plus the ingest read API (RFC-0001 Phase 3 PR-B):
+// /api/v1/items/{item_id} and /api/v1/stats.
 package httpserver
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+
+	"github.com/vovinacci/devops-demo/services/analytics/internal/store"
 )
 
 // Pinger is the one database operation readyz depends on. An interface
@@ -21,26 +26,40 @@ type Pinger interface {
 	Ping(ctx context.Context) error
 }
 
+// ItemsStore is the read surface the ingest read API depends on,
+// satisfied by *store.Store. A row becomes known only via stream
+// ingestion or snapshot reconcile (internal/ingest) -- never synthesized
+// here -- so GetCurrentItem genuinely reflects gRPC ingestion progress,
+// which is what the canary v2 pipeline-lag step polls it for.
+type ItemsStore interface {
+	GetCurrentItem(ctx context.Context, itemID int64) (store.CurrentItem, bool, error)
+	StatsLast24h(ctx context.Context) ([]store.BucketStat, error)
+}
+
 // dbUp mirrors the last readyz outcome as a whitebox metric alongside the
 // liveness/readiness endpoints themselves (RFC-0001 D6).
 var dbUp = promauto.NewGauge(prometheus.GaugeOpts{
 	Name: "analytics_db_up",
 	Help: "1 if the last readiness check reached Postgres, 0 otherwise. " +
-		"Stream health (PR-B) is a separate metric -- ADR-0005 readyz is DB-only.",
+		"Stream health is a separate metric (internal/ingest) -- ADR-0005 readyz is DB-only.",
 })
 
 // Server builds the analytics HTTP handler.
 type Server struct {
 	pinger Pinger
+	items  ItemsStore
 	mux    *http.ServeMux
 }
 
-// New wires the routes. pinger is checked by /readyz only.
-func New(pinger Pinger) *Server {
-	s := &Server{pinger: pinger, mux: http.NewServeMux()}
+// New wires the routes. pinger is checked by /readyz only; items backs
+// the ingest read API.
+func New(pinger Pinger, items ItemsStore) *Server {
+	s := &Server{pinger: pinger, items: items, mux: http.NewServeMux()}
 	s.mux.HandleFunc("/healthz", s.handleHealthz)
 	s.mux.HandleFunc("/readyz", s.handleReadyz)
 	s.mux.Handle("/metrics", promhttp.Handler())
+	s.mux.HandleFunc("GET /api/v1/items/{item_id}", s.handleGetItem)
+	s.mux.HandleFunc("GET /api/v1/stats", s.handleStats)
 	return s
 }
 
@@ -65,7 +84,7 @@ func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 }
 
 // handleReadyz checks the database only (ADR-0005): stream-connection
-// liveness is a Phase-B ingest concern (canary pipeline-lag, gRPC stream
+// liveness is an ingest concern (canary pipeline-lag, gRPC stream
 // metrics), not readiness -- a disconnected upstream event stream must
 // not take the HTTP surface out of rotation, matching the canary's own
 // readyz discipline (RFC-0001 D10 graceful degradation).
@@ -80,4 +99,72 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 	}
 	dbUp.Set(1)
 	w.WriteHeader(http.StatusOK)
+}
+
+type itemResponse struct {
+	ItemID     int64     `json:"item_id"`
+	Name       string    `json:"name"`
+	FirstSeen  time.Time `json:"first_seen"`
+	LastSeen   time.Time `json:"last_seen"`
+	Tombstoned bool      `json:"tombstoned"`
+}
+
+// handleGetItem backs the canary v2 pipeline-lag step: a row exists here
+// only once it has been observed via WatchItemEvents stream ingestion or
+// a ListItems snapshot reconcile (internal/ingest), never synthesized by
+// this handler -- so "known" genuinely measures gRPC ingestion progress.
+// 404 means never seen; a deleted-but-once-seen item still returns 200
+// with tombstoned=true, distinct from unknown.
+func (s *Server) handleGetItem(w http.ResponseWriter, r *http.Request) {
+	itemID, err := strconv.ParseInt(r.PathValue("item_id"), 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	item, found, err := s.items.GetCurrentItem(r.Context(), itemID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if !found {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, itemResponse{
+		ItemID:     item.ItemID,
+		Name:       item.Name,
+		FirstSeen:  item.FirstSeen,
+		LastSeen:   item.LastSeen,
+		Tombstoned: item.Tombstoned,
+	})
+}
+
+type statEntry struct {
+	EventType string `json:"event_type"`
+	Count     int64  `json:"count"`
+}
+
+// handleStats is a cheap aggregate read (last 24h bucket totals by
+// event_type), not a report -- real reporting is the Kotlin reports
+// service, a later phase.
+func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := s.items.StatsLast24h(r.Context())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	entries := make([]statEntry, len(stats))
+	for i, stat := range stats {
+		entries[i] = statEntry{EventType: stat.EventType, Count: stat.Count}
+	}
+	writeJSON(w, http.StatusOK, entries)
+}
+
+func writeJSON(w http.ResponseWriter, status int, body any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(body)
 }

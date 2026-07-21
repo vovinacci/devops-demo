@@ -76,3 +76,39 @@ groups:
             last 10 minutes and no success for over a minute -- the
             backend CRUD journey is not completing end to end.
           runbook_url: https://github.com/vovinacci/devops-demo/blob/main/docs/runbooks/canary-journey-failing.md
+
+  - name: analytics_ingest
+    interval: 30s
+    rules:
+      # Whitebox layer, ingest-specific (RFC-0001 Phase 3 PR-B, ADR-0002):
+      # the WatchItemEvents stream is down while the analytics process
+      # itself is up. `and on() (up{job="analytics"} == 1)` scopes this
+      # to "analytics is reachable but its gRPC client to the backend
+      # isn't" -- when analytics itself is down, `up{job="analytics"}`
+      # already covers it (a separate, ordinary target-down condition),
+      # and firing this alert too would be a second alert for the same
+      # root cause. `for: 5m` tolerates the ordinary reconnect backoff
+      # window (ANALYTICS_INGEST_BACKOFF_MAX default 30s) so a single
+      # transient blip does not page.
+      #
+      # `and on()` (empty match) assumes a single analytics replica: it
+      # pairs whichever one `analytics_stream_connected` series exists
+      # with whichever one `up{job="analytics"}` series exists, with no
+      # label matching between them. With more than one replica this
+      # would cross-match instances (e.g. replica A's stream down paired
+      # against replica B's up==1) -- switch to `and on(instance)` if
+      # analytics is ever scaled beyond one instance.
+      - alert: AnalyticsStreamDown
+        expr: analytics_stream_connected == 0 and on() (up{job="analytics"} == 1)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Analytics gRPC ingest stream is down"
+          description: >-
+            The analytics service is up but its WatchItemEvents stream to
+            the backend has been disconnected for more than 5 minutes --
+            events are not being ingested (ADR-0002 at-most-once
+            transport: they are not queued, they are lost for this
+            window).
+          runbook_url: https://github.com/vovinacci/devops-demo/blob/main/docs/runbooks/analytics-stream-down.md
