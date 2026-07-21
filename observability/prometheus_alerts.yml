@@ -1,0 +1,19 @@
+groups:
+  - name: blackbox_probes
+    interval: 30s
+    rules:
+      # Blackbox layer (ADR-0007 D9): fires when any probed endpoint --
+      # in-stack or synthetic target -- fails its HTTP probe. Prometheus
+      # evaluates this without Alertmanager (Phase 4); visible today via
+      # the Prometheus Alerts UI / API only.
+      - alert: ProbeDown
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Blackbox probe failing for {{ $labels.instance }}"
+          description: >-
+            Probe target {{ $labels.instance }} has been unreachable or
+            failing its HTTP check for more than 2 minutes.
+          runbook_url: https://github.com/vovinacci/devops-demo/blob/main/docs/runbooks/probe-down.md

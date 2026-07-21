@@ -60,6 +60,7 @@ services:
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./observability/prometheus_slo_rules.yml:/etc/prometheus/prometheus_slo_rules.yml:ro
+      - ./observability/prometheus_alerts.yml:/etc/prometheus/prometheus_alerts.yml:ro
     ports:
       - "9090:9090"
     networks:
@@ -180,6 +181,26 @@ services:
     networks:
       - devnet
     restart: unless-stopped
+
+  # synthetic profile (ADR-0007 D9 blackbox layer, ADR-0008 D10): opt-in via
+  # `make up-full` or `--profile synthetic`; core stack is profile-less.
+  blackbox:
+    image: prom/blackbox-exporter:v0.26.0@sha256:92e05d5fe0df01d3980518dc42f07b778a8997048b57392ebc7f7391ebd7bb06
+    profiles:
+      - synthetic
+    volumes:
+      - ./observability/blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    ports:
+      - "9115:9115"
+    networks:
+      - devnet
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9115/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   dbdata: {}

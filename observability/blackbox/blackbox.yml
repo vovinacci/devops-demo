@@ -1,0 +1,12 @@
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      follow_redirects: true
+      preferred_ip_protocol: ip4
+      valid_status_codes: [] # defaults to 2xx
+
+# TLS and DNS modules arrive when the local compose stack terminates TLS
+# somewhere to probe (ADR-0007 D9 scope: this phase is HTTP-only).
