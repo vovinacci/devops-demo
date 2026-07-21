@@ -1,0 +1,18 @@
+# Go codegen for the analytics client (RFC-0001 D8, ADR-0002). Python
+# codegen does not go through buf generate (see services/backend/Dockerfile
+# and docs/prerequisites.md for why); this file is Go-only.
+# Generated code is never committed -- out dir is gitignored, regenerated
+# by `make generate` and in the analytics Dockerfile build stage.
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/vovinacci/devops-demo/services/analytics/internal/pb
+plugins:
+  - local: protoc-gen-go
+    out: ../services/analytics/internal/pb
+    opt: paths=source_relative
+  - local: protoc-gen-go-grpc
+    out: ../services/analytics/internal/pb
+    opt: paths=source_relative

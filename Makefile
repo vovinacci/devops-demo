@@ -43,7 +43,7 @@ up: ## Start all services
 .PHONY: up-full
 up-full: ## Start all services incl. optional profiles
 	$(PRINT_TARGET)
-	$(COMPOSE) --profile synthetic up -d --build
+	$(COMPOSE) --profile synthetic --profile analytics up -d --build
 
 .PHONY: down
 down: ## Stop all services (all profiles; plain "compose down" skips profile-scoped ones)
@@ -102,7 +102,7 @@ seed-dry: ## Dry run seed (show what will be created)
 	$(COMPOSE) run --rm api sh -c "python -m app.seed --dry-run --count 10"
 
 .PHONY: generate
-generate: ## Generate gRPC/protobuf Python stubs into services/backend/app/proto_gen (never committed -- RFC-0001 D8, ADR-0002)
+generate: ## Generate gRPC/protobuf stubs (Python + Go, never committed -- RFC-0001 D8, ADR-0002)
 	$(PRINT_TARGET)
 	rm -rf services/backend/app/proto_gen
 	mkdir -p services/backend/app/proto_gen
@@ -111,11 +111,13 @@ generate: ## Generate gRPC/protobuf Python stubs into services/backend/app/proto
 		--pyi_out=services/backend/app/proto_gen \
 		--grpc_python_out=services/backend/app/proto_gen \
 		proto/devopsdemo/items/v1/items.proto
+	rm -rf services/analytics/internal/pb
+	cd proto && buf generate
 
 ##@ Testing
 
 .PHONY: test
-test: test-backend test-frontend test-canary ## Run all tests (backend + frontend + canary)
+test: test-backend test-frontend test-canary test-analytics ## Run all tests (backend + frontend + canary + analytics)
 
 .PHONY: test-backend
 test-backend: generate ## Run backend tests locally via virtualenv
@@ -185,10 +187,15 @@ test-canary: ## Run canary tests (Rust toolchain from mise -- see .mise.toml)
 	$(PRINT_TARGET)
 	$(MAKE) -C services/canary test
 
+.PHONY: test-analytics
+test-analytics: generate ## Run analytics tests (Go toolchain from mise -- see .mise.toml)
+	$(PRINT_TARGET)
+	$(MAKE) -C services/analytics test
+
 ##@ Code Quality
 
 .PHONY: lint
-lint: lint-infra lint-backend type-check lint-frontend lint-canary lint-proto ## Code quality check for entire project (backend + frontend + canary + proto + infra)
+lint: lint-infra lint-backend type-check lint-frontend lint-canary lint-analytics lint-proto ## Code quality check for entire project (backend + frontend + canary + analytics + proto + infra)
 
 .PHONY: lint-backend
 lint-backend: ## Backend code quality check via ruff
@@ -205,6 +212,11 @@ lint-frontend: ## Frontend code quality check via eslint
 lint-canary: ## Canary code quality check via cargo fmt + clippy (Rust toolchain from mise)
 	$(PRINT_TARGET)
 	$(MAKE) -C services/canary lint
+
+.PHONY: lint-analytics
+lint-analytics: generate ## Analytics code quality check via gofmt + go vet + golangci-lint (Go toolchain from mise)
+	$(PRINT_TARGET)
+	$(MAKE) -C services/analytics lint
 
 .PHONY: lint-proto
 lint-proto: ## proto/ code quality check via buf lint + buf format --diff
@@ -271,13 +283,15 @@ build-images: ## Build Docker images
 	docker build --build-context proto=proto -t devops-demo-backend:latest ./services/backend
 	docker build -t devops-demo-frontend:latest ./services/frontend
 	docker build -t devops-demo-canary:latest ./services/canary
+	docker build --build-context proto=proto -t devops-demo-analytics:latest ./services/analytics
 
 .PHONY: image-sizes
-image-sizes: build-images ## Display Docker image sizes (the canary vs the rest is the D9 "costs less" exhibit)
+image-sizes: build-images ## Display Docker image sizes (the canary/analytics vs the rest is the D9 "costs less" exhibit)
 	$(PRINT_TARGET)
 	docker images devops-demo-backend:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
 	docker images devops-demo-frontend:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
 	docker images devops-demo-canary:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
+	docker images devops-demo-analytics:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
 
 ##@ Frontend
 

@@ -1,0 +1,79 @@
+# golangci-lint config (RFC-0001 D6): standard preset tightened with
+# modernize + revive (doc comments on exported symbols -- the code is
+# the curriculum), shadow/atomicalign vet checks, and full staticcheck.
+# Generated code under internal/pb is excluded twice over (path +
+# generated: strict) since it is never hand-edited (Hard rule 1).
+# No run.go pin here: golangci infers it from go.mod, and the
+# toolchain drift gate does not watch this file.
+version: "2"
+
+run:
+  modules-download-mode: readonly
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - modernize
+    - revive
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+    govet:
+      enable:
+        - atomicalign
+        - shadow
+    revive:
+      confidence: 0.8
+      severity: warning
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+    staticcheck:
+      checks:
+        - all
+  exclusions:
+    generated: strict
+    warn-unused: true
+    paths:
+      - internal/pb
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/vovinacci/devops-demo/
+  exclusions:
+    generated: strict
+    paths:
+      - internal/pb

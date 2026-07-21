@@ -1,0 +1,7 @@
+bin/
+internal/pb/
+.git
+.gitignore
+*.md
+Dockerfile
+.dockerignore

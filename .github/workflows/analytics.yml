@@ -1,0 +1,136 @@
+name: Analytics
+
+on:
+  pull_request:
+    paths:
+      - "services/analytics/**"
+      - "proto/**"
+      - ".github/workflows/analytics.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "services/analytics/**"
+      - "proto/**"
+      - ".github/workflows/analytics.yml"
+
+env:
+  # Pinned to the same versions as .mise.toml (buf) and
+  # proto/buf.gen.yaml's local plugins -- drift here would regenerate
+  # stubs differently than a local `make generate` run.
+  BUF_VERSION: "1.72.0"
+  PROTOC_GEN_GO_VERSION: "v1.36.11"
+  PROTOC_GEN_GO_GRPC_VERSION: "v1.6.2"
+
+jobs:
+  lint-analytics:
+    name: Lint Analytics
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Verify no generated gRPC/protobuf code is committed
+        run: |
+          committed=$(git ls-files 'services/analytics/internal/pb/*')
+          if [ -n "$committed" ]; then
+            echo "::error::Generated code must never be committed (generate-in-build, RFC-0001 D8, ADR-0002):"
+            echo "$committed"
+            exit 1
+          fi
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: services/analytics/go.mod
+          cache-dependency-path: services/analytics/go.sum
+
+      - name: Install buf + Go protoc plugins
+        run: |
+          go install "github.com/bufbuild/buf/cmd/buf@v${BUF_VERSION}"
+          go install "google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VERSION}"
+          go install "google.golang.org/grpc/cmd/protoc-gen-go-grpc@${PROTOC_GEN_GO_GRPC_VERSION}"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Generate gRPC/protobuf stubs
+        run: |
+          cd proto && buf generate
+
+      - name: gofmt check
+        working-directory: services/analytics
+        run: |
+          test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+
+      - name: go vet
+        working-directory: services/analytics
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.12.2
+          working-directory: services/analytics
+
+  test-analytics:
+    name: Test Analytics
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_DB: analytics_test
+          POSTGRES_USER: analytics
+          POSTGRES_PASSWORD: analytics
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: services/analytics/go.mod
+          cache-dependency-path: services/analytics/go.sum
+
+      - name: Install buf + Go protoc plugins
+        run: |
+          go install "github.com/bufbuild/buf/cmd/buf@v${BUF_VERSION}"
+          go install "google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VERSION}"
+          go install "google.golang.org/grpc/cmd/protoc-gen-go-grpc@${PROTOC_GEN_GO_GRPC_VERSION}"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Generate gRPC/protobuf stubs
+        run: |
+          cd proto && buf generate
+
+      - name: Run tests
+        working-directory: services/analytics
+        env:
+          ANALYTICS_TEST_DATABASE_URL: postgres://analytics:analytics@localhost:5432/analytics_test?sslmode=disable
+        run: go test ./... -v
+
+  audit-analytics:
+    name: Audit Analytics (govulncheck)
+    runs-on: ubuntu-latest
+    steps:
+      # Checks out the repo and sets up Go itself (pinned internally);
+      # no separate checkout/setup-go steps needed here.
+      - name: govulncheck
+        uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
+        with:
+          go-version-file: services/analytics/go.mod
+          work-dir: services/analytics
+
+  build-analytics-image:
+    name: Build analytics image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Build image (no push)
+        run: |
+          docker build --pull --build-context proto=proto -t devops-demo-analytics:ci services/analytics

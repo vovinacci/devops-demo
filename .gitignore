@@ -76,6 +76,14 @@ coverage/
 target/
 
 # ============================================================================
+# Go (Analytics)
+# ============================================================================
+# Generated gRPC/protobuf Go stubs (RFC-0001 D8, ADR-0002):
+# generate-in-build via `make generate`/`buf generate`, never committed
+services/analytics/internal/pb/
+services/analytics/bin/
+
+# ============================================================================
 # Environment variables
 # ============================================================================
 .env

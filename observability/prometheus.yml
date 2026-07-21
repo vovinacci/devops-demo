@@ -32,6 +32,12 @@ scrape_configs:
   - job_name: "canary"
     static_configs: [{ targets: ["canary:8080"] }]
 
+  # analytics profile only (RFC-0001 D1, ADR-0008 D10): "down" on the
+  # Prometheus targets page when `analytics` is not up -- expected,
+  # documented degradation, same as the synthetic-profile targets above.
+  - job_name: "analytics"
+    static_configs: [{ targets: ["analytics:8082"] }]
+
   - job_name: "blackbox_http"
     metrics_path: /probe
     params:
@@ -51,6 +57,9 @@ scrape_configs:
           # blackbox watching the watcher: the synthetic layer's own
           # liveness, probed from the outside like every other service
           - http://canary:8080/healthz
+          # analytics profile only (down when the profile is off, same
+          # documented degradation as the synthetic-only targets above)
+          - http://analytics:8082/healthz
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

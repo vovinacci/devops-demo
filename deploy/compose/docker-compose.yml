@@ -192,6 +192,65 @@ services:
       - devnet
     restart: unless-stopped
 
+  # analytics profile (RFC-0001 D1, ADR-0005, ADR-0008 D10): opt-in via
+  # `make up-full` or `--profile analytics`; core stack is profile-less.
+  # Own Postgres instance -- service-owns-its-store must be visible in
+  # the compose topology, not a second database on `db`.
+  postgres-analytics:
+    image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    profiles:
+      - analytics
+    environment:
+      POSTGRES_DB: ${ANALYTICS_POSTGRES_DB:-analytics}
+      POSTGRES_USER: ${ANALYTICS_POSTGRES_USER:-analytics}
+      POSTGRES_PASSWORD: ${ANALYTICS_POSTGRES_PASSWORD:-analytics}
+    volumes:
+      - pgdata-analytics:/var/lib/postgresql/data
+    ports:
+      # host 5433 for parity with db's host 5432 (both map to container 5432)
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ANALYTICS_POSTGRES_USER:-analytics} -d ${ANALYTICS_POSTGRES_DB:-analytics}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - devnet
+    restart: unless-stopped
+
+  # analytics profile (RFC-0001 D1): the Go analytics service. Scaffold
+  # only in this PR -- no gRPC client yet (PR-B), so it has nothing to
+  # ingest from the backend and no dependency on `api` here.
+  analytics:
+    build:
+      context: ./services/analytics
+      # proto/ is a separate named build context, same pattern as `api`
+      # (RFC-0001 D8, ADR-0002): Go gRPC stubs are generated at build
+      # time via buf, never committed.
+      additional_contexts:
+        - proto=./proto
+    profiles:
+      - analytics
+    environment:
+      - ANALYTICS_DATABASE_URL=postgres://${ANALYTICS_POSTGRES_USER:-analytics}:${ANALYTICS_POSTGRES_PASSWORD:-analytics}@postgres-analytics:5432/${ANALYTICS_POSTGRES_DB:-analytics}?sslmode=disable
+    depends_on:
+      postgres-analytics:
+        condition: service_healthy
+    ports:
+      - "8082:8082"
+    networks:
+      - devnet
+    restart: unless-stopped
+    healthcheck:
+      # distroless/static runtime ships no shell/wget -- the binary's own
+      # `healthcheck` subcommand replaces the CMD-SHELL/wget pattern the
+      # other services' healthchecks use (see services/analytics/Dockerfile).
+      test: ["CMD", "/usr/local/bin/analytics", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   # synthetic profile (ADR-0007 D9 blackbox layer, ADR-0008 D10): opt-in via
   # `make up-full` or `--profile synthetic`; core stack is profile-less.
   blackbox:
@@ -240,6 +299,7 @@ services:
 
 volumes:
   dbdata: {}
+  pgdata-analytics: {}
   loki-data: {}
   alloy-data: {}
   grafana-data: {}

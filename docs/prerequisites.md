@@ -10,6 +10,7 @@ Platform support: macOS and Linux only.
 - [Backend](#backend)
 - [Frontend](#frontend)
 - [Canary](#canary)
+- [Analytics](#analytics)
 - [Proto](#proto)
 - [Infrastructure](#infrastructure)
 - [Learning Resources](#learning-resources)
@@ -130,6 +131,47 @@ Platform support: macOS and Linux only.
 
 ---
 
+## Analytics
+
+### Go
+
+- Goroutines, channels, `select`; `context.Context` for cancellation/timeouts
+- `error` values and `errors.Is`/`errors.As`; `defer`
+- `embed.FS` for compiling SQL migrations into the binary
+- Structured logging via `log/slog`
+
+### pgx (Postgres driver)
+
+- `pgxpool`: connection pooling, `Ping`, bounded retry on startup
+- Parameterized queries, `QueryRow`/`Exec`, transactions (`Begin`/`Commit`/`Rollback`)
+
+### Observability in Go
+
+- `prometheus/client_golang`: `promhttp.Handler`, `promauto`, custom gauges
+- OpenTelemetry Go SDK: `TracerProvider`, `propagation.TraceContext`,
+  `otelhttp` middleware; see ADR-0010
+- `log/slog` custom `Handler` wrapping (trace ID injection)
+
+### Analytics Testing
+
+- `net/http/httptest`: handler tests against a fake `Pinger`, no real Postgres
+- Integration tests gated on `ANALYTICS_TEST_DATABASE_URL` (skipped without a
+  real Postgres -- see `services/analytics/Makefile`)
+
+### Analytics Code Quality
+
+- `gofmt`, `go vet`, `golangci-lint run` (`services/analytics/.golangci.yml`)
+- `govulncheck`: known-vulnerability scan against the module + stdlib
+
+### Data model semantics (ADR-0005)
+
+- Event-time vs arrival-time bucketing
+- Mutable upserts (`ON CONFLICT DO UPDATE`) vs stream-processor watermarks
+- Liveness vs readiness for a service with an optional upstream dependency
+  (RFC-0001 D10)
+
+---
+
 ## Proto
 
 The `proto/` module (ADR-0002) is the single cross-service source of truth
@@ -154,6 +196,15 @@ for the backend/analytics gRPC contract.
   `protoc_builtin` plugins, which turned out to silently depend on a
   system `protoc` binary and broke in clean CI/Docker environments.
 - Run once after clone (or after a `proto/` change) for IDE completion.
+
+### Go gRPC codegen
+
+- `make generate` also runs `buf generate` (`proto/buf.gen.yaml`, Go-only:
+  managed mode + local `protoc-gen-go`/`protoc-gen-go-grpc` plugins) into
+  `services/analytics/internal/pb` (gitignored, never committed). Unlike
+  the Python path, this one goes through `buf generate` directly -- the
+  plugins are real standalone Go binaries (`go install`-able), not a
+  bundled protoc the way `grpcio-tools` is for Python.
 
 ### grpcurl (optional)
 
@@ -254,6 +305,19 @@ CI workflows are documented in [ci.md](ci.md).
 | Vitest docs | <https://vitest.dev/> |
 | React Testing Library | <https://testing-library.com/docs/react-testing-library/intro/> |
 | Web Vitals | <https://web.dev/vitals/> |
+
+### Analytics resources
+
+| Topic | Link |
+| --- | --- |
+| Go Tour | <https://go.dev/tour/> |
+| Effective Go | <https://go.dev/doc/effective_go> |
+| pgx docs | <https://pkg.go.dev/github.com/jackc/pgx/v5> |
+| client_golang docs | <https://pkg.go.dev/github.com/prometheus/client_golang> |
+| OpenTelemetry Go | <https://opentelemetry.io/docs/languages/go/> |
+| log/slog docs | <https://pkg.go.dev/log/slog> |
+| golangci-lint docs | <https://golangci-lint.run/> |
+| govulncheck docs | <https://go.dev/security/vuln/> |
 
 ### Proto resources
 
