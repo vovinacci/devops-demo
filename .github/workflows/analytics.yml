@@ -117,6 +117,8 @@ jobs:
   audit-analytics:
     name: Audit Analytics (govulncheck)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       # govulncheck loads packages, and internal/ingest imports the
       # generated internal/pb stubs (generate-in-build, never

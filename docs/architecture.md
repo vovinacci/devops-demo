@@ -62,7 +62,8 @@ motivating exhibit for the NATS capstone (RFC-0001 Section 10).
   (async), SQLAlchemy + asyncpg, Pydantic validation, Alembic migrations,
   Prometheus client. Also serves `devopsdemo.items.v1.ItemService` over
   `grpc.aio` on `:50051` (RFC-0001 D3, ADR-0002) -- backend serves,
-  analytics dials, no consumer connected yet in this phase.
+  analytics dials and consumes the `WatchItemEvents` stream (see
+  Analytics below).
 - **Database** -- PostgreSQL; migrations applied on api startup;
   healthchecked.
 - **Analytics** ([readme](../services/analytics/README.md)) -- Go

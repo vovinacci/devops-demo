@@ -33,6 +33,18 @@ type DataStore interface {
 	IngestEvent(ctx context.Context, ev store.EventRecord) (inserted bool, err error)
 }
 
+// errMalformedEvent marks events that can never be persisted (unknown
+// enum value from a newer/older contract): retrying is pointless, they
+// are logged and dropped. Every other handleEvent error is a transient
+// persistence failure and is retried for the same event.
+var errMalformedEvent = errors.New("malformed event")
+
+// persistRetryDelay paces same-event retries after a transient store
+// failure. Deliberately simple (no exponential growth): if the DB stays
+// down, the backend's bounded per-subscriber queue disconnects this
+// client anyway and the normal reconnect+snapshot path takes over.
+const persistRetryDelay = time.Second
+
 var eventTypeNames = map[itemsv1.EventType]string{
 	itemsv1.EventType_EVENT_TYPE_CREATED: "created",
 	itemsv1.EventType_EVENT_TYPE_UPDATED: "updated",
@@ -136,10 +148,27 @@ func (c *Client) cycle(ctx context.Context) (connected bool, err error) {
 			return true, fmt.Errorf("stream recv: %w", recvErr)
 		}
 
-		// A single bad event must not kill the whole stream -- log and
-		// keep consuming rather than returning an error here.
-		if handleErr := c.handleEvent(ctx, event); handleErr != nil {
-			slog.ErrorContext(ctx, "ingest event handling failed", "error", handleErr)
+		// A single bad event must not kill the whole stream, but the
+		// two failure classes differ: a malformed event can never
+		// succeed (log, drop), while a persistence failure is a
+		// transient DB blip -- retry the SAME event before the next
+		// Recv, or it would be silently lost while the stream stays
+		// healthy.
+		for {
+			handleErr := c.handleEvent(ctx, event)
+			if handleErr == nil {
+				break
+			}
+			if errors.Is(handleErr, errMalformedEvent) {
+				slog.ErrorContext(ctx, "discarding malformed event", "error", handleErr)
+				break
+			}
+			slog.ErrorContext(ctx, "ingest event persist failed, retrying", "error", handleErr)
+			select {
+			case <-ctx.Done():
+				return true, ctx.Err()
+			case <-time.After(persistRetryDelay):
+			}
 		}
 	}
 }
@@ -179,7 +208,7 @@ func (c *Client) snapshotReconcile(ctx context.Context, client itemsv1.ItemServi
 func (c *Client) handleEvent(ctx context.Context, event *itemsv1.ItemEvent) error {
 	eventType, ok := eventTypeNames[event.GetEventType()]
 	if !ok {
-		return fmt.Errorf("unknown event type %v", event.GetEventType())
+		return fmt.Errorf("%w: unknown event type %v", errMalformedEvent, event.GetEventType())
 	}
 
 	ev := store.EventRecord{

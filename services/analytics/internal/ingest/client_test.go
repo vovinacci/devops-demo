@@ -2,8 +2,10 @@ package ingest
 
 import (
 	"context"
+	"errors"
 	"net"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -326,5 +328,73 @@ func TestBackoffBoundedUnderSustainedFailure(t *testing.T) {
 
 	if after := testutil.ToFloat64(reconnectsTotal); after <= before {
 		t.Fatalf("expected reconnects_total to increase from %v under sustained failure, got %v", before, after)
+	}
+}
+
+// flakyStore wraps a DataStore and fails the first N IngestEvent calls
+// with a transient error, exercising the same-event retry path.
+type flakyStore struct {
+	inner        DataStore
+	failuresLeft atomic.Int32
+	ingestCalls  atomic.Int32
+}
+
+func (f *flakyStore) ReconcileSnapshot(ctx context.Context, items []store.SnapshotItem, now time.Time) (int, int, error) {
+	return f.inner.ReconcileSnapshot(ctx, items, now)
+}
+
+func (f *flakyStore) IngestEvent(ctx context.Context, ev store.EventRecord) (bool, error) {
+	f.ingestCalls.Add(1)
+	if f.failuresLeft.Add(-1) >= 0 {
+		return false, errors.New("transient db failure")
+	}
+	return f.inner.IngestEvent(ctx, ev)
+}
+
+func TestTransientPersistFailureRetriesSameEventMalformedDropped(t *testing.T) {
+	dataStore, pool := setUpStore(t)
+	ctx := context.Background()
+
+	eventTime := time.Date(2026, 7, 20, 11, 0, 0, 0, time.UTC)
+	malformed := itemEvent(8, "mystery", itemsv1.EventType(99), eventTime)
+	good := itemEvent(7, "resilient", itemsv1.EventType_EVENT_TYPE_CREATED, eventTime)
+
+	flaky := &flakyStore{inner: dataStore}
+	flaky.failuresLeft.Store(2)
+
+	addr := freeAddr(t)
+	lis := listenOn(t, addr)
+	grpcServer := grpc.NewServer()
+	itemsv1.RegisterItemServiceServer(grpcServer, &fakeItemService{
+		events: []*itemsv1.ItemEvent{malformed, good},
+	})
+	go func() { _ = grpcServer.Serve(lis) }()
+	t.Cleanup(grpcServer.Stop)
+
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	client := New(shortBackoffConfig(addr), flaky)
+	done := make(chan struct{})
+	go func() { defer close(done); client.Run(runCtx) }()
+	t.Cleanup(func() { cancel(); <-done })
+
+	// The good event lands despite two transient failures before it --
+	// the retry loop must not advance to the next Recv until persisted.
+	waitFor(t, 10*time.Second, func() bool {
+		var n int
+		_ = pool.QueryRow(ctx, `SELECT count(*) FROM item_events WHERE item_id = 7`).Scan(&n)
+		return n == 1
+	})
+
+	// Malformed event was dropped without a single store call for it:
+	// enum validation fails before IngestEvent, so all recorded calls
+	// belong to the good event (2 failed + 1 success).
+	var n int
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM item_events WHERE item_id = 8`).Scan(&n)
+	if n != 0 {
+		t.Fatalf("malformed event must not be persisted, found %d rows", n)
+	}
+	if got := flaky.ingestCalls.Load(); got != 3 {
+		t.Fatalf("want exactly 3 IngestEvent calls (2 transient failures + 1 success), got %d", got)
 	}
 }
