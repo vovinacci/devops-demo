@@ -41,6 +41,10 @@ coverage.xml
 .dmypy.json
 dmypy.json
 
+# Generated gRPC/protobuf Python stubs (RFC-0001 D8, ADR-0002):
+# generate-in-build via `make generate`, never committed
+services/backend/app/proto_gen/
+
 # Pyre type checker
 .pyre/
 

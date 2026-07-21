@@ -2,7 +2,9 @@
 target-version = "py312"
 line-length = 160
 include = ["**/*.py", "**/*.pyi"]
-extend-exclude = ["venv", ".venv", "__pycache__", "alembic/versions"]
+# proto_gen is generate-in-build (RFC-0001 D8), never committed, never
+# hand-edited -- generated code is not lint scope
+extend-exclude = ["venv", ".venv", "__pycache__", "alembic/versions", "app/proto_gen"]
 
 [lint]
 # E/W — pycodestyle, F — pyflakes, N — pep8-naming, UP — pyupgrade
@@ -20,6 +22,12 @@ ignore = [
 [lint.isort]
 known-first-party = ["app"]
 combine-as-imports = true
+
+[lint.per-file-ignores]
+# RPC method names are dictated by the .proto service definition (PascalCase
+# grpc convention, e.g. ListItems) via the generated servicer base class --
+# not a style choice this repo controls
+"app/grpc_server.py" = ["N802"]
 
 [format]
 quote-style = "double"

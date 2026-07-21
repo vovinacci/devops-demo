@@ -101,13 +101,23 @@ seed-dry: ## Dry run seed (show what will be created)
 	$(PRINT_TARGET)
 	$(COMPOSE) run --rm api sh -c "python -m app.seed --dry-run --count 10"
 
+.PHONY: generate
+generate: ## Generate gRPC/protobuf Python stubs into services/backend/app/proto_gen (never committed -- RFC-0001 D8, ADR-0002)
+	$(PRINT_TARGET)
+	mkdir -p services/backend/app/proto_gen
+	python -m grpc_tools.protoc -I proto \
+		--python_out=services/backend/app/proto_gen \
+		--pyi_out=services/backend/app/proto_gen \
+		--grpc_python_out=services/backend/app/proto_gen \
+		proto/devopsdemo/items/v1/items.proto
+
 ##@ Testing
 
 .PHONY: test
 test: test-backend test-frontend test-canary ## Run all tests (backend + frontend + canary)
 
 .PHONY: test-backend
-test-backend: ## Run backend tests locally via virtualenv
+test-backend: generate ## Run backend tests locally via virtualenv
 	$(PRINT_TARGET)
 	@echo "Checking database availability..."
 	DB_WAS_RUNNING=$$($(COMPOSE) ps db 2>/dev/null | grep -qiE "up|running" && echo "yes" || echo "no"); \
@@ -257,7 +267,7 @@ pre-commit-update: ## Update hook versions in .pre-commit-config.yaml
 .PHONY: build-images
 build-images: ## Build Docker images
 	$(PRINT_TARGET)
-	docker build -t devops-demo-backend:latest ./services/backend
+	docker build --build-context proto=proto -t devops-demo-backend:latest ./services/backend
 	docker build -t devops-demo-frontend:latest ./services/frontend
 	docker build -t devops-demo-canary:latest ./services/canary
 

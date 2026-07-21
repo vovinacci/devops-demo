@@ -27,13 +27,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [backend, frontend, canary]
+        include:
+          # backend reaches the repo-root proto/ module as a named
+          # additional build context to generate gRPC stubs at build time
+          # (RFC-0001 D8, ADR-0002), without widening its own build context
+          - service: backend
+            extra_build_args: "--build-context proto=proto"
+          - service: frontend
+            extra_build_args: ""
+          - service: canary
+            extra_build_args: ""
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Build image
         run: |
-          docker build --pull -t "devops-demo-${{ matrix.service }}:ci" "services/${{ matrix.service }}"
+          docker build --pull ${{ matrix.extra_build_args }} -t "devops-demo-${{ matrix.service }}:ci" "services/${{ matrix.service }}"
 
       - name: Trivy scan (fail on critical)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0

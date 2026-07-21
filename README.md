@@ -38,7 +38,6 @@ devops-demo/
 │
 ├── proto/                       # buf module -- cross-service gRPC contract (ADR-0002)
 │   ├── buf.yaml                 # Module config: lint rules, breaking-change category
-│   ├── buf.gen.yaml             # Codegen plugin config (generate-in-build, never committed)
 │   └── devopsdemo/items/v1/     # devopsdemo.items.v1: ItemService (backend serves)
 │
 ├── scripts/                     # Doctor, toolchain drift gate
@@ -89,18 +88,19 @@ free RAM, 3 GB free disk.
 
 After successful startup, all services will be available at the following URLs:
 
-| Service               | URL                         | Credentials | Description                                              |
-|-----------------------|-----------------------------|-------------|----------------------------------------------------------|
-| **Frontend**          | http://localhost:8080       | -           | React application with CRUD interface for managing items |
-| **API**               | http://localhost:8000       | -           | FastAPI REST API server                                  |
-| **API Documentation** | http://localhost:8000/docs  | -           | Swagger UI with interactive API documentation            |
-| **ReDoc**             | http://localhost:8000/redoc | -           | Alternative API documentation in ReDoc format            |
-| **Grafana**           | http://localhost:3000       | admin/admin | Dashboards for metrics and logs visualization            |
-| **Prometheus**        | http://localhost:9090       | -           | UI for viewing and querying metrics                      |
-| **Loki**              | http://localhost:3100       | -           | API for accessing logs                                   |
-| **Postgres Exporter** | http://localhost:9187       | -           | PostgreSQL metrics in Prometheus format                  |
-| **cAdvisor**          | http://localhost:8081       | -           | Container and resource metrics                           |
-| **Canary**            | http://localhost:8085       | -           | Synthetic-journey canary (`synthetic` profile)           |
+| Service               | URL                         | Credentials | Description                                                                               |
+|-----------------------|-----------------------------|-------------|-------------------------------------------------------------------------------------------|
+| **Frontend**          | http://localhost:8080       | -           | React application with CRUD interface for managing items                                  |
+| **API**               | http://localhost:8000       | -           | FastAPI REST API server                                                                   |
+| **API (gRPC)**        | localhost:50051             | -           | ItemService (ListItems, GetItemStats, WatchItemEvents) -- backend serves, analytics dials |
+| **API Documentation** | http://localhost:8000/docs  | -           | Swagger UI with interactive API documentation                                             |
+| **ReDoc**             | http://localhost:8000/redoc | -           | Alternative API documentation in ReDoc format                                             |
+| **Grafana**           | http://localhost:3000       | admin/admin | Dashboards for metrics and logs visualization                                             |
+| **Prometheus**        | http://localhost:9090       | -           | UI for viewing and querying metrics                                                       |
+| **Loki**              | http://localhost:3100       | -           | API for accessing logs                                                                    |
+| **Postgres Exporter** | http://localhost:9187       | -           | PostgreSQL metrics in Prometheus format                                                   |
+| **cAdvisor**          | http://localhost:8081       | -           | Container and resource metrics                                                            |
+| **Canary**            | http://localhost:8085       | -           | Synthetic-journey canary (`synthetic` profile)                                            |
 
 For the full command list run `make help`.
 

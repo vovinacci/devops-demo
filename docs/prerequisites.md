@@ -140,10 +140,28 @@ for the backend/analytics gRPC contract.
 - Install via `mise install` (pinned in `.mise.toml`); verify with
   `make doctor`
 - `buf.yaml`: module config, lint rules, breaking-change category
-- `buf.gen.yaml`: codegen plugin config (per-language, generate-in-build --
-  RFC-0001 D8)
-- Commands: `buf lint`, `buf format`, `buf build`, `buf breaking`,
-  `buf generate`
+- Commands: `buf lint`, `buf format`, `buf breaking` -- governs the
+  contract itself; does not generate Python code (see below)
+
+### Python gRPC codegen
+
+- `make generate` (RFC-0001 D8, ADR-0002): a single `python -m
+  grpc_tools.protoc` invocation produces message classes, `.pyi` stubs,
+  and the gRPC service stubs into `services/backend/app/proto_gen`
+  (gitignored, never committed). `grpcio-tools` bundles its own protoc,
+  so this needs no separate `protoc`/`buf generate` step -- an earlier
+  approach routed python/pyi generation through `buf generate`'s
+  `protoc_builtin` plugins, which turned out to silently depend on a
+  system `protoc` binary and broke in clean CI/Docker environments.
+- Run once after clone (or after a `proto/` change) for IDE completion.
+
+### grpcurl (optional)
+
+- Manual gRPC exploration against the backend's `:50051` (`grpcurl -plaintext
+  localhost:50051 list`, `grpcurl -plaintext localhost:50051
+  devopsdemo.items.v1.ItemService/ListItems`) -- see
+  [exercise 02](exercises/02-grpc-contract.md). Not required: a small
+  Python client works just as well.
 
 ### Protobuf / gRPC
 

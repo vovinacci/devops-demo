@@ -21,6 +21,12 @@ services:
   api:
     build:
       context: ./services/backend
+      # proto/ is a separate named build context: the backend Dockerfile
+      # generates gRPC stubs from the repo-root proto/ module at build time
+      # (RFC-0001 D8, ADR-0002), reached without widening this service's own
+      # build context.
+      additional_contexts:
+        - proto=./proto
       target: runtime
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@db:5432/${POSTGRES_DB:-appdb}
@@ -31,13 +37,17 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+      - "50051:50051" # gRPC ItemService (RFC-0001 D3): backend serves, analytics dials
     labels:
       - "environment=${ENVIRONMENT:-development}"
     networks:
       - devnet
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      # HTTP /healthz liveness AND the gRPC Health Checking Protocol on
+      # :50051 -- both must pass (RFC-0001 D6); app.healthcheck is the same
+      # module the image's own HEALTHCHECK runs, kept in one place
+      test: ["CMD", "python", "-m", "app.healthcheck"]
       interval: 30s
       timeout: 10s
       retries: 3
