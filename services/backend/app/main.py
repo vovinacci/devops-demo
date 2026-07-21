@@ -4,6 +4,7 @@ import time
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import PlainTextResponse
@@ -58,18 +59,28 @@ async def metrics_mw(request: Request, call_next) -> Response:
         raise
 
 
-@app.get("/health")
-async def health(db: AsyncSession = Depends(get_db)) -> dict[str, str]:
-    """Health check endpoint with database connection check"""
-    try:
-        # Check database connection
-        from sqlalchemy import select
+@app.get("/healthz")
+async def healthz() -> dict[str, str]:
+    """Liveness check: process is up and serving requests, no dependency checks"""
+    return {"status": "ok"}
 
+
+@app.get("/readyz")
+async def readyz(response: Response, db: AsyncSession = Depends(get_db)) -> dict[str, str]:
+    """Readiness check: fails if a dependency (database) is unreachable"""
+    try:
         await db.execute(select(1))
         return {"status": "ok", "database": "connected"}
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
+        logger.error(f"Readiness check failed: database unreachable: {e}")
+        response.status_code = 503
         return {"status": "degraded", "database": "disconnected"}
+
+
+@app.get("/health")
+async def health() -> dict[str, str]:
+    """Compatibility alias for /healthz (liveness); dashboards and scripts still target this path"""
+    return await healthz()
 
 
 @app.get("/items", response_model=list[ItemOut])
