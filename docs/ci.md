@@ -15,22 +15,24 @@ flowchart LR
     pr --> be["backend.yml<br/>no-committed-codegen + lint + generate + test<br/>(services/backend/** only)"]
     pr --> fe["frontend.yml<br/>lint + test<br/>(services/frontend/** only)"]
     pr --> ca["canary.yml<br/>lint + test + audit + image build<br/>(services/canary/** only)"]
+    pr --> an["analytics.yml<br/>codegen + lint + test + govulncheck + image build<br/>(services/analytics/**, proto/**)"]
     pr --> proto["proto.yml<br/>buf lint + format + breaking<br/>(proto/** only)"]
     pr --> img["images.yml<br/>docker build + Trivy<br/>(services/** only)"]
     merge[Squash-merge to main] --> rp["release-please.yml<br/>maintains release PR"]
     rp -->|release PR merged| rel["release.yml<br/>tag + publish (placeholder)"]
 ```
 
-| Workflow           | Triggers on                    | Jobs                                                                                    |
-|--------------------|--------------------------------|-----------------------------------------------------------------------------------------|
-| checks.yml         | every PR, push to main         | prek hooks (all files), PR title commitlint                                             |
-| backend.yml        | services/backend/** changes    | no-committed-codegen check, ruff + mypy, `make generate` + pytest against real Postgres |
-| frontend.yml       | services/frontend/** changes   | eslint, vitest                                                                          |
-| canary.yml         | services/canary/** changes     | fmt + clippy, cargo test, cargo-deny, image                                             |
-| proto.yml          | proto/** changes               | buf lint + format, buf breaking (against main)                                          |
-| images.yml         | services/**, deploy/compose/** | docker build + Trivy scan per service (matrix)                                          |
-| release-please.yml | push to main                   | maintain release PR from commit history                                                 |
-| release.yml        | release published              | placeholder (image publishing comes later)                                              |
+| Workflow           | Triggers on                             | Jobs                                                                                            |
+|--------------------|-----------------------------------------|-------------------------------------------------------------------------------------------------|
+| checks.yml         | every PR, push to main                  | prek hooks (all files), PR title commitlint                                                     |
+| backend.yml        | services/backend/** changes             | no-committed-codegen check, ruff + mypy, `make generate` + pytest against real Postgres         |
+| frontend.yml       | services/frontend/** changes            | eslint, vitest                                                                                  |
+| canary.yml         | services/canary/** changes              | fmt + clippy, cargo test, cargo-deny, image                                                     |
+| analytics.yml      | services/analytics/**, proto/** changes | no-committed-codegen check, buf generate + lint + test (Postgres container), govulncheck, image |
+| proto.yml          | proto/** changes                        | buf lint + format, buf breaking (against main)                                                  |
+| images.yml         | services/**, deploy/compose/**          | docker build + Trivy scan per service (matrix)                                                  |
+| release-please.yml | push to main                            | maintain release PR from commit history                                                         |
+| release.yml        | release published                       | placeholder (image publishing comes later)                                                      |
 
 New services add their own path-filtered workflow in the phase that adds the
 service -- "has CI" is part of the Definition of Done
@@ -40,8 +42,9 @@ service -- "has CI" is part of the Definition of Done
 
 `make ci` runs hooks + lint + tests -- the same make targets the workflows
 call (`lint-backend`, `type-check`, `lint-frontend`, `test-backend`,
-`test-frontend`, `lint-infra`). CI is the same commands with per-job caching
-and a real Postgres service container.
+`test-frontend`, `lint-canary`, `test-canary`, `lint-analytics`,
+`test-analytics`, `lint-infra`). CI is the same commands with per-job
+caching and a real Postgres service container.
 
 Git hooks are the first, fastest gate: **prek** (pre-commit-compatible,
 single binary) runs formatting, docs linting, and secret scanning before the
@@ -69,15 +72,16 @@ compatible).
   secret committed and later removed is invisible to the hook layer.
 - **Per-service dependency audit:** `cargo-deny` (advisories, license
   allow-list, banned/duplicate dependency policy, source allow-list) for
-  the canary -- the first of the per-service audits; `pip-audit`,
-  `govulncheck`, and OWASP dependency-check arrive with their services
-  (RFC-0001 D6).
-- **No committed generated code (backend):** a `git ls-files
-  'services/backend/app/proto_gen/*'` check fails the pipeline if
-  anything under the generate-in-build gRPC stub directory is currently
-  tracked by git (RFC-0001 D8, ADR-0002 -- Hard rule 1). `make generate` then
-  runs before tests, since the backend imports the generated stubs at
-  module load time.
+  the canary; `govulncheck` (known-vulnerability scan against the module
+  and stdlib) for analytics. `pip-audit` and OWASP dependency-check
+  arrive with their services (RFC-0001 D6).
+- **No committed generated code (backend, analytics):** a `git ls-files`
+  check against each service's generate-in-build gRPC stub directory
+  (`services/backend/app/proto_gen`, `services/analytics/internal/pb`)
+  fails the pipeline if anything under it is currently tracked by git
+  (RFC-0001 D8, ADR-0002 -- Hard rule 1). `make generate`/`buf generate`
+  then runs before tests, since both services import the generated stubs
+  at load/compile time.
 - **buf lint + format + breaking (proto/):** `bufbuild/buf-action` runs
   `buf lint` and `buf format --diff` on every proto/ change, plus
   `buf breaking` against the `main` branch baseline on pull requests
@@ -109,9 +113,11 @@ compatible).
 ## Dependency updates
 
 **Renovate** (`.github/renovate.json5`): grouped weekly updates across all
-ecosystems (pip, npm, GitHub Actions, Dockerfiles, compose images,
-pre-commit hook versions), semantic commit titles, digest pinning for base
-images and actions. Chosen over Dependabot for grouping and monorepo
+ecosystems (pip, npm, Go modules, GitHub Actions, Dockerfiles, compose
+images, pre-commit hook versions), semantic commit titles, digest pinning
+for base images and actions. Go (like Python) moves by patch only for the
+runtime version itself -- minor/major bumps are a deliberate `.mise.toml`
+change, not a dependency PR (ADR-0012). Chosen over Dependabot for grouping and monorepo
 awareness (RFC-0001 D12); Dependabot remains the documented fallback if
 self-hosting becomes a burden.
 
@@ -139,7 +145,8 @@ settings are not otherwise reviewable:
 ## Caching
 
 Per-ecosystem caches keyed by lockfiles: pip (`setup-python` cache), npm
-(`setup-node` cache), and cargo (`Swatinem/rust-cache`, keyed on
-`services/canary/Cargo.lock`) today; Go and Gradle caches arrive with
-their services. Five ecosystems in one repo make cache strategy a
+(`setup-node` cache), cargo (`Swatinem/rust-cache`, keyed on
+`services/canary/Cargo.lock`), and Go (`actions/setup-go`'s built-in
+cache, keyed on `services/analytics/go.sum`) today; Gradle caches arrive
+with reports. Five ecosystems in one repo make cache strategy a
 first-class exhibit -- this section grows with each phase.

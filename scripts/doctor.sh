@@ -9,6 +9,7 @@ set -uo pipefail
 PYTHON_MINOR="$(sed -n 's/^python = "\(.*\)"/\1/p' .mise.toml)"
 NODE_MAJOR="$(sed -n 's/^node = "\(.*\)"/\1/p' .mise.toml)"
 RUST_MINOR="$(sed -n 's/^rust = "\(.*\)"/\1/p' .mise.toml)"
+GO_MINOR="$(sed -n 's/^go = "\(.*\)"/\1/p' .mise.toml)"
 BUF_MINOR="$(sed -n 's/^buf = "\(.*\)"/\1/p' .mise.toml)"
 MIN_RAM_GB=4
 MIN_DISK_GB=5
@@ -46,6 +47,7 @@ require_cmd python3 "run 'mise install' (see .mise.toml) or install Python ${PYT
 require_cmd node "run 'mise install' (see .mise.toml) or install Node ${NODE_MAJOR}"
 require_cmd npm "ships with Node; run 'mise install'"
 require_cmd cargo "run 'mise install' (see .mise.toml) or install Rust ${RUST_MINOR}"
+require_cmd go "run 'mise install' (see .mise.toml) or install Go ${GO_MINOR}"
 require_cmd buf "run 'mise install' (see .mise.toml) or install buf ${BUF_MINOR} (https://buf.build/docs/installation)"
 
 # --- docker daemon and compose v2 --------------------------------------
@@ -87,6 +89,15 @@ if command -v cargo >/dev/null 2>&1; then
     pass "cargo (rust ${rv})"
   else
     warn "rust ${rv}, expected ${RUST_MINOR}" "mise install, then activate mise in your shell: eval \"\$(mise activate zsh)\" in ~/.zshrc"
+  fi
+fi
+
+if command -v go >/dev/null 2>&1; then
+  gv="$(go env GOVERSION | sed 's/^go//' | cut -d. -f1,2)"
+  if [ "$gv" = "$GO_MINOR" ]; then
+    pass "go ${gv}"
+  else
+    warn "go ${gv}, expected ${GO_MINOR}" "mise install, then activate mise in your shell: eval \"\$(mise activate zsh)\" in ~/.zshrc"
   fi
 fi
 

@@ -11,9 +11,10 @@ set -euo pipefail
 canon_python="$(sed -n 's/^python = "\(.*\)"/\1/p' .mise.toml)"
 canon_node="$(sed -n 's/^node = "\(.*\)"/\1/p' .mise.toml)"
 canon_rust="$(sed -n 's/^rust = "\(.*\)"/\1/p' .mise.toml)"
+canon_go="$(sed -n 's/^go = "\(.*\)"/\1/p' .mise.toml)"
 
-if [ -z "$canon_python" ] || [ -z "$canon_node" ] || [ -z "$canon_rust" ]; then
-  echo "cannot read python/node/rust pins from .mise.toml" >&2
+if [ -z "$canon_python" ] || [ -z "$canon_node" ] || [ -z "$canon_rust" ] || [ -z "$canon_go" ]; then
+  echo "cannot read python/node/rust/go pins from .mise.toml" >&2
   exit 1
 fi
 
@@ -60,6 +61,10 @@ expect "frontend Dockerfile FROM" \
 expect "canary Dockerfile FROM" \
   "$(sed -n 's/^FROM rust:\([0-9][0-9.]*\).*/\1/p' services/canary/Dockerfile | head -n1)" \
   "$canon_rust"
+
+expect "analytics Dockerfile FROM" \
+  "$(sed -n 's/^FROM golang:\([0-9][0-9.]*\).*/\1/p' services/analytics/Dockerfile | head -n1)" \
+  "$canon_go"
 
 expect "pyproject requires-python floor" \
   "$(sed -n 's/^requires-python = ">=\(.*\)"/\1/p' services/backend/pyproject.toml)" \

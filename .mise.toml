@@ -7,11 +7,12 @@
 #
 # Versions are pinned at minor level: the patch floats at install time,
 # and the Renovate runtime policy allows patch-only bumps for Python/Go.
-# Toolchains for future services (Go, JDK, buf, k6) are added in
-# the phase that introduces them (engineering-principles.md Section 6).
+# Toolchains for future services (JDK, k6) are added in the phase that
+# introduces them (engineering-principles.md Section 6).
 
 [tools]
 python = "3.12"
 node = "24"
 rust = "1.97"
+go = "1.26"
 buf = "1.72"

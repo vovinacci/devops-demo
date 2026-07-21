@@ -1,0 +1,21 @@
+# Minimal golangci-lint config (RFC-0001 D6): the "standard" preset plus
+# gofmt/goimports formatting checks -- generated code under internal/pb
+# is excluded since it is never hand-edited (Hard rule 1).
+version: "2"
+
+run:
+  timeout: 3m
+
+linters:
+  default: standard
+  exclusions:
+    paths:
+      - internal/pb
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    paths:
+      - internal/pb

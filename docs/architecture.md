@@ -11,6 +11,8 @@ flowchart LR
         fe["frontend (React + nginx)<br/>:8080"]
         be["api (FastAPI + grpc.aio)<br/>:8000, :50051"]
         pg[("db (PostgreSQL)<br/>:5432")]
+        an["analytics (Go)<br/>:8082, analytics profile"]
+        pgA[("postgres-analytics (PostgreSQL)<br/>:5433, analytics profile")]
     end
 
     subgraph obs [Observability]
@@ -25,16 +27,22 @@ flowchart LR
     fe -->|HTTP| be
     be -->|SQLAlchemy / Alembic| pg
     pgx --> pg
+    an -->|pgx| pgA
+    an -.->|"gRPC client, ItemService.WatchItemEvents<br/>(scaffold only in this phase -- PR-B)"| be
     prom -->|scrape| be
     prom -->|scrape| pgx
     prom -->|scrape| cad
+    prom -.->|"scrape (analytics profile)"| an
     alloy -->|container logs| loki
     graf --> prom
     graf --> loki
 ```
 
 This diagram tracks the code: a change that alters the topology updates it
-in the same PR (engineering-principles.md Section 1).
+in the same PR (engineering-principles.md Section 1). The `an -> be` edge
+is dashed and labeled "scaffold only": this PR ships analytics's HTTP
+surface, its own Postgres, and migrations, but no gRPC client yet --
+ingestion lands in RFC-0001 Phase 3 PR-B (`feat/analytics-ingest`).
 
 ## Components
 
@@ -47,6 +55,15 @@ in the same PR (engineering-principles.md Section 1).
   analytics dials, no consumer connected yet in this phase.
 - **Database** -- PostgreSQL; migrations applied on api startup;
   healthchecked.
+- **Analytics** ([readme](../services/analytics/README.md)) -- Go
+  service, own Postgres instance (`postgres-analytics`, ADR-0005),
+  hand-rolled embedded-SQL migrations applied at startup. `analytics`
+  compose profile (opt-in via `make up-full` or `--profile analytics`).
+  This phase ships the scaffold: HTTP surface (`/healthz`, `/readyz`
+  DB-only, `/metrics`), structured JSON logs, OpenTelemetry (no exporter
+  yet). The gRPC client that ingests item events from the backend lands
+  in RFC-0001 Phase 3 PR-B -- until then analytics has nothing to
+  aggregate.
 - **Observability** -- Prometheus (+ SLO rules), Grafana (provisioned
   dashboards), Loki + Grafana Alloy (logs), postgres-exporter, cAdvisor.
   Details: [observability.md](observability.md).
@@ -64,6 +81,8 @@ in the same PR (engineering-principles.md Section 1).
 | Database           | PostgreSQL    |
 | Frontend framework | React         |
 | Build tool         | Vite          |
+| Analytics runtime  | Go            |
+| Analytics DB driver| pgx           |
 | Metrics            | Prometheus    |
 | Visualization      | Grafana       |
 | Logs               | Loki          |
@@ -76,6 +95,7 @@ in the same PR (engineering-principles.md Section 1).
   [Alembic](https://alembic.sqlalchemy.org/),
   [Pydantic](https://docs.pydantic.dev/)
 - [React](https://react.dev/), [Vite](https://vitejs.dev/)
+- [Go](https://go.dev/doc/), [pgx](https://pkg.go.dev/github.com/jackc/pgx/v5)
 - [Prometheus](https://prometheus.io/docs/),
   [Grafana](https://grafana.com/docs/),
   [Loki](https://grafana.com/docs/loki/latest/),
