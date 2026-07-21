@@ -12,7 +12,7 @@ Path-filtered per-module workflows plus cross-cutting gates that always run:
 ```mermaid
 flowchart LR
     pr[Pull request] --> checks["checks.yml<br/>prek hooks + PR title lint<br/>(always, required)"]
-    pr --> be["backend.yml<br/>lint + test<br/>(services/backend/** only)"]
+    pr --> be["backend.yml<br/>no-committed-codegen + lint + generate + test<br/>(services/backend/** only)"]
     pr --> fe["frontend.yml<br/>lint + test<br/>(services/frontend/** only)"]
     pr --> ca["canary.yml<br/>lint + test + audit + image build<br/>(services/canary/** only)"]
     pr --> proto["proto.yml<br/>buf lint + format + breaking<br/>(proto/** only)"]
@@ -21,16 +21,16 @@ flowchart LR
     rp -->|release PR merged| rel["release.yml<br/>tag + publish (placeholder)"]
 ```
 
-| Workflow           | Triggers on                        | Jobs                                            |
-|--------------------|------------------------------------|-------------------------------------------------|
-| checks.yml         | every PR, push to main             | prek hooks (all files), PR title commitlint     |
-| backend.yml        | services/backend/** changes        | ruff + mypy, pytest against real Postgres       |
-| frontend.yml       | services/frontend/** changes       | eslint, vitest                                  |
-| canary.yml         | services/canary/** changes         | fmt + clippy, cargo test, cargo-deny, image     |
-| proto.yml          | proto/** changes                   | buf lint + format, buf breaking (against main)  |
-| images.yml         | services/**, deploy/compose/**     | docker build + Trivy scan per service (matrix)  |
-| release-please.yml | push to main                       | maintain release PR from commit history         |
-| release.yml        | release published                  | placeholder (image publishing comes later)      |
+| Workflow           | Triggers on                    | Jobs                                                                                    |
+|--------------------|--------------------------------|-----------------------------------------------------------------------------------------|
+| checks.yml         | every PR, push to main         | prek hooks (all files), PR title commitlint                                             |
+| backend.yml        | services/backend/** changes    | no-committed-codegen check, ruff + mypy, `make generate` + pytest against real Postgres |
+| frontend.yml       | services/frontend/** changes   | eslint, vitest                                                                          |
+| canary.yml         | services/canary/** changes     | fmt + clippy, cargo test, cargo-deny, image                                             |
+| proto.yml          | proto/** changes               | buf lint + format, buf breaking (against main)                                          |
+| images.yml         | services/**, deploy/compose/** | docker build + Trivy scan per service (matrix)                                          |
+| release-please.yml | push to main                   | maintain release PR from commit history                                                 |
+| release.yml        | release published              | placeholder (image publishing comes later)                                              |
 
 New services add their own path-filtered workflow in the phase that adds the
 service -- "has CI" is part of the Definition of Done
@@ -72,6 +72,12 @@ compatible).
   the canary -- the first of the per-service audits; `pip-audit`,
   `govulncheck`, and OWASP dependency-check arrive with their services
   (RFC-0001 D6).
+- **No committed generated code (backend):** a `git ls-files
+  'services/backend/app/proto_gen/*'` check fails the pipeline if
+  anything under the generate-in-build gRPC stub directory is currently
+  tracked by git (RFC-0001 D8, ADR-0002 -- Hard rule 1). `make generate` then
+  runs before tests, since the backend imports the generated stubs at
+  module load time.
 - **buf lint + format + breaking (proto/):** `bufbuild/buf-action` runs
   `buf lint` and `buf format --diff` on every proto/ change, plus
   `buf breaking` against the `main` branch baseline on pull requests

@@ -20,6 +20,8 @@ dependencies = [
     "python-dotenv==1.2.2",
     "prometheus-client==0.25.0",
     "httpx==0.28.1",
+    "grpcio==1.82.1",
+    "grpcio-health-checking==1.82.1",
 ]
 
 [project.optional-dependencies]
@@ -28,6 +30,7 @@ dev = [
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "ruff==0.15.21",
+    "grpcio-tools==1.82.1",
 ]
 
 [tool.setuptools]
@@ -45,29 +48,6 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 
-[tool.ruff]
-target-version = "py312"
-line-length = 160
-include = ["**/*.py", "**/*.pyi"]
-extend-exclude = ["venv", ".venv", "__pycache__", "alembic/versions"]
-
-[tool.ruff.lint]
-# E/W — pycodestyle, F — pyflakes, N — pep8-naming, UP — pyupgrade
-# I — import sorting (isort), B — bugbear, SIM — simplify
-# C4 — comprehensions, RUF — Ruff-specific rules
-select = ["E", "W", "F", "N", "UP", "I", "B", "SIM", "C4", "RUF"]
-ignore = ["E501", "C408", "C409", "SIM117"]
-
-[tool.ruff.lint.isort]
-known-first-party = ["app"]
-combine-as-imports = true
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-line-ending = "auto"
-docstring-code-format = true
-
 [tool.mypy]
 python_version = "3.12"
 warn_return_any = true
@@ -81,10 +61,15 @@ warn_unused_ignores = true
 warn_no_return = true
 strict_optional = true
 ignore_missing_imports = true
+# proto_gen is generate-in-build (RFC-0001 D8), never committed -- generated
+# code is not lint/type-check scope
+exclude = ["app/proto_gen"]
 
 [[tool.mypy.overrides]]
 module = [
     "alembic.*",
     "prometheus_client.*",
+    "grpc.*",
+    "grpc_health.*",
 ]
 ignore_missing_imports = true

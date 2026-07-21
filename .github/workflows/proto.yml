@@ -51,7 +51,11 @@ jobs:
       # main) and can be removed once that history is old enough to trust.
       - name: Check baseline exists on main
         id: baseline
+        # buf's ".git#branch=main" input clones the local .git and resolves
+        # refs/heads only; checkout leaves main as a remote-tracking ref
+        # (fatal: couldn't find remote ref main), so materialize it first.
         run: |
+          git branch --force main origin/main
           if git ls-tree origin/main --name-only | grep -q '^proto$'; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else

@@ -30,13 +30,21 @@ Install the backend editable in any virtualenv:
 pip install -e "services/backend[dev]"
 ```
 
-Run via make (recommended):
+The backend imports its generated gRPC stubs at module load time (`app.main`
+-> `app.grpc_server`), so they must exist before pytest can even collect
+tests -- generate them once from the repo root:
+
+```shell
+make generate
+```
+
+Run via make (recommended -- `make test-backend` already depends on `generate`):
 
 ```shell
 make test-backend
 ```
 
-Or invoke pytest directly from an activated virtualenv:
+Or invoke pytest directly from an activated virtualenv (after `make generate`):
 
 ```shell
 # run all

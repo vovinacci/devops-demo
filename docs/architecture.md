@@ -9,7 +9,7 @@ Compose. Design rationale and history live in the RFCs:
 flowchart LR
     subgraph app [Application]
         fe["frontend (React + nginx)<br/>:8080"]
-        be["api (FastAPI)<br/>:8000"]
+        be["api (FastAPI + grpc.aio)<br/>:8000, :50051"]
         pg[("db (PostgreSQL)<br/>:5432")]
     end
 
@@ -40,8 +40,11 @@ in the same PR (engineering-principles.md Section 1).
 
 - **Frontend** ([readme](../services/frontend/README.md)) -- React + Vite
   CRUD UI, Web Vitals reporting, nginx for static hosting in production.
-- **Backend** -- FastAPI (async), SQLAlchemy + asyncpg, Pydantic
-  validation, Alembic migrations, Prometheus client.
+- **Backend** ([readme](../services/backend/README.md)) -- FastAPI
+  (async), SQLAlchemy + asyncpg, Pydantic validation, Alembic migrations,
+  Prometheus client. Also serves `devopsdemo.items.v1.ItemService` over
+  `grpc.aio` on `:50051` (RFC-0001 D3, ADR-0002) -- backend serves,
+  analytics dials, no consumer connected yet in this phase.
 - **Database** -- PostgreSQL; migrations applied on api startup;
   healthchecked.
 - **Observability** -- Prometheus (+ SLO rules), Grafana (provisioned

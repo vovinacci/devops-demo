@@ -88,8 +88,12 @@ first, the diff second. Applies to human authors equally.
   profiles), `make seed`, `make test`.
 - Per-service targets where the service ships its own Makefile:
   `make -C services/canary build test lint run`.
+- `make generate` -- regenerates gRPC/protobuf Python stubs into
+  `services/backend/app/proto_gen` (buf + grpcio-tools; never committed,
+  RFC-0001 D8, ADR-0002). Run once after clone/proto change for IDE
+  completion; CI regenerates in its own build.
 - Planned, not yet implemented (arrive with their RFC-0001 phases; do
-  not invoke today): `make incident`, `make heal`, `make generate`.
+  not invoke today): `make incident`, `make heal`.
 
 ## Rejected Findings
 

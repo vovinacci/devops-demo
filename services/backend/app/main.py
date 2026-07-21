@@ -1,5 +1,7 @@
 import logging
 import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +13,7 @@ from starlette.responses import PlainTextResponse
 
 from app.crud import create_item, delete_item, list_items
 from app.deps import get_db
+from app.grpc_server import start_grpc_server
 from app.metrics import FE_WEB_VITAL, HTTP_REQUESTS_TOTAL, REQUEST_LATENCY_SECONDS
 from app.schemas import ItemCreate, ItemOut
 
@@ -22,7 +25,20 @@ ALLOWED_WEB_VITALS = {"CLS", "FCP", "INP", "LCP", "TTFB"}
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="DevOps Demo API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Starts the gRPC server (:50051) alongside uvicorn; stops it on
+    shutdown with a grace period for in-flight WatchItemEvents streams."""
+    grpc_server = await start_grpc_server()
+    try:
+        yield
+    finally:
+        logger.info("Stopping gRPC server")
+        await grpc_server.stop(grace=5)
+
+
+app = FastAPI(title="DevOps Demo API", lifespan=lifespan)
 
 # CORS for frontend
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
