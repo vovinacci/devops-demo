@@ -8,13 +8,12 @@
 # ----------------------------------------------------------------------------
 FROM golang:1.26.5-bookworm@sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651 AS builder
 
-# buf + the Go protoc plugins are pinned to the same versions as
-# .mise.toml (buf) and proto/buf.gen.yaml's local plugins -- a version
-# drift here would silently regenerate stubs differently than a local
-# `make generate` run.
-RUN go install github.com/bufbuild/buf/cmd/buf@v1.72.0 && \
-    go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11 && \
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
+# buf is pinned to the same version as .mise.toml. The Go protoc
+# plugins are NOT installed here: buf.gen.yaml invokes them via
+# `go tool`, so their versions come from this module's go.mod/go.sum
+# (Renovate-managed, MVS-locked to the protobuf runtime) -- a drift
+# between generator and runtime is structurally impossible.
+RUN go install github.com/bufbuild/buf/cmd/buf@v1.72.0
 ENV PATH=/root/go/bin:${PATH}
 
 # proto/ lives at the repo root, one level above this service's own build

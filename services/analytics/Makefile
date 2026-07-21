@@ -22,6 +22,11 @@ build: ## Compile the binary
 	$(PRINT_TARGET)
 	go build -o bin/analytics ./cmd/analytics
 
+.PHONY: generate
+generate: ## Regenerate gRPC stubs into internal/pb (never committed -- RFC-0001 D8)
+	$(PRINT_TARGET)
+	cd ../../proto && buf generate
+
 .PHONY: test
 test: ## Run unit + integration tests; migration tests need real Postgres, so a throwaway container is started/stopped around the run
 	$(PRINT_TARGET)
