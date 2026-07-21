@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/vovinacci/devops-demo/compare/v1.1.0...v1.2.0) (2026-07-21)
+
+
+### Features
+
+* **backend:** OpenTelemetry instrumentation with trace IDs in logs ([#162](https://github.com/vovinacci/devops-demo/issues/162)) ([23170c3](https://github.com/vovinacci/devops-demo/commit/23170c3a09849028272b6c7a2c073ffa612fe9c5))
+* **backend:** serve gRPC ItemService with event streaming ([#161](https://github.com/vovinacci/devops-demo/issues/161)) ([58fbd53](https://github.com/vovinacci/devops-demo/commit/58fbd5357ebb4abe38cd150eec6be1a0ade61c5b))
+* **backend:** split health contract into /healthz and /readyz ([#156](https://github.com/vovinacci/devops-demo/issues/156)) ([8ab8006](https://github.com/vovinacci/devops-demo/commit/8ab800616360ad6134d138e970e12d13aa495b88))
+* **canary:** Rust synthetic canary v1 behind synthetic profile ([#159](https://github.com/vovinacci/devops-demo/issues/159)) ([99d458a](https://github.com/vovinacci/devops-demo/commit/99d458a7dd71833bdf6207a9d002fe9104ef0cda))
+* **observability:** add blackbox_exporter behind synthetic profile ([#158](https://github.com/vovinacci/devops-demo/issues/158)) ([a50785f](https://github.com/vovinacci/devops-demo/commit/a50785fcd6624ebf60de699779e2c6c0f6b28f27))
+* **proto:** buf module with ItemService contract and CI gate ([#160](https://github.com/vovinacci/devops-demo/issues/160)) ([ebd57c1](https://github.com/vovinacci/devops-demo/commit/ebd57c13480e3ba32a0b033bc6bba7aa401b85d1))
+
 ## [1.1.0](https://github.com/vovinacci/devops-demo/compare/v1.0.0...v1.1.0) (2026-07-13)
 
 
