@@ -200,7 +200,8 @@ for the backend/analytics gRPC contract.
 ### Go gRPC codegen
 
 - `make generate` also runs `buf generate` (`proto/buf.gen.yaml`, Go-only:
-  managed mode + local `protoc-gen-go`/`protoc-gen-go-grpc` plugins) into
+  managed mode; `protoc-gen-go`/`protoc-gen-go-grpc` invoked via `go tool`,
+  versioned by go.mod tool directives, Renovate-managed) into
   `services/analytics/internal/pb` (gitignored, never committed). Unlike
   the Python path, this one goes through `buf generate` directly -- the
   plugins are real standalone Go binaries (`go install`-able), not a

@@ -35,7 +35,7 @@ func TestMigrateAppliesCleanlyAndIsIdempotent(t *testing.T) {
 	ctx := context.Background()
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, `DROP TABLE IF EXISTS item_events, event_buckets, schema_migrations`)
+		_, _ = pool.Exec(ctx, `DROP TABLE IF EXISTS item_events, event_buckets, current_items, schema_migrations`)
 	})
 
 	if err := store.Migrate(ctx, pool); err != nil {
@@ -51,20 +51,21 @@ func TestMigrateAppliesCleanlyAndIsIdempotent(t *testing.T) {
 	var tableCount int
 	err := pool.QueryRow(ctx, `
 		SELECT count(*) FROM information_schema.tables
-		WHERE table_schema = 'public' AND table_name IN ('item_events', 'event_buckets')
+		WHERE table_schema = 'public' AND table_name IN ('item_events', 'event_buckets', 'current_items')
 	`).Scan(&tableCount)
 	if err != nil {
 		t.Fatalf("check tables: %v", err)
 	}
-	if tableCount != 2 {
-		t.Fatalf("expected 2 tables (item_events, event_buckets), got %d", tableCount)
+	if tableCount != 3 {
+		t.Fatalf("expected 3 tables (item_events, event_buckets, current_items), got %d", tableCount)
 	}
 
-	var version string
-	err = pool.QueryRow(ctx,
-		`SELECT version FROM schema_migrations WHERE version = '0001_init'`,
-	).Scan(&version)
-	if err != nil {
-		t.Fatalf("expected 0001_init recorded in schema_migrations: %v", err)
+	for _, version := range []string{"0001_init", "0002_current_items"} {
+		var got string
+		if err := pool.QueryRow(ctx,
+			`SELECT version FROM schema_migrations WHERE version = $1`, version,
+		).Scan(&got); err != nil {
+			t.Fatalf("expected %s recorded in schema_migrations: %v", version, err)
+		}
 	}
 }

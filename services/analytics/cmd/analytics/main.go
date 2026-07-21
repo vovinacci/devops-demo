@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/vovinacci/devops-demo/services/analytics/internal/httpserver"
+	"github.com/vovinacci/devops-demo/services/analytics/internal/ingest"
 	"github.com/vovinacci/devops-demo/services/analytics/internal/logging"
 	"github.com/vovinacci/devops-demo/services/analytics/internal/otelsetup"
 	"github.com/vovinacci/devops-demo/services/analytics/internal/store"
@@ -79,9 +80,22 @@ func serve() int {
 		logger.Error("migrate failed", "error", err)
 		return 1
 	}
+	db := store.New(pool)
+
+	// Ingest runs on its own cancelable context so an unexpected HTTP
+	// server failure (the errCh branch below) can stop it too, not just
+	// a shutdown signal -- ctx alone is only canceled by SIGINT/SIGTERM.
+	ingestCtx, cancelIngest := context.WithCancel(ctx)
+	defer cancelIngest()
+	ingestClient := ingest.New(ingest.ConfigFromEnv(), db)
+	ingestDone := make(chan struct{})
+	go func() {
+		defer close(ingestDone)
+		ingestClient.Run(ingestCtx)
+	}()
 
 	addr := envString("ANALYTICS_HTTP_ADDR", ":8082")
-	srv := httpserver.New(pool)
+	srv := httpserver.New(db, db)
 	httpSrv := &http.Server{
 		Addr:              addr,
 		Handler:           srv.Handler(),
@@ -101,8 +115,17 @@ func serve() int {
 		logger.Info("shutdown signal received, draining connections")
 	case err := <-errCh:
 		logger.Error("http server failed", "error", err)
+		cancelIngest()
+		<-ingestDone
 		return 1
 	}
+
+	// Stop ingest before closing the pool (deferred above, LIFO-last):
+	// stream health is an alerting concern, not readyz's (ADR-0005), but
+	// the ingest goroutine still holds a *pgxpool.Pool it must stop using
+	// before shutdown proceeds.
+	cancelIngest()
+	<-ingestDone
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

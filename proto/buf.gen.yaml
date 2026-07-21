@@ -9,10 +9,15 @@ managed:
   override:
     - file_option: go_package_prefix
       value: github.com/vovinacci/devops-demo/services/analytics/internal/pb
+# Plugins run through `go tool` (go.mod tool directives in
+# services/analytics): versions live in go.mod/go.sum where Renovate
+# manages them, and protoc-gen-go is MVS-locked to the protobuf runtime
+# the service compiles against -- no PATH installs anywhere. `go -C`
+# points at the module since buf invokes plugins from proto/.
 plugins:
-  - local: protoc-gen-go
+  - local: ["go", "-C", "../services/analytics", "tool", "protoc-gen-go"]
     out: ../services/analytics/internal/pb
     opt: paths=source_relative
-  - local: protoc-gen-go-grpc
+  - local: ["go", "-C", "../services/analytics", "tool", "protoc-gen-go-grpc"]
     out: ../services/analytics/internal/pb
     opt: paths=source_relative

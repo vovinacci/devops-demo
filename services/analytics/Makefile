@@ -22,6 +22,11 @@ build: ## Compile the binary
 	$(PRINT_TARGET)
 	go build -o bin/analytics ./cmd/analytics
 
+.PHONY: generate
+generate: ## Regenerate gRPC stubs into internal/pb (never committed -- RFC-0001 D8)
+	$(PRINT_TARGET)
+	cd ../../proto && buf generate
+
 .PHONY: test
 test: ## Run unit + integration tests; migration tests need real Postgres, so a throwaway container is started/stopped around the run
 	$(PRINT_TARGET)
@@ -36,7 +41,14 @@ test: ## Run unit + integration tests; migration tests need real Postgres, so a 
 		if [ $$timeout -le 0 ]; then echo "test postgres did not become ready"; docker rm -f $(TEST_PG_CONTAINER) >/dev/null; exit 1; fi; \
 		sleep 1; \
 	done
-	@ANALYTICS_TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test ./... || (docker rm -f $(TEST_PG_CONTAINER) >/dev/null; exit 1)
+	@# -p 1: internal/store and internal/ingest (RFC-0001 Phase 3 PR-B) both
+	@# exercise real Postgres against this one throwaway container and both
+	@# tear down with a DROP TABLE cleanup; `go test`'s default cross-package
+	@# parallelism runs their test binaries concurrently, so one package's
+	@# cleanup can race another package's still-running test against the
+	@# same tables. Serializing packages avoids the race (within a package,
+	@# tests already run sequentially unless they opt into t.Parallel()).
+	@ANALYTICS_TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -p 1 ./... || (docker rm -f $(TEST_PG_CONTAINER) >/dev/null; exit 1)
 	@docker rm -f $(TEST_PG_CONTAINER) >/dev/null
 
 .PHONY: lint

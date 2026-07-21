@@ -15,12 +15,10 @@ on:
       - ".github/workflows/analytics.yml"
 
 env:
-  # Pinned to the same versions as .mise.toml (buf) and
-  # proto/buf.gen.yaml's local plugins -- drift here would regenerate
-  # stubs differently than a local `make generate` run.
+  # Pinned to the same buf version as .mise.toml. Go protoc plugin
+  # versions live in services/analytics/go.mod tool directives
+  # (Renovate-managed), not here.
   BUF_VERSION: "1.72.0"
-  PROTOC_GEN_GO_VERSION: "v1.36.11"
-  PROTOC_GEN_GO_GRPC_VERSION: "v1.6.2"
 
 jobs:
   lint-analytics:
@@ -44,16 +42,16 @@ jobs:
           go-version-file: services/analytics/go.mod
           cache-dependency-path: services/analytics/go.sum
 
-      - name: Install buf + Go protoc plugins
-        run: |
-          go install "github.com/bufbuild/buf/cmd/buf@v${BUF_VERSION}"
-          go install "google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VERSION}"
-          go install "google.golang.org/grpc/cmd/protoc-gen-go-grpc@${PROTOC_GEN_GO_GRPC_VERSION}"
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Set up buf
+        uses: bufbuild/buf-action@fd21066df7214747548607aaa45548ba2b9bc1ff # v1.4.0
+        with:
+          version: ${{ env.BUF_VERSION }}
+          setup_only: true
 
+      # Protoc plugins need no install step: buf.gen.yaml runs them via
+      # `go tool`, versioned by services/analytics/go.mod.
       - name: Generate gRPC/protobuf stubs
-        run: |
-          cd proto && buf generate
+        run: make -C services/analytics generate
 
       - name: gofmt check
         working-directory: services/analytics
@@ -96,34 +94,61 @@ jobs:
           go-version-file: services/analytics/go.mod
           cache-dependency-path: services/analytics/go.sum
 
-      - name: Install buf + Go protoc plugins
-        run: |
-          go install "github.com/bufbuild/buf/cmd/buf@v${BUF_VERSION}"
-          go install "google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VERSION}"
-          go install "google.golang.org/grpc/cmd/protoc-gen-go-grpc@${PROTOC_GEN_GO_GRPC_VERSION}"
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Set up buf
+        uses: bufbuild/buf-action@fd21066df7214747548607aaa45548ba2b9bc1ff # v1.4.0
+        with:
+          version: ${{ env.BUF_VERSION }}
+          setup_only: true
 
+      # Protoc plugins need no install step: buf.gen.yaml runs them via
+      # `go tool`, versioned by services/analytics/go.mod.
       - name: Generate gRPC/protobuf stubs
-        run: |
-          cd proto && buf generate
+        run: make -C services/analytics generate
 
       - name: Run tests
         working-directory: services/analytics
         env:
           ANALYTICS_TEST_DATABASE_URL: postgres://analytics:analytics@localhost:5432/analytics_test?sslmode=disable
-        run: go test ./... -v
+        # -p 1: store and ingest test binaries share one Postgres and
+        # race each other's schema teardown under cross-package
+        # parallelism -- same rationale as services/analytics/Makefile.
+        run: go test -p 1 ./... -v
 
   audit-analytics:
     name: Audit Analytics (govulncheck)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      # Checks out the repo and sets up Go itself (pinned internally);
-      # no separate checkout/setup-go steps needed here.
+      # govulncheck loads packages, and internal/ingest imports the
+      # generated internal/pb stubs (generate-in-build, never
+      # committed) -- so this job needs its own checkout + codegen
+      # before the scan, with the action's built-in checkout disabled.
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: services/analytics/go.mod
+          cache-dependency-path: services/analytics/go.sum
+
+      - name: Set up buf
+        uses: bufbuild/buf-action@fd21066df7214747548607aaa45548ba2b9bc1ff # v1.4.0
+        with:
+          version: ${{ env.BUF_VERSION }}
+          setup_only: true
+
+      # Protoc plugins need no install step: buf.gen.yaml runs them via
+      # `go tool`, versioned by services/analytics/go.mod.
+      - name: Generate gRPC/protobuf stubs
+        run: make -C services/analytics generate
+
       - name: govulncheck
         uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
         with:
           go-version-file: services/analytics/go.mod
           work-dir: services/analytics
+          repo-checkout: false
 
   build-analytics-image:
     name: Build analytics image

@@ -101,6 +101,7 @@ After successful startup, all services will be available at the following URLs:
 | **Postgres Exporter** | http://localhost:9187       | -           | PostgreSQL metrics in Prometheus format                                                   |
 | **cAdvisor**          | http://localhost:8081       | -           | Container and resource metrics                                                            |
 | **Canary**            | http://localhost:8085       | -           | Synthetic-journey canary (`synthetic` profile)                                            |
+| **Analytics API**     | http://localhost:8082       | -           | Event ingestion + read API (`/api/v1/items/{id}`, `/api/v1/stats`) (`analytics` profile)  |
 
 For the full command list run `make help`.
 

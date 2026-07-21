@@ -112,7 +112,7 @@ generate: ## Generate gRPC/protobuf stubs (Python + Go, never committed -- RFC-0
 		--grpc_python_out=services/backend/app/proto_gen \
 		proto/devopsdemo/items/v1/items.proto
 	rm -rf services/analytics/internal/pb
-	cd proto && buf generate
+	$(MAKE) -C services/analytics generate
 
 ##@ Testing
 
