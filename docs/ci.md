@@ -14,6 +14,7 @@ flowchart LR
     pr[Pull request] --> checks["checks.yml<br/>prek hooks + PR title lint<br/>(always, required)"]
     pr --> be["backend.yml<br/>lint + test<br/>(services/backend/** only)"]
     pr --> fe["frontend.yml<br/>lint + test<br/>(services/frontend/** only)"]
+    pr --> ca["canary.yml<br/>lint + test + audit + image build<br/>(services/canary/** only)"]
     pr --> img["images.yml<br/>docker build + Trivy<br/>(services/** only)"]
     merge[Squash-merge to main] --> rp["release-please.yml<br/>maintains release PR"]
     rp -->|release PR merged| rel["release.yml<br/>tag + publish (placeholder)"]
@@ -24,6 +25,7 @@ flowchart LR
 | checks.yml         | every PR, push to main             | prek hooks (all files), PR title commitlint     |
 | backend.yml        | services/backend/** changes        | ruff + mypy, pytest against real Postgres       |
 | frontend.yml       | services/frontend/** changes       | eslint, vitest                                  |
+| canary.yml         | services/canary/** changes         | fmt + clippy, cargo test, cargo-deny, image     |
 | images.yml         | services/**, deploy/compose/**     | docker build + Trivy scan per service (matrix)  |
 | release-please.yml | push to main                       | maintain release PR from commit history         |
 | release.yml        | release published                  | placeholder (image publishing comes later)      |
@@ -63,9 +65,14 @@ compatible).
 - **Secret scanning, two layers:** gitleaks runs in the hooks (working
   tree, every commit) and as a weekly full-git-history scan in CI -- a
   secret committed and later removed is invisible to the hook layer.
+- **Per-service dependency audit:** `cargo-deny` (advisories, license
+  allow-list, banned/duplicate dependency policy, source allow-list) for
+  the canary -- the first of the per-service audits; `pip-audit`,
+  `govulncheck`, and OWASP dependency-check arrive with their services
+  (RFC-0001 D6).
 - **Planned (later phases):** `buf lint` + `buf breaking` on proto/,
   load-profile parity test, compose e2e stage with k6 thresholds, nightly
-  full-profile workflow, per-service dependency audits.
+  full-profile workflow.
 
 ## Releases
 
@@ -115,7 +122,8 @@ settings are not otherwise reviewable:
 
 ## Caching
 
-Per-ecosystem caches keyed by lockfiles: pip (`setup-python` cache) and npm
-(`setup-node` cache) today; cargo, Go, and Gradle caches arrive with their
-services. Five ecosystems in one repo make cache strategy a first-class
-exhibit -- this section grows with each phase.
+Per-ecosystem caches keyed by lockfiles: pip (`setup-python` cache), npm
+(`setup-node` cache), and cargo (`Swatinem/rust-cache`, keyed on
+`services/canary/Cargo.lock`) today; Go and Gradle caches arrive with
+their services. Five ecosystems in one repo make cache strategy a
+first-class exhibit -- this section grows with each phase.

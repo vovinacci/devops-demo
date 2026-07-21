@@ -1,0 +1,78 @@
+name: Canary
+
+on:
+  pull_request:
+    paths:
+      - "services/canary/**"
+      - ".github/workflows/canary.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "services/canary/**"
+      - ".github/workflows/canary.yml"
+
+jobs:
+  lint-canary:
+    name: Lint Canary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      # No version tags upstream (rolling channel branches); pinned to
+      # the toolchain input below, which must match .mise.toml (ADR-0012).
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
+        with:
+          toolchain: "1.97"
+          components: rustfmt, clippy
+
+      - name: Cargo cache
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          workspaces: services/canary
+
+      - name: Run cargo fmt + clippy
+        run: |
+          make lint-canary
+
+  test-canary:
+    name: Test Canary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
+        with:
+          toolchain: "1.97"
+
+      - name: Cargo cache
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          workspaces: services/canary
+
+      - name: Run tests (mock backend, no real network)
+        run: |
+          make test-canary
+
+  audit-canary:
+    name: Audit Canary (cargo-deny)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: cargo-deny (advisories, bans, licenses, sources)
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          manifest-path: services/canary/Cargo.toml
+
+  build-canary-image:
+    name: Build canary image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Build image (no push)
+        run: |
+          docker build --pull -t devops-demo-canary:ci services/canary

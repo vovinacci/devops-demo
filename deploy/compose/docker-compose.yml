@@ -202,6 +202,32 @@ services:
       retries: 3
       start_period: 10s
 
+  # synthetic profile (ADR-0007 D9 synthetic layer): the Rust canary.
+  # depends_on api with service_started, not service_healthy -- observing
+  # a down backend is the canary's job (RFC-0001 D10 graceful degradation);
+  # it must be able to start and report failures even while api is down.
+  canary:
+    build:
+      context: ./services/canary
+    profiles:
+      - synthetic
+    environment:
+      - CANARY_BACKEND_URL=http://api:8000
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "8085:8080"
+    networks:
+      - devnet
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 volumes:
   dbdata: {}
   loki-data: {}
