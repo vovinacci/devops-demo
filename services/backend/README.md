@@ -73,6 +73,41 @@ together; both must pass.
 `grpc_method` is one of the contract's fixed RPC names (bounded
 cardinality by construction).
 
+## Tracing (RFC-0001 D11, ADR-0010)
+
+Both the HTTP API and the gRPC server are instrumented with the
+OpenTelemetry SDK (`app/otel.py`): every request gets a real span with a
+real, random W3C trace ID -- `opentelemetry-instrumentation-fastapi`
+extracts an incoming `traceparent` HTTP header, and a gRPC server
+interceptor (`opentelemetry-instrumentation-grpc`'s `aio_server_interceptor`,
+composed explicitly with the RED metrics interceptor rather than via that
+package's monkeypatch-based `GrpcAioInstrumentorServer`) does the same for
+gRPC metadata. The canary already sends `traceparent` on every journey
+call, so a canary trace ID and the backend log lines for that same
+request now match end to end.
+
+No exporter is configured -- the trace **backend** (Tempo) is deferred
+(Section 10 of RFC-0001), same as the canary. Spans are still created and
+recorded, just never shipped anywhere.
+
+Until Tempo lands, log-trace correlation is manual: every backend log
+line carries `[trace_id=<32 hex chars>]` (`app.otel.TraceIdFilter`,
+installed on the root logger), all zeros when the line wasn't logged
+inside a span (e.g. the excluded routes below). In Loki, once shipped:
+
+```logql
+{container="devops-demo-api-1"} |= "trace_id=b4f151ede3df15ebd770309cc1146b98"
+```
+
+`/healthz`, `/readyz`, `/health`, and `/metrics` are excluded from span
+creation (`excluded_urls`) -- healthcheck and scrape traffic has no
+diagnostic value and would dominate whatever Tempo eventually samples.
+Their own log lines still exist (the metrics/logging middleware isn't
+excluded), just with a zero trace_id.
+
+Logs are still the plain `basicConfig` text format, not JSON -- converting
+to structured JSON logs is separate debt (D6), not done in this PR.
+
 ## Generated code (`app/proto_gen/`)
 
 Never committed (gitignored, RFC-0001 D8 / ADR-0002 / AGENTS.md Hard rule

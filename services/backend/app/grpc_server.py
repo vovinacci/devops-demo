@@ -16,6 +16,7 @@ import grpc
 from google.protobuf.timestamp_pb2 import Timestamp
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
+from app import otel
 from app.crud import count_items, list_items
 from app.db import AsyncSessionLocal
 from app.events import DISCONNECT, ItemEventPayload, broadcaster
@@ -167,7 +168,11 @@ async def build_grpc_server() -> grpc.aio.Server:
     """Construct and wire the server (ItemService + health), but do not
     bind a port or start it -- split out from start_grpc_server() so
     tests can bind an ephemeral port instead of the fixed GRPC_PORT."""
-    server = grpc.aio.server(interceptors=[_RedMetricsInterceptor()])
+    # otel interceptor first (D11): outermost, so trace context (W3C
+    # metadata extraction) is established before the metrics interceptor
+    # runs. See app.otel.grpc_server_interceptor for why this is a plain
+    # interceptor rather than GrpcAioInstrumentorServer.instrument().
+    server = grpc.aio.server(interceptors=[otel.grpc_server_interceptor(), _RedMetricsInterceptor()])
     items_pb2_grpc.add_ItemServiceServicer_to_server(ItemServiceServicer(), server)
 
     health_servicer = health.aio.HealthServicer()
