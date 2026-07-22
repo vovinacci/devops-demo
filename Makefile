@@ -119,7 +119,7 @@ generate: ## Generate gRPC/protobuf stubs (Python + Go, never committed -- RFC-0
 .PHONY: incident
 incident: ## One-shot k6 incident overlay (INCIDENT_MODE=spike|errors, INCIDENT_MINUTES numeric, default 5); `make heal` stops it early
 	$(PRINT_TARGET)
-	$(COMPOSE) --profile load run --rm --name loadgen-incident \
+	$(COMPOSE) --profile load run --rm --no-deps --name loadgen-incident \
 		-e INCIDENT_MODE=$${INCIDENT_MODE:-spike} \
 		-e INCIDENT_MINUTES=$${INCIDENT_MINUTES:-5} \
 		-e INCIDENT_SPIKE_MULTIPLIER=$${INCIDENT_SPIKE_MULTIPLIER:-10} \
@@ -139,7 +139,13 @@ heal: ## Stop a running `make incident` overlay early (safe to run even if nothi
 smoke: ## e2e CI stage, runnable locally: bring up core+analytics+load, run the k6 smoke gate, assert wiring (RFC-0001 D12; .github/workflows/e2e.yml runs exactly this)
 	$(PRINT_TARGET)
 	$(COMPOSE) --profile analytics --profile load up -d --build --wait --wait-timeout 180
-	$(COMPOSE) --profile load run --rm \
+	@# --no-deps on every one-shot `compose run loadgen` below: without it,
+	@# compose re-evaluates loadgen's depends_on and recreates a running
+	@# api on a build-context hash mismatch -- MID-RUN, killing in-flight
+	@# requests (observed as a connection-refused burst failing the very
+	@# thresholds this gate exists to enforce). The stack is already up
+	@# from the line above; the one-shot needs nothing started for it.
+	$(COMPOSE) --profile load run --rm --no-deps \
 		-e K6_PROMETHEUS_RW_SERVER_URL=http://prometheus:9090/api/v1/write \
 		-e "K6_PROMETHEUS_RW_TREND_STATS=p(95),p(99),avg" \
 		loadgen run -o experimental-prometheus-rw /home/k6/scenarios/smoke.js
@@ -150,7 +156,7 @@ smoke: ## e2e CI stage, runnable locally: bring up core+analytics+load, run the 
 smoke-full: ## nightly CI stage, runnable locally: all current profiles (core+analytics+synthetic+load), a longer k6 smoke run, canary/blackbox assertions (RFC-0001 D12; .github/workflows/nightly.yml runs exactly this)
 	$(PRINT_TARGET)
 	$(COMPOSE) --profile analytics --profile synthetic --profile load up -d --build --wait --wait-timeout 240
-	$(COMPOSE) --profile load run --rm \
+	$(COMPOSE) --profile load run --rm --no-deps \
 		-e SMOKE_DURATION_SECONDS=$${SMOKE_DURATION_SECONDS:-300} \
 		-e K6_PROMETHEUS_RW_SERVER_URL=http://prometheus:9090/api/v1/write \
 		-e "K6_PROMETHEUS_RW_TREND_STATS=p(95),p(99),avg" \
