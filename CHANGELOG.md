@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.0](https://github.com/vovinacci/devops-demo/compare/v1.2.0...v1.3.0) (2026-07-22)
+
+
+### Features
+
+* **analytics:** Go service scaffold behind analytics profile ([#163](https://github.com/vovinacci/devops-demo/issues/163)) ([aaadc19](https://github.com/vovinacci/devops-demo/commit/aaadc19aaf25a3aebba206dd17e03851e77599ec))
+* **analytics:** ingest backend item events over gRPC ([#165](https://github.com/vovinacci/devops-demo/issues/165)) ([eb47deb](https://github.com/vovinacci/devops-demo/commit/eb47deb04a106e15d6c20698b54d8ed9ae4839e3))
+* **analytics:** retention job for raw events ([#166](https://github.com/vovinacci/devops-demo/issues/166)) ([a9e8fca](https://github.com/vovinacci/devops-demo/commit/a9e8fca09214d21e774e040144a05e4213274b5a))
+* **canary:** pipeline-lag step against analytics ([#167](https://github.com/vovinacci/devops-demo/issues/167)) ([a8ccbc0](https://github.com/vovinacci/devops-demo/commit/a8ccbc0d70a4faa87eef4593c57ff2c319f76912))
+
 ## [1.2.0](https://github.com/vovinacci/devops-demo/compare/v1.1.0...v1.2.0) (2026-07-21)
 
 
