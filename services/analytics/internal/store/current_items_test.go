@@ -21,7 +21,7 @@ func setUpStore(t *testing.T) (*store.Store, *pgxpool.Pool, context.Context) {
 	ctx := context.Background()
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, `DROP TABLE IF EXISTS item_events, event_buckets, current_items, schema_migrations`)
+		_, _ = pool.Exec(ctx, `DROP TABLE IF EXISTS item_events, event_buckets, current_items, seed_marker, schema_migrations`)
 	})
 
 	if err := store.Migrate(ctx, pool); err != nil {

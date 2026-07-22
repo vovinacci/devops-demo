@@ -158,4 +158,4 @@ jobs:
 
       - name: Build image (no push)
         run: |
-          docker build --pull --build-context proto=proto -t devops-demo-analytics:ci services/analytics
+          docker build --pull --build-context proto=proto --build-context loadprofile=loadprofile -t devops-demo-analytics:ci services/analytics

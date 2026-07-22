@@ -35,7 +35,7 @@ func TestMigrateAppliesCleanlyAndIsIdempotent(t *testing.T) {
 	ctx := context.Background()
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, `DROP TABLE IF EXISTS item_events, event_buckets, current_items, schema_migrations`)
+		_, _ = pool.Exec(ctx, `DROP TABLE IF EXISTS item_events, event_buckets, current_items, seed_marker, schema_migrations`)
 	})
 
 	if err := store.Migrate(ctx, pool); err != nil {
@@ -51,16 +51,17 @@ func TestMigrateAppliesCleanlyAndIsIdempotent(t *testing.T) {
 	var tableCount int
 	err := pool.QueryRow(ctx, `
 		SELECT count(*) FROM information_schema.tables
-		WHERE table_schema = 'public' AND table_name IN ('item_events', 'event_buckets', 'current_items')
+		WHERE table_schema = 'public'
+		AND table_name IN ('item_events', 'event_buckets', 'current_items', 'seed_marker')
 	`).Scan(&tableCount)
 	if err != nil {
 		t.Fatalf("check tables: %v", err)
 	}
-	if tableCount != 3 {
-		t.Fatalf("expected 3 tables (item_events, event_buckets, current_items), got %d", tableCount)
+	if tableCount != 4 {
+		t.Fatalf("expected 4 tables (item_events, event_buckets, current_items, seed_marker), got %d", tableCount)
 	}
 
-	for _, version := range []string{"0001_init", "0002_current_items"} {
+	for _, version := range []string{"0001_init", "0002_current_items", "0003_seed_marker"} {
 		var got string
 		if err := pool.QueryRow(ctx,
 			`SELECT version FROM schema_migrations WHERE version = $1`, version,

@@ -34,6 +34,11 @@ type Pinger interface {
 type ItemsStore interface {
 	GetCurrentItem(ctx context.Context, itemID int64) (store.CurrentItem, bool, error)
 	StatsLast24h(ctx context.Context) ([]store.BucketStat, error)
+	// GetSeedMarker backs GET /api/v1/seed-marker (RFC-0001 Phase 5 D5):
+	// found=false means no `analytics seed` run has ever completed --
+	// distinct from an error, so loadgen's scale guard (Phase 5 PR-2) can
+	// warn-and-continue on a fresh, never-seeded stack instead of failing.
+	GetSeedMarker(ctx context.Context) (store.SeedMarker, bool, error)
 }
 
 // dbUp mirrors the last readyz outcome as a whitebox metric alongside the
@@ -60,6 +65,7 @@ func New(pinger Pinger, items ItemsStore) *Server {
 	s.mux.Handle("/metrics", promhttp.Handler())
 	s.mux.HandleFunc("GET /api/v1/items/{item_id}", s.handleGetItem)
 	s.mux.HandleFunc("GET /api/v1/stats", s.handleStats)
+	s.mux.HandleFunc("GET /api/v1/seed-marker", s.handleSeedMarker)
 	return s
 }
 
@@ -161,6 +167,43 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		entries[i] = statEntry{EventType: stat.EventType, Count: stat.Count}
 	}
 	writeJSON(w, http.StatusOK, entries)
+}
+
+type seedMarkerResponse struct {
+	Scale         float64   `json:"scale"`
+	RefUnix       int64     `json:"ref_unix"`
+	Seed          int64     `json:"seed"`
+	Days          int       `json:"days"`
+	SeededAt      time.Time `json:"seeded_at"`
+	EventsWritten int64     `json:"events_written"`
+}
+
+// handleSeedMarker backs the Phase 5 seam contract: loadgen (Phase 5
+// PR-2) fetches this at startup to compare its own DEMO_TIME_SCALE
+// against the scale history was seeded at (Hard rule 8 -- a mismatch
+// silently breaks the seam invariant). 404 means never seeded (fresh
+// stack, `make up` with no `make seed-history` yet) -- distinct from an
+// error, so the caller can warn-and-continue instead of refusing to
+// start.
+func (s *Server) handleSeedMarker(w http.ResponseWriter, r *http.Request) {
+	marker, found, err := s.items.GetSeedMarker(r.Context())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if !found {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, seedMarkerResponse{
+		Scale:         marker.Scale,
+		RefUnix:       marker.RefUnix,
+		Seed:          marker.Seed,
+		Days:          marker.Days,
+		SeededAt:      marker.SeededAt,
+		EventsWritten: marker.EventsWritten,
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {

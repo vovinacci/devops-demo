@@ -36,20 +36,13 @@ func run(args []string) int {
 	case "serve":
 		return serve()
 	case "seed":
-		return seed()
+		return seed(args[1:])
 	case "healthcheck":
 		return healthcheck()
 	default:
 		fmt.Fprintf(os.Stderr, "unknown subcommand %q (want: serve, seed, healthcheck)\n", cmd)
 		return 2
 	}
-}
-
-// seed is a stub: the historical seeder is RFC-0001 Phase 5 (shared load
-// profile + stitching), out of scope for this scaffold.
-func seed() int {
-	fmt.Fprintln(os.Stderr, "seed arrives with RFC-0001 Phase 5")
-	return 2
 }
 
 func serve() int {

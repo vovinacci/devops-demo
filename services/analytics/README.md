@@ -6,7 +6,10 @@ instance. Ships the HTTP surface, database, migrations, Docker/CI/compose
 wiring (`feat/analytics-scaffold`), the gRPC ingest client
 (`feat/analytics-ingest`, RFC-0001 Phase 3 PR-B, ADR-0002): backend
 serves, analytics dials, and the retention job
-(`feat/analytics-retention`, RFC-0001 Phase 3 PR-C, ADR-0005 D7).
+(`feat/analytics-retention`, RFC-0001 Phase 3 PR-C, ADR-0005 D7), and the
+historical seeder (`feat/seeder`, RFC-0001 Phase 5 D5, ADR-0003): strict
+per-event seeding through the same ingestion path, see Historical seed
+below.
 
 ## Ingest (RFC-0001 Phase 3 PR-B, ADR-0002)
 
@@ -99,6 +102,204 @@ plus rising `analytics_retention_last_success_timestamp_seconds` age on
 the `Analytics Ingest` dashboard instead. Adding an alert is not in the
 Phase 3 plan; this is a deliberate scope decision, not an oversight.
 
+## Historical seed (RFC-0001 Phase 5 D5, ADR-0003)
+
+`analytics seed [--days N] [--seed N] [--profile PATH]` generates
+deterministic history backwards from the moment it starts, through the
+SAME ingestion path live events use -- no direct aggregate writes
+(`.omc/handoffs/team-plan.md`'s binding "strict D5 letter" decision, the
+one deliberately rejected alternative being a faster two-tier
+seed/aggregate-direct design).
+
+```shell
+make up-full        # or: docker compose -f deploy/compose/docker-compose.yml --project-directory . --profile analytics up -d --build
+make seed-history
+```
+
+`make seed-history` first tops up backend items (`make seed`, additive --
+adds 20 more each call) so the seeder has real item IDs to reference,
+then runs `analytics seed` via `compose run --rm --no-deps` under the
+`analytics` profile. `SEED_DAYS`/`SEED_SEED` env vars override the
+`--days 90`/`--seed 42` defaults (e.g. `make seed-history SEED_DAYS=3`
+for a quick local check).
+
+### Generation
+
+For every hour in `[now - days*24h, now)`, aligned to hour boundaries:
+
+1. `internal/loadshape.Rate(bucketMid, profile, scale, ref=now)` gives
+   the hour's rate (events/s); `bucketMid = hourStart + 30m` is the
+   representative instantaneous sample for that hour's average.
+   `round(rate * 3600)` is the exact event count for that hour -- proven
+   exact, not approximate, by `TestRunEventCountPerHourMatchesLoadshape`
+   (`internal/seeder`).
+2. Each event's exact timestamp (uniform within the hour), event type,
+   and item assignment (uniform pick from the ADR-0002 `ListItems`
+   snapshot) are drawn from one PRNG stream seeded by `--seed`. Event
+   type is created/deleted only, roughly balanced (50/50) -- deliberately
+   **not** created/updated/deleted: the backend has no PUT endpoint, so
+   `EVENT_TYPE_UPDATED` (`proto/devopsdemo/items/v1/items.proto`) is
+   contract-first for a producer that does not exist yet, and no live
+   `WatchItemEvents` stream has ever emitted one. Seeding a lookalike
+   "updated" bucket would itself be a seam: a by-event-type dashboard or
+   query would show synthetic history diverging from live shape exactly
+   where D5 requires it to be seamless. The 50/50 split is an independent
+   weighted draw per event, not literal create-then-delete pairing --
+   over a 90-day window with many events per item, a realistic
+   live/tombstoned mix emerges on its own without extra bookkeeping.
+3. **PRNG choice:** `math/rand/v2`'s `PCG` source (`rand.NewPCG`), not
+   the auto-seeded top-level convenience functions -- PCG's algorithm is
+   fully specified, so a given `--seed` reproduces the identical stream
+   across Go versions and platforms. Chosen over a hand-rolled LCG for
+   the same determinism guarantee with no bespoke arithmetic to
+   maintain. `internal/seeder.TestRunIsDeterministic` and
+   `TestRunDifferentSeedDiffers` are the parity/no-op regression guards.
+4. `--profile` (default `$ANALYTICS_LOADPROFILE_PATH`, itself defaulting
+   to `../../loadprofile/profile.json`) reads the same checked-in
+   `loadprofile/profile.json` k6 evaluates for live traffic (Hard rule
+   8). In the container, `ANALYTICS_LOADPROFILE_PATH` points at
+   `/etc/analytics/loadprofile/profile.json`, baked in at build time from
+   a `loadprofile=./loadprofile` named build context (compose:
+   `additional_contexts`) -- the same pattern `loadgen/Dockerfile` uses
+   for the same directory. It is read at container **runtime** by `seed`
+   (not at build time; there is nothing to compile), so it lives in the
+   Dockerfile's runtime stage, not the builder.
+
+**RFC "spread `created_at`" deviation, documented:** RFC-0001 D5 describes
+backend items seeded with spread `created_at` timestamps first. The
+backend's `Item` row carries no `created_at` column, so this seeder
+coordinates through item **identity** instead: synthetic events reference
+real item IDs pulled live via `ListItems`, never invented IDs. Item
+identity, not a backdated timestamp, is the coordination point between
+backend and analytics history.
+
+### Writing: batched, but still per-event (the D5 constraint)
+
+`internal/store.IngestEventsBatch` is the only concession the strict D5
+letter allows: one Postgres transaction per batch (~8,000 events, the
+seeder's `defaultBatchSize` -- see Runtime below for the measured
+throughput this yields) instead of one per event, with **identical**
+semantics to `IngestEvent` called once per event in order:
+
+- Multi-row `INSERT ... ON CONFLICT (item_id, event_type, event_time) DO
+  NOTHING RETURNING` -- the same unique-index dedup guard as live
+  ingest; `DO NOTHING` (unlike `DO UPDATE`) tolerates duplicate keys
+  within one multi-row statement, so no pre-dedup of the batch is
+  needed for this half.
+- Bucket increments computed **only** from that `RETURNING` set (rows
+  genuinely new), grouped by `date_trunc('hour', event_time, 'UTC')` and
+  `event_type`, via a CTE chain in one round trip -- a deduplicated
+  replay never double-counts, exactly like `IngestEvent`'s
+  inserted-gated bucket write.
+- `current_items`: Postgres forbids a multi-row `ON CONFLICT DO UPDATE`
+  from touching the same row twice in one statement, so events are
+  first folded to at most one row per `item_id` in Go
+  (`foldCurrentItems`) -- the last event (in the batch's own order)
+  whose `event_time` ties or exceeds the running maximum for that item
+  wins, the same last-event-time-wins rule `IngestEvent`'s `GREATEST`/
+  `CASE` applies one event at a time. The single folded row is then
+  upserted with that identical `CASE` logic, which itself compares
+  against whatever is already committed (from a prior batch or the
+  reconcile snapshot) -- so the fold only needs to get the *within-batch*
+  winner right; cross-batch correctness falls out of the SQL `CASE`
+  unconditionally.
+
+**Batch-equals-single, proven, not asserted:** `internal/store`'s
+`TestIngestEventsBatchEqualsSerialIngestEvent` applies the same
+deliberately messy event set (repeated items, out-of-order times, an
+exact same-batch duplicate, a late-older-event-after-a-delete) two ways
+-- one `IngestEvent` call per event against a fresh schema, one
+`IngestEventsBatch` call against another fresh schema -- and asserts
+`item_events` row count, every `event_buckets` row, and every
+`current_items` row are identical between the two. `
+TestIngestEventsBatchDedupWithinBatch`/`DedupAcrossBatches` cover the
+two dedup axes separately.
+
+### Closing retention pass
+
+After generation, the seeder runs `internal/retention`'s `Runner.RunOnce`
+once -- the exact same retention code the live service's ticker loop
+runs (RFC-0001 D5's own "same aggregation/bucketing/retention code"
+clause), not a seeder-specific reimplementation. `event_buckets` and
+`current_items` are untouched (see Retention above); only raw
+`item_events` older than `ANALYTICS_RETENTION_DAYS` (default 7) are
+deleted, trimming the transient full-window raw data down to the live
+service's normal retention horizon.
+
+### Seed marker and the read API
+
+On success (only), the seeder writes a single-row `seed_marker` table
+(migration `0003_seed_marker`: `scale`, `ref_unix`, `seed`, `days`,
+`seeded_at`, `events_written`) via `UpsertSeedMarker`, backing
+`GET /api/v1/seed-marker` (see Read API below). A partial or failed run
+returns before this write, so the marker's presence genuinely means "a
+seed run completed" -- the contract Phase 5 PR-2's loadgen scale guard
+depends on (refuses to start on a `DEMO_TIME_SCALE` mismatch against
+what history was seeded at, warns-and-continues when the row is absent).
+
+### Runtime, disk, and re-run semantics (measured on a laptop, `--days 90`, default 20-item-increments backend)
+
+- **Throughput:** ~120,000-130,000 events/s sustained (generation +
+  batched write combined); a full `--days 90` run wrote 58.36M events in
+  8m21s wall time, well under the demo's 30-45 minute budget.
+- **Closing retention pass:** deleted 54.19M rows (83 of the 90 seeded
+  days, `ANALYTICS_RETENTION_DAYS=7` default) in 19.3s.
+- **Disk, transient peak then not reclaimed by this run:** `item_events`
+  physically occupied ~12 GB after the retention `DELETE` (`pgdata-
+  analytics` volume: ~13.8 GB) even though only ~4.17M *logical* rows
+  (7 days) remained -- Postgres `DELETE` marks rows dead, it does not
+  shrink the table; only `VACUUM`/autovacuum reclaims the space over
+  time (autovacuum will eventually run given default settings and normal
+  write traffic, but do not expect the volume to shrink immediately
+  after a seed run). Budget headroom accordingly, especially on a
+  constrained laptop (RFC-0001 Section 11 risk); `VACUUM FULL` reclaims
+  it immediately but takes an exclusive lock, not something to run
+  casually against a live demo.
+- **Seam verified, not just generated:** after a seed run, hourly
+  `event_buckets` totals equal `round(loadshape.Rate(bucketMid, profile,
+  scale, ref) * 3600)` **exactly** for every hour (checked directly
+  against the running stack, not just the unit test) -- e.g. two
+  adjacent hours measured `14267`/`13100` actual vs `14267.40`/`13100.31`
+  expected. The `ingestion-outage` anomaly (4h, multiplier 0) produces
+  exactly 4 consecutive hours with **zero** rows in `event_buckets`
+  (all 3 event types absent, not merely zero-count rows) -- confirmed
+  directly, not inferred.
+- **Re-run semantics: idempotent-ish, not a guarantee across separate
+  invocations.** Two axes both drift between separate `analytics seed`
+  runs, by design:
+  - `ref_time` is captured fresh (`time.Now()`) every invocation, never
+    persisted or reused -- a second run's anomaly windows and trend
+    factor sit at a *slightly* different absolute position (RFC-0001 D5:
+    "different ref time creates overlapping history"). Measured: holding
+    the backend item snapshot fixed and re-running
+    `analytics seed --days 2 --seed 42` about 30 seconds later against
+    an already-seeded table wrote only 5,317 new rows against ~941K
+    existing (99.4% deduplicated) -- the residual is exactly this drift,
+    concentrated near the degradation anomaly's boundary (closest to
+    "now").
+  - `make seed-history`'s own `seed` prerequisite is additive (`make
+    seed` always adds 20 more backend items), so two `make seed-history`
+    invocations see two *different* item snapshots -- the PRNG's
+    per-event item pick (`rng.IntN(len(items))`) depends on the snapshot
+    size, so nearly nothing dedupes across two `make seed-history` runs
+    even though the underlying `IngestEventsBatch` dedup guard itself
+    works perfectly (proven at the store layer, see above). This is a
+    property of the backend's additive seed script, not a seeder bug.
+  - **What IS provably idempotent:** replaying the exact same event set
+    (same items, same timestamps, same types) through
+    `IngestEventsBatch` -- whether as one batch or split differently
+    across batches -- inserts each event exactly once
+    (`TestIngestEventsBatchDedupAcrossBatches`). A seed run interrupted
+    mid-way (`SIGINT`) and simply re-run is safe to leave as-is or
+    re-run: the *portion already written* dedupes correctly regardless
+    of how the retry's batches happen to be sliced.
+  - **Full reset, honest guidance:** to get a clean, fully reproducible
+    re-seed (e.g. for a course exercise that must start from the same
+    state every time), reset the analytics volume rather than re-running
+    on top of existing data:
+    `docker compose -f deploy/compose/docker-compose.yml --project-directory . --profile analytics down -v` (drops `pgdata-analytics`), then bring the
+    profile back up and run `make seed-history` once.
+
 ## Read API (`/api/v1`)
 
 - `GET /api/v1/items/{item_id}` -- `current_items` row as JSON
@@ -112,6 +313,12 @@ Phase 3 plan; this is a deliberate scope decision, not an oversight.
 - `GET /api/v1/stats` -- `event_buckets` totals by `event_type` over the
   last 24h, a cheap aggregate read (not a report -- real reporting is the
   Kotlin reports service, a later phase).
+- `GET /api/v1/seed-marker` -- the `seed_marker` row as JSON (`scale`,
+  `ref_unix`, `seed`, `days`, `seeded_at`, `events_written`) (RFC-0001
+  Phase 5 D5, see Historical seed above). `200` only once a seed run has
+  completed successfully; `404` on a never-seeded stack -- Phase 5 PR-2's
+  loadgen scale guard treats these differently (refuse on a scale
+  mismatch vs. warn-and-continue when absent).
 
 ## Semantics (ADR-0005)
 
@@ -136,8 +343,10 @@ Phase 3 plan; this is a deliberate scope decision, not an oversight.
 ## Subcommands
 
 - `serve` (default) -- runs the HTTP server.
-- `seed` -- stub; exits `2` with `seed arrives with RFC-0001 Phase 5`
-  (the historical seeder is a later phase, see RFC-0001 D5).
+- `seed [--days N] [--seed N] [--profile PATH]` -- the historical seeder
+  (RFC-0001 Phase 5 D5, see Historical seed above). Exits non-zero on any
+  failure (bad flags, unreachable Postgres/backend, zero backend items,
+  a write failure) with a `slog` error line explaining which.
 - `healthcheck` -- exits `0` if both `/healthz` and `/readyz` return `200`
   against the local process, non-zero otherwise. Exists so the Docker
   runtime image can be `distroless/static` (no shell, no wget/curl for a
@@ -164,6 +373,8 @@ Phase 3 plan; this is a deliberate scope decision, not an oversight.
 | `ANALYTICS_INGEST_BACKOFF_MAX` | `30s` | Reconnect backoff cap (Go duration syntax) |
 | `ANALYTICS_RETENTION_INTERVAL` | `1h` | Retention job ticker interval (Go duration syntax); also runs once at startup regardless |
 | `ANALYTICS_RETENTION_DAYS` | `7` | Raw `item_events` older than this many days (by `event_time`) are deleted each run (ADR-0005 D7) |
+| `ANALYTICS_LOADPROFILE_PATH` | `../../loadprofile/profile.json` | `seed` subcommand only (RFC-0001 Phase 5 D5): path to `loadprofile/profile.json`. Compose sets this to `/etc/analytics/loadprofile/profile.json`, baked in from the `loadprofile` build context (see Docker below) |
+| `DEMO_TIME_SCALE` | `1` | `seed` subcommand only: the shared load-shape scale (Hard rule 8, ADR-0003) -- must match whatever loadgen runs with, or the seam invariant breaks |
 
 ## Database
 
@@ -183,7 +394,8 @@ before the HTTP server starts serving.
 event_time)` so re-reconcile after a stream reconnect is idempotent) and
 `event_buckets` (hourly aggregates, mutable upserts -- see Semantics).
 `0002_current_items`: `current_items` (reconcile target and read-API
-backing store, see Ingest above).
+backing store, see Ingest above). `0003_seed_marker`: `seed_marker`
+(single-row, RFC-0001 Phase 5 D5, see Historical seed above).
 
 ## Logs and tracing
 
@@ -243,9 +455,16 @@ Runs as the image's built-in non-root user.
 `proto/` is reached as a named additional build context (compose:
 `additional_contexts`; plain `docker build`:
 `--build-context proto=proto`), the same pattern as
-`services/backend/Dockerfile`.
+`services/backend/Dockerfile`. `loadprofile/` is a second named build
+context (RFC-0001 Phase 5 D5, same pattern `loadgen/Dockerfile` uses for
+the same directory), copied straight into the **runtime** stage (not the
+builder) at `/etc/analytics/loadprofile/` -- `seed` reads
+`profile.json` at container runtime, there is nothing to compile.
 
 ## Roadmap
 
 - **PR-D** (`feat/canary-v2`): canary pipeline-lag step polling this
   service's `GET /api/v1/items/{item_id}` (RFC-0001 D9).
+- **Phase 5 PR-2** (`feat/history-dashboards`): Grafana historical
+  dashboards over `event_buckets`, Grafana annotations for the seeded
+  anomalies, loadgen's `/api/v1/seed-marker` scale guard.

@@ -49,7 +49,7 @@ jobs:
           # stub generation at build time.
           - service: analytics
             context: services/analytics
-            extra_build_args: "--build-context proto=proto"
+            extra_build_args: "--build-context proto=proto --build-context loadprofile=loadprofile"
           # loadgen lives at the repo root, not under services/ (RFC-0001
           # D8): its build context needs two named additional contexts,
           # same pattern as backend/analytics for proto/ above --
