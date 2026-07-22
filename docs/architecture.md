@@ -82,6 +82,10 @@ motivating exhibit for the NATS capstone (RFC-0001 Section 10).
   `ANALYTICS_RETENTION_DAYS` (default 7) -- once immediately at startup,
   then on a ticker -- keyed on event time (RFC-0001 D7, ADR-0005);
   `event_buckets` is already the aggregate and is left untouched.
+- **Canary** ([readme](../services/canary/README.md)) -- Rust synthetic
+  layer (RFC-0001 D9, ADR-0007); v2 adds a pipeline-lag step polling
+  analytics, tolerating it being absent (ADR-0008 D10 graceful
+  degradation). `synthetic` compose profile.
 - **Observability** -- Prometheus (+ SLO rules), Grafana (provisioned
   dashboards), Loki + Grafana Alloy (logs), postgres-exporter, cAdvisor.
   Details: [observability.md](observability.md).
