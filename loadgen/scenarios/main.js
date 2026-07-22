@@ -26,10 +26,15 @@ const grpcCallFailed = new Rate("loadgen_grpc_call_failed");
 const totalSeconds = env.durationHours * 3600;
 const stepSeconds = env.stageMinutes * 60;
 
-// Scenario weights of the shared profile's requests/second (RFC-0001 D4):
-// browse 60%, CRUD 20%, abuse 10%, gRPC 5%. "expensive" is a distinct,
-// low base weight (5%) modulated by its own on/off burst pattern below,
-// not a slice of the other four -- see WEIGHTS.expensiveBase.
+// Scenario weights apportion the shared profile's arrival rate across
+// scenario ITERATIONS (RFC-0001 D4 spirit: browse 60%, CRUD 20%, abuse
+// 10%, gRPC 5%). Iterations are not single requests -- browse and crud
+// issue 2 HTTP calls each, grpc 2 invokes, expensive a batch -- so the
+// request-level mix deliberately differs from the iteration split; the
+// iteration mix is the contract (documented in loadgen/README.md).
+// "expensive" is a distinct, low base weight (5%) modulated by its own
+// on/off burst pattern below, not a slice of the other four -- see
+// WEIGHTS.expensiveBase.
 const WEIGHTS = {
   browse: 0.6,
   crud: 0.2,

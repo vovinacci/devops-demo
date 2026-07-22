@@ -91,8 +91,9 @@ first, the diff second. Applies to human authors equally.
   `services/backend/app/proto_gen` (buf + grpcio-tools; never committed,
   RFC-0001 D8, ADR-0002). Run once after clone/proto change for IDE
   completion; CI regenerates in its own build.
-- Planned, not yet implemented (arrive with their RFC-0001 phases; do
-  not invoke today): `make incident`, `make heal`.
+- `make incident` / `make heal` -- one-shot k6 incident overlay (10x
+  spike or error storm) and its kill switch (RFC-0001 D4, ADR-0006);
+  verify recovery afterward on the load dashboard and in Mailpit.
 
 ## Rejected Findings
 

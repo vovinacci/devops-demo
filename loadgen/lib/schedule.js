@@ -42,7 +42,11 @@ export function buildStages({
     // error into its int64 field) -- sub-request-per-second precision
     // isn't meaningful for this demo's traffic volumes anyway.
     target = Math.max(minTarget, Math.round(target));
-    stages.push({ target, duration: `${stepSeconds}s` });
+    // The last stage is capped at whatever remains of totalSeconds --
+    // a fixed stepSeconds would overshoot when the division is uneven.
+    const remaining = totalSeconds - i * stepSeconds;
+    const duration = Math.min(stepSeconds, remaining);
+    stages.push({ target, duration: `${duration}s` });
   }
   return stages;
 }

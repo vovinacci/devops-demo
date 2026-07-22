@@ -52,8 +52,8 @@
     },
     {
       "type": "timeseries",
-      "title": "k6 Client-Observed p95 Duration by Scenario",
-      "description": "k6's own http_req_duration Trend, mapped to k6_http_req_duration_p95 by the Prometheus remote-write output (K6_PROMETHEUS_RW_TREND_STATS=p(95),p(99),avg, loadgen/README.md). Client-side view: includes DNS/connect/TLS that the backend's own RED metric (left) does not.",
+      "title": "k6 Worst Tagged-Series p95 by Scenario",
+      "description": "Worst tagged-series p95 within each scenario: k6's remote-write output emits one p95 series per tag combination, so max() by scenario reports the slowest tag combo, not a combined scenario-wide p95. k6's own http_req_duration Trend, mapped to k6_http_req_duration_p95 by the Prometheus remote-write output (K6_PROMETHEUS_RW_TREND_STATS=p(95),p(99),avg, loadgen/README.md). Client-side view: includes DNS/connect/TLS that the backend's own RED metric (left) does not.",
       "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
       "targets": [
         {
@@ -101,7 +101,7 @@
       "targets": [
         {
           "expr": "k6_grpc_req_duration_p95{scenario=\"grpc\"}",
-          "legendFormat": "p95",
+          "legendFormat": "{{ method }} {{ service }}",
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
         }

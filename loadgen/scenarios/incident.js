@@ -29,9 +29,19 @@ function num(name, fallback) {
 // the cheapest real endpoint -- an offered-load spike, not error traffic.
 // INCIDENT_MODE=errors: moderate, steady arrival rate of intentionally
 // invalid requests -- an error-rate spike, not a volume spike.
-const MODE = __ENV.INCIDENT_MODE === "errors" ? "errors" : "spike";
-const MINUTES = num("INCIDENT_MINUTES", 5);
-const SPIKE_MULTIPLIER = num("INCIDENT_SPIKE_MULTIPLIER", 10);
+const MODE = __ENV.INCIDENT_MODE === undefined || __ENV.INCIDENT_MODE === "" ? "spike" : __ENV.INCIDENT_MODE;
+if (MODE !== "spike" && MODE !== "errors") {
+  throw new Error(`INCIDENT_MODE must be "spike" or "errors", got "${MODE}"`);
+}
+
+function positive(name, fallback) {
+  const n = num(name, fallback);
+  if (n <= 0) throw new Error(`${name} must be > 0, got ${n}`);
+  return n;
+}
+
+const MINUTES = positive("INCIDENT_MINUTES", 5);
+const SPIKE_MULTIPLIER = positive("INCIDENT_SPIKE_MULTIPLIER", 10);
 
 // Single evaluation at env.refUnixSeconds itself (offset 0) -- this
 // script's own container start, same reference-time contract as
@@ -45,7 +55,7 @@ const currentRate = rate(env.refUnixSeconds, profile, {
 // ramping-arrival-rate's `target` (loadgen/lib/schedule.js) -- rounded
 // to a whole number for the same reason.
 const spikeRate = Math.max(1, Math.round(currentRate * SPIKE_MULTIPLIER));
-const errorRate = Math.max(1, Math.round(num("INCIDENT_ERROR_RATE_PER_S", 5)));
+const errorRate = Math.max(1, Math.round(positive("INCIDENT_ERROR_RATE_PER_S", 5)));
 
 export const options = {
   scenarios: {

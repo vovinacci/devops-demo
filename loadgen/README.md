@@ -63,6 +63,11 @@ not a loop inside the script.
 Weights are a share of the shared profile's `rate()` output
 (requests/second), not independent rates:
 
+Weights split the shared profile's arrival rate across scenario
+*iterations*; an iteration is not one request (browse/crud make 2 HTTP
+calls, grpc 2 invokes, expensive a batch), so the request-level mix
+intentionally differs from the percentages below.
+
 | Scenario    | Weight          | What it does                                                                                                                        |
 | ----------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `browse`    | 60%             | `GET /items` (backend) + `GET /` (frontend)                                                                                         |

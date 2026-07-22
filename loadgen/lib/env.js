@@ -30,13 +30,34 @@ if (refUnixSeconds === undefined) {
   );
 }
 
+// Reject values that would produce zero/negative stages or a k6
+// options-validation error deep inside the executor instead of a clear
+// message here at init.
+function positive(name, fallback) {
+  const n = num(name, fallback);
+  if (n <= 0) throw new Error(`${name} must be > 0, got ${n}`);
+  return n;
+}
+
+function positiveInt(name, fallback) {
+  const n = positive(name, fallback);
+  if (!Number.isInteger(n)) throw new Error(`${name} must be an integer, got ${n}`);
+  return n;
+}
+
+const preAllocatedVUs = positiveInt("LOADGEN_PREALLOCATED_VUS", 10);
+const maxVUs = positiveInt("LOADGEN_MAX_VUS", 50);
+if (maxVUs < preAllocatedVUs) {
+  throw new Error(`LOADGEN_MAX_VUS (${maxVUs}) must be >= LOADGEN_PREALLOCATED_VUS (${preAllocatedVUs})`);
+}
+
 export const env = {
   refUnixSeconds,
-  scale: num("DEMO_TIME_SCALE", 1),
-  durationHours: num("LOADGEN_DURATION_HOURS", 24),
-  stageMinutes: num("LOADGEN_STAGE_MINUTES", 15),
-  preAllocatedVUs: num("LOADGEN_PREALLOCATED_VUS", 10),
-  maxVUs: num("LOADGEN_MAX_VUS", 50),
+  scale: positive("DEMO_TIME_SCALE", 1),
+  durationHours: positive("LOADGEN_DURATION_HOURS", 24),
+  stageMinutes: positive("LOADGEN_STAGE_MINUTES", 15),
+  preAllocatedVUs,
+  maxVUs,
   backendUrl: __ENV.LOADGEN_BACKEND_URL || "http://api:8000",
   webUrl: __ENV.LOADGEN_WEB_URL || "http://web:80",
   grpcAddr: __ENV.LOADGEN_GRPC_ADDR || "api:50051",

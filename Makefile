@@ -117,7 +117,7 @@ generate: ## Generate gRPC/protobuf stubs (Python + Go, never committed -- RFC-0
 ##@ Load generation
 
 .PHONY: incident
-incident: ## One-shot k6 incident overlay (INCIDENT_MODE=spike|errors, INCIDENT_MINUTES=5m default); `make heal` stops it early
+incident: ## One-shot k6 incident overlay (INCIDENT_MODE=spike|errors, INCIDENT_MINUTES numeric, default 5); `make heal` stops it early
 	$(PRINT_TARGET)
 	$(COMPOSE) --profile load run --rm --name loadgen-incident \
 		-e INCIDENT_MODE=$${INCIDENT_MODE:-spike} \
