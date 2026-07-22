@@ -67,6 +67,18 @@ services:
 
   prometheus:
     image: prom/prometheus:v3.13.1@sha256:3c42b892cf723fa54d2f262c37a0e1f80aa8c8ddb1da7b9b0df9455a35a7f893
+    # The image's own default CMD is exactly the first two flags below
+    # (`--config.file=/etc/prometheus/prometheus.yml
+    # --storage.tsdb.path=/prometheus`, see prom/prometheus's Dockerfile)
+    # -- a `command:` override replaces CMD entirely, so both are
+    # repeated here explicitly alongside the new flag this service exists
+    # to add. `--web.enable-remote-write-receiver` (RFC-0001 D4, ADR-0006)
+    # is required for k6's `-o experimental-prometheus-rw` output
+    # (loadgen/README.md) to have anywhere to push to.
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-remote-write-receiver
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./observability/prometheus_slo_rules.yml:/etc/prometheus/prometheus_slo_rules.yml:ro
@@ -364,6 +376,51 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  # load profile (RFC-0001 D4, ADR-0006): opt-in via `make up-full` or
+  # `--profile load`. depends_on api with service_started ONLY (D10, same
+  # graceful-degradation principle as analytics/canary above): the
+  # long-running k6 process is designed to tolerate api being briefly
+  # unready (ordinary HTTP failures at scenario level) rather than
+  # refusing to start entirely.
+  loadgen:
+    build:
+      context: ./loadgen
+      # loadprofile/ and proto/ are separate named build contexts, same
+      # pattern as `api`/`analytics` for proto/ (RFC-0001 D8, ADR-0002):
+      # k6 imports shape.js/profile.json directly and loads items.proto
+      # at runtime (loadgen/README.md).
+      additional_contexts:
+        - loadprofile=./loadprofile
+        - proto=./proto
+    profiles:
+      - load
+    environment:
+      - DEMO_TIME_SCALE=${DEMO_TIME_SCALE:-1}
+      - LOADGEN_BACKEND_URL=http://api:8000
+      - LOADGEN_WEB_URL=http://web:80
+      - LOADGEN_GRPC_ADDR=api:50051
+      - LOADGEN_DURATION_HOURS=${LOADGEN_DURATION_HOURS:-24}
+      - LOADGEN_STAGE_MINUTES=${LOADGEN_STAGE_MINUTES:-15}
+      - LOADGEN_PREALLOCATED_VUS=${LOADGEN_PREALLOCATED_VUS:-10}
+      - LOADGEN_MAX_VUS=${LOADGEN_MAX_VUS:-50}
+      # k6 built-in Prometheus remote-write output (RFC-0001 D4/Section 7,
+      # ADR-0006): Prometheus needs --web.enable-remote-write-receiver
+      # (see the prometheus service's command: above) for this endpoint
+      # to accept writes at all.
+      - K6_PROMETHEUS_RW_SERVER_URL=http://prometheus:9090/api/v1/write
+      - K6_PROMETHEUS_RW_TREND_STATS=p(95),p(99),avg
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - devnet
+    # The long-running scenario set (loadgen/scenarios/main.js) runs for
+    # LOADGEN_DURATION_HOURS (default 24h) of precomputed stages, then
+    # exits -- `restart: unless-stopped` is what brings it back with a
+    # fresh LOADGEN_REF_UNIX (loadgen/entrypoint.sh), not a script-level
+    # loop.
+    restart: unless-stopped
 
 volumes:
   dbdata: {}

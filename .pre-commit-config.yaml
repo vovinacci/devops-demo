@@ -87,7 +87,7 @@ repos:
         name: toolchain versions match .mise.toml
         entry: bash scripts/check-toolchain-drift.sh
         language: system
-        files: ^(\.mise\.toml|\.devcontainer/devcontainer\.json|services/frontend/\.nvmrc|services/.*/Dockerfile|services/backend/pyproject\.toml)$
+        files: ^(\.mise\.toml|\.devcontainer/devcontainer\.json|services/frontend/\.nvmrc|services/.*/Dockerfile|loadgen/Dockerfile|services/backend/pyproject\.toml)$
         pass_filenames: false
   # Secret scanning (ADR-0011)
   - repo: https://github.com/gitleaks/gitleaks

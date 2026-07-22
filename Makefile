@@ -43,7 +43,7 @@ up: ## Start all services
 .PHONY: up-full
 up-full: ## Start all services incl. optional profiles
 	$(PRINT_TARGET)
-	$(COMPOSE) --profile synthetic --profile analytics up -d --build
+	$(COMPOSE) --profile synthetic --profile analytics --profile load up -d --build
 
 .PHONY: down
 down: ## Stop all services (all profiles; plain "compose down" skips profile-scoped ones)
@@ -113,6 +113,25 @@ generate: ## Generate gRPC/protobuf stubs (Python + Go, never committed -- RFC-0
 		proto/devopsdemo/items/v1/items.proto
 	rm -rf services/analytics/internal/pb
 	$(MAKE) -C services/analytics generate
+
+##@ Load generation
+
+.PHONY: incident
+incident: ## One-shot k6 incident overlay (INCIDENT_MODE=spike|errors, INCIDENT_MINUTES=5m default); `make heal` stops it early
+	$(PRINT_TARGET)
+	$(COMPOSE) --profile load run --rm --name loadgen-incident \
+		-e INCIDENT_MODE=$${INCIDENT_MODE:-spike} \
+		-e INCIDENT_MINUTES=$${INCIDENT_MINUTES:-5} \
+		-e INCIDENT_SPIKE_MULTIPLIER=$${INCIDENT_SPIKE_MULTIPLIER:-10} \
+		-e INCIDENT_ERROR_RATE_PER_S=$${INCIDENT_ERROR_RATE_PER_S:-5} \
+		-e K6_PROMETHEUS_RW_SERVER_URL=http://prometheus:9090/api/v1/write \
+		-e "K6_PROMETHEUS_RW_TREND_STATS=p(95),p(99),avg" \
+		loadgen run -o experimental-prometheus-rw /home/k6/scenarios/incident.js
+
+.PHONY: heal
+heal: ## Stop a running `make incident` overlay early (safe to run even if nothing is running)
+	$(PRINT_TARGET)
+	-docker rm -f loadgen-incident
 
 ##@ Testing
 

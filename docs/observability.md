@@ -36,6 +36,19 @@ The **DevOps Demo** dashboard is provisioned from
 metrics, database and PostgreSQL panels, Web Vitals, container resources,
 log panel, SLO status.
 
+## Offered load
+
+The **Load (k6)** dashboard (`load` compose profile, RFC-0001 D4,
+ADR-0006) puts k6's own request rate ("offered load", pushed via the
+built-in `-o experimental-prometheus-rw` output) next to the backend's
+own observed RED p95 latency -- what loadgen asked the system to do,
+beside what the system actually delivered. Also panels for per-scenario
+client-observed latency, error rate, gRPC scenario latency, active VUs,
+and the abuse/gRPC correctness signals (`loadgen/README.md` documents
+every metric name and the exact expressions). `make incident` /
+`make heal` (`loadgen/README.md`) spike offered load or error rate on
+demand to exercise this dashboard and the SLO burn-rate alerts live.
+
 ## SLOs
 
 Prometheus recording rules define availability, latency, and error-rate

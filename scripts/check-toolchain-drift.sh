@@ -12,9 +12,10 @@ canon_python="$(sed -n 's/^python = "\(.*\)"/\1/p' .mise.toml)"
 canon_node="$(sed -n 's/^node = "\(.*\)"/\1/p' .mise.toml)"
 canon_rust="$(sed -n 's/^rust = "\(.*\)"/\1/p' .mise.toml)"
 canon_go="$(sed -n 's/^go = "\(.*\)"/\1/p' .mise.toml)"
+canon_k6="$(sed -n 's/^k6 = "\(.*\)"/\1/p' .mise.toml)"
 
-if [ -z "$canon_python" ] || [ -z "$canon_node" ] || [ -z "$canon_rust" ] || [ -z "$canon_go" ]; then
-  echo "cannot read python/node/rust/go pins from .mise.toml" >&2
+if [ -z "$canon_python" ] || [ -z "$canon_node" ] || [ -z "$canon_rust" ] || [ -z "$canon_go" ] || [ -z "$canon_k6" ]; then
+  echo "cannot read python/node/rust/go/k6 pins from .mise.toml" >&2
   exit 1
 fi
 
@@ -69,6 +70,10 @@ expect "analytics Dockerfile FROM" \
 expect "pyproject requires-python floor" \
   "$(sed -n 's/^requires-python = ">=\(.*\)"/\1/p' services/backend/pyproject.toml)" \
   "$canon_python"
+
+expect "loadgen Dockerfile FROM" \
+  "$(sed -n 's/^FROM grafana\/k6:\([0-9][0-9.]*\).*/\1/p' loadgen/Dockerfile | head -n1)" \
+  "$canon_k6"
 
 if [ "$drift" -gt 0 ]; then
   echo

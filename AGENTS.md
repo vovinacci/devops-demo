@@ -22,10 +22,9 @@ structural changes.
   tests). Nested `AGENTS.md` files there add module specifics.
 - `proto/` -- buf-managed Protobuf contracts.
 - `loadprofile/` -- shared load-shape definition + parity test (RFC-0001 D5, ADR-0003).
-- `loadgen/` (planned) -- k6 scenarios.
-- `observability/` -- Prometheus, Grafana, Loki, Alloy, blackbox_exporter
-  configs and dashboards, all provisioned from files (Alertmanager
-  arrives in a later phase).
+- `loadgen/` -- k6 scenarios + incident mode (RFC-0001 D4, ADR-0006).
+- `observability/` -- Prometheus, Grafana, Loki, Alloy, blackbox_exporter,
+  Alertmanager + Mailpit configs and dashboards, all provisioned from files.
 - `deploy/compose/` -- Docker Compose (profiles: core + additive).
 - `docs/` -- rfc/, adr/, runbooks/, exercises/, ci.md, engineering-principles.md.
 
