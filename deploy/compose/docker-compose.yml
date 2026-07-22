@@ -90,6 +90,9 @@ services:
     image: prom/alertmanager:v0.28.1@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba
     volumes:
       - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      # silences and notification-log state live here -- without it a
+      # container recreation silently drops every active silence
+      - alertmanager-data:/alertmanager
     ports:
       - "9093:9093"
     depends_on:
@@ -368,6 +371,7 @@ volumes:
   loki-data: {}
   alloy-data: {}
   grafana-data: {}
+  alertmanager-data: {}
 
 networks:
   devnet: {}

@@ -112,7 +112,7 @@ recent `analytics` container logs, and the backend's own status attached.
 While this alert is firing, Alertmanager inhibits `CanaryPipelineLagHigh`
 automatically (same root cause, see
 `observability/alertmanager/alertmanager.yml`). If this alert itself is
-already under active triage, silence it instead of letting it repeat:
-`amtool silence add alertname=AnalyticsStreamDown
---alertmanager.url=http://localhost:9093`, or via the Alertmanager UI at
-http://localhost:9093.
+already under active triage, silence it instead of letting it repeat
+(amtool ships inside the Alertmanager image):
+`docker compose -f deploy/compose/docker-compose.yml --project-directory . exec alertmanager amtool silence add alertname=AnalyticsStreamDown --alertmanager.url=http://localhost:9093`,
+or via the Alertmanager UI at http://localhost:9093.

@@ -27,15 +27,14 @@ route:
   # couple of repeats, long enough that a 10-30 minute demo session never
   # sees a noisy duplicate of the same still-firing alert.
   repeat_interval: 4h
-  # Root route has no receiver of its own on purpose: every alert this
-  # repo defines today carries `severity: warning` (see
-  # prometheus_alerts.yml), so the child route below is what actually
-  # matches. A future `severity: critical` alert with no matching child
-  # route would fall through here and be silently dropped -- `blackhole`
-  # exists so that failure mode is a deliberate, visible choice (an
-  # unmatched alert reaching an explicit no-op receiver) rather than a
-  # config error. Adding a critical-severity route is left for whoever
-  # adds the first critical alert.
+  # The root route's receiver is `blackhole` -- a real but non-user-
+  # facing no-op fallback: every alert this repo defines today carries
+  # `severity: warning` (see prometheus_alerts.yml), so the child route
+  # below is what actually delivers. A future `severity: critical` alert
+  # with no matching child route lands on the explicit no-op receiver
+  # instead of being a config error -- a deliberate, visible gap.
+  # Adding a critical-severity route is left for whoever adds the first
+  # critical alert.
   receiver: blackhole
   routes:
     - matchers:

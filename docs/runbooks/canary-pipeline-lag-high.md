@@ -102,6 +102,6 @@ This alert is inhibited automatically while `AnalyticsStreamDown` is
 firing (same root cause, see `observability/alertmanager/alertmanager.yml`)
 -- no manual silence needed for that case. If it is firing on its own and
 already under active triage, silence it explicitly instead of letting it
-repeat every `repeat_interval`: `amtool silence add alertname=CanaryPipelineLagHigh
---alertmanager.url=http://localhost:9093`, or via the Alertmanager UI at
-http://localhost:9093.
+repeat every `repeat_interval` (amtool ships inside the Alertmanager image):
+`docker compose -f deploy/compose/docker-compose.yml --project-directory . exec alertmanager amtool silence add alertname=CanaryPipelineLagHigh --alertmanager.url=http://localhost:9093`,
+or via the Alertmanager UI at http://localhost:9093.

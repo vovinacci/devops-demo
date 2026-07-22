@@ -54,8 +54,10 @@ notifications land at http://localhost:8025, both the web UI and the
 REST API (`/api/v1/messages`).
 
 - Alertmanager UI: http://localhost:9093 (active alerts, silences).
-- Silence an alert during triage: `amtool silence add alertname=<name>
-  --alertmanager.url=http://localhost:9093`, or use the Alertmanager UI
-  directly -- see the relevant runbook's Escalation section.
+- Silence an alert during triage (amtool ships inside the Alertmanager
+  image, nothing to install):
+  `docker compose -f deploy/compose/docker-compose.yml --project-directory . exec alertmanager amtool silence add alertname=<name> --alertmanager.url=http://localhost:9093`,
+  or use the Alertmanager UI directly -- see the relevant runbook's
+  Escalation section.
 - `AnalyticsStreamDown` inhibits `CanaryPipelineLagHigh`: one root cause,
   one notification.
