@@ -93,6 +93,13 @@ free RAM, 3 GB free disk.
   make seed
   ```
 
+- Seed 90 days of analytics history (RFC-0001 Phase 5 D5; needs the
+  `analytics` profile up first -- `make up-full` or `--profile analytics`)
+
+  ```shell
+  make seed-history
+  ```
+
 After successful startup, all services will be available at the following URLs:
 
 | Service               | URL                         | Credentials | Description                                                                               |
@@ -110,7 +117,7 @@ After successful startup, all services will be available at the following URLs:
 | **Alertmanager**      | http://localhost:9093       | -           | Alert routing, grouping, silencing, inhibition                                            |
 | **Mailpit**           | http://localhost:8025       | -           | Visible alert receiver: SMTP sink + web UI for notifications                              |
 | **Canary**            | http://localhost:8085       | -           | Synthetic-journey canary (`synthetic` profile)                                            |
-| **Analytics API**     | http://localhost:8082       | -           | Event ingestion + read API (`/api/v1/items/{id}`, `/api/v1/stats`) (`analytics` profile)  |
+| **Analytics API**     | http://localhost:8082       | -           | Event ingestion + read API (items, stats, seed-marker) (`analytics` profile)              |
 
 For the full command list run `make help`.
 

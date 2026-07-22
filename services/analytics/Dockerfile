@@ -51,6 +51,20 @@ LABEL maintainer="DevOps Demo Team" \
 
 COPY --from=builder /out/analytics /usr/local/bin/analytics
 
+# loadprofile/ reached as a named build context (compose:
+# additional_contexts; plain `docker build`: --build-context
+# loadprofile=./loadprofile), the same pattern loadgen/Dockerfile uses
+# for the same directory (RFC-0001 D8, ADR-0002). Copied straight into
+# the runtime stage, not the builder: `analytics seed` (RFC-0001 Phase 5
+# D5) reads profile.json at container RUNTIME, not at build time -- no
+# codegen or compilation step touches it. ANALYTICS_LOADPROFILE_PATH
+# (compose) points here; the binary's own default
+# (../../loadprofile/profile.json) is for `go run ./cmd/analytics seed`
+# outside a container, the same local-vs-compose split every other
+# ANALYTICS_* default follows.
+# hadolint ignore=DL3022
+COPY --from=loadprofile . /etc/analytics/loadprofile
+
 # distroless/static ships no shell, wget, or curl -- unlike the canary's
 # debian-slim runtime, a container HEALTHCHECK here cannot exec a probe
 # tool. The binary carries its own `healthcheck` subcommand instead (hits

@@ -2,8 +2,14 @@ package main
 
 import "testing"
 
-func TestSeedExitsNonZeroUntilPhase5(t *testing.T) {
-	if code := run([]string{"seed"}); code != 2 {
+// TestSeedBadFlagExits2 exercises seed's flag parsing without needing a
+// real Postgres/backend: an unknown flag fails fast at flag.Parse,
+// before any connection attempt. The full seed run (RFC-0001 Phase 5) is
+// exercised by internal/seeder's own tests (deterministic generation,
+// no infra needed) and services/analytics/README.md's documented
+// `make seed-history` e2e run (needs Postgres + backend, not a unit test).
+func TestSeedBadFlagExits2(t *testing.T) {
+	if code := run([]string{"seed", "--bogus-flag"}); code != 2 {
 		t.Fatalf("want exit 2, got %d", code)
 	}
 }

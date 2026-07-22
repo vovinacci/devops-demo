@@ -22,6 +22,9 @@ type fakeItemsStore struct {
 	items     map[int64]store.CurrentItem
 	statsErr  error
 	statsData []store.BucketStat
+	marker    store.SeedMarker
+	markerOK  bool
+	markerErr error
 }
 
 func (f fakeItemsStore) GetCurrentItem(_ context.Context, itemID int64) (store.CurrentItem, bool, error) {
@@ -31,6 +34,10 @@ func (f fakeItemsStore) GetCurrentItem(_ context.Context, itemID int64) (store.C
 
 func (f fakeItemsStore) StatsLast24h(_ context.Context) ([]store.BucketStat, error) {
 	return f.statsData, f.statsErr
+}
+
+func (f fakeItemsStore) GetSeedMarker(_ context.Context) (store.SeedMarker, bool, error) {
+	return f.marker, f.markerOK, f.markerErr
 }
 
 func doRequest(t *testing.T, pinger httpserver.Pinger, items httpserver.ItemsStore, method, path string) *httptest.ResponseRecorder {
@@ -128,6 +135,41 @@ func TestGetItemBadIDReturns400(t *testing.T) {
 	rec := doRequest(t, fakePinger{}, fakeItemsStore{}, http.MethodGet, "/api/v1/items/not-a-number")
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("want 400, got %d", rec.Code)
+	}
+}
+
+func TestSeedMarkerReturns404WhenNeverSeeded(t *testing.T) {
+	rec := doRequest(t, fakePinger{}, fakeItemsStore{}, http.MethodGet, "/api/v1/seed-marker")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("want 404, got %d", rec.Code)
+	}
+}
+
+func TestSeedMarkerReturnsOKWhenSeeded(t *testing.T) {
+	seededAt := time.Now().UTC().Truncate(time.Second)
+	items := fakeItemsStore{
+		markerOK: true,
+		marker: store.SeedMarker{
+			Scale: 1, RefUnix: 1767571200, Seed: 42, Days: 90,
+			SeededAt: seededAt, EventsWritten: 12345,
+		},
+	}
+	rec := doRequest(t, fakePinger{}, items, http.MethodGet, "/api/v1/seed-marker")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var body struct {
+		Scale         float64 `json:"scale"`
+		Seed          int64   `json:"seed"`
+		Days          int     `json:"days"`
+		EventsWritten int64   `json:"events_written"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.Scale != 1 || body.Seed != 42 || body.Days != 90 || body.EventsWritten != 12345 {
+		t.Fatalf("unexpected body: %+v", body)
 	}
 }
 

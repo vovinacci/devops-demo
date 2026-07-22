@@ -52,6 +52,16 @@ func (r *Runner) Run(ctx context.Context) {
 	}
 }
 
+// RunOnce executes exactly one retention pass immediately, without
+// starting the ticker loop. Exists for the historical seeder's closing
+// pass (RFC-0001 Phase 5 D5, .omc/handoffs/team-plan.md): after
+// backfilling raw events far into the past, the seeder finishes with the
+// SAME retention code the live service runs, so the end state is
+// canonical regardless of --days -- not a seeder-specific reimplementation.
+func (r *Runner) RunOnce(ctx context.Context) {
+	r.runOnce(ctx)
+}
+
 // runOnce deletes raw item_events rows older than the configured
 // retention horizon, keyed on event_time (Hard rule 7: never received_at
 // -- consistent with ingest's own event-time bucketing, ADR-0005 D1).

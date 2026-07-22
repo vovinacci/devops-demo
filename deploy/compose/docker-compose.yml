@@ -293,11 +293,15 @@ services:
   analytics:
     build:
       context: ./services/analytics
-      # proto/ is a separate named build context, same pattern as `api`
-      # (RFC-0001 D8, ADR-0002): Go gRPC stubs are generated at build
-      # time via buf, never committed.
+      # proto/ and loadprofile/ are separate named build contexts, same
+      # pattern as `api` for proto/ (RFC-0001 D8, ADR-0002) and `loadgen`
+      # for loadprofile/: Go gRPC stubs are generated at build time via
+      # buf, never committed; loadprofile/profile.json is read at
+      # runtime by the `seed` subcommand (RFC-0001 Phase 5 D5), copied
+      # straight into the runtime image (see services/analytics/Dockerfile).
       additional_contexts:
         - proto=./proto
+        - loadprofile=./loadprofile
     profiles:
       - analytics
     environment:
@@ -309,6 +313,12 @@ services:
       # locally, outside compose -- same local-vs-compose split as
       # ANALYTICS_DATABASE_URL just above.
       - ANALYTICS_BACKEND_GRPC_ADDR=api:50051
+      # Only consumed by the `seed` subcommand (RFC-0001 Phase 5 D5);
+      # harmless to always set, same as the ingest/retention env vars
+      # above that `serve` alone reads. Path baked in by the Dockerfile's
+      # loadprofile build context (see services/analytics/Dockerfile).
+      - ANALYTICS_LOADPROFILE_PATH=/etc/analytics/loadprofile/profile.json
+      - DEMO_TIME_SCALE=${DEMO_TIME_SCALE:-1}
     depends_on:
       postgres-analytics:
         condition: service_healthy

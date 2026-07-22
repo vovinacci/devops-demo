@@ -101,6 +101,12 @@ seed-dry: ## Dry run seed (show what will be created)
 	$(PRINT_TARGET)
 	$(COMPOSE) run --rm api sh -c "python -m app.seed --dry-run --count 10"
 
+.PHONY: seed-history
+seed-history: seed ## Seed analytics historical data (RFC-0001 Phase 5 D5): run AFTER `make up`/`make up-full` with the analytics profile already up (postgres-analytics + api reachable) -- --no-deps below means this does NOT start them for you. SEED_DAYS/SEED_SEED override the defaults (90/42); SEED_DAYS=3 for a quick local check.
+	$(PRINT_TARGET)
+	$(COMPOSE) --profile analytics run --rm --no-deps analytics \
+		seed --days $${SEED_DAYS:-90} --seed $${SEED_SEED:-42}
+
 .PHONY: generate
 generate: ## Generate gRPC/protobuf stubs (Python + Go, never committed -- RFC-0001 D8, ADR-0002)
 	$(PRINT_TARGET)
