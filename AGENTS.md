@@ -21,7 +21,7 @@ structural changes.
 - `services/<name>/` -- self-contained services (own Dockerfile, README,
   tests). Nested `AGENTS.md` files there add module specifics.
 - `proto/` -- buf-managed Protobuf contracts.
-- `loadprofile/` (planned) -- shared load-shape definition + parity test.
+- `loadprofile/` -- shared load-shape definition + parity test (RFC-0001 D5, ADR-0003).
 - `loadgen/` (planned) -- k6 scenarios.
 - `observability/` -- Prometheus, Grafana, Loki, Alloy, blackbox_exporter
   configs and dashboards, all provisioned from files (Alertmanager

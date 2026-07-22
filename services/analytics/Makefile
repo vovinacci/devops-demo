@@ -51,6 +51,11 @@ test: ## Run unit + integration tests; migration tests need real Postgres, so a 
 	@ANALYTICS_TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -p 1 ./... || (docker rm -f $(TEST_PG_CONTAINER) >/dev/null; exit 1)
 	@docker rm -f $(TEST_PG_CONTAINER) >/dev/null
 
+.PHONY: test-loadshape
+test-loadshape: ## Run load-shape parity tests only (no Postgres, no codegen -- internal/loadshape is dependency-free)
+	$(PRINT_TARGET)
+	go test ./internal/loadshape/... -v
+
 .PHONY: lint
 lint: ## Format check + go vet + golangci-lint (deny warnings)
 	$(PRINT_TARGET)

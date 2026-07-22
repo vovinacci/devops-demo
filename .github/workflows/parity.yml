@@ -1,0 +1,49 @@
+name: Load profile parity
+
+# Path-filtered, matching the repo's per-module workflow convention
+# (analytics.yml, backend.yml, ...) rather than checks.yml: checks.yml's
+# jobs are the required, always-run cross-cutting gates (docs/ci.md);
+# this check is scoped to loadprofile/** + the Go impl, exactly like
+# every other service check, and stays non-required so a docs-only PR
+# is never blocked on a workflow its path filter would skip.
+on:
+  pull_request:
+    paths:
+      - "loadprofile/**"
+      - "services/analytics/internal/loadshape/**"
+      - ".github/workflows/parity.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "loadprofile/**"
+      - "services/analytics/internal/loadshape/**"
+      - ".github/workflows/parity.yml"
+
+jobs:
+  parity:
+    name: Parity (Go canonical vs JS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: services/frontend/.nvmrc
+
+      - name: Run JS parity check (loadprofile/shape.js vs goldens)
+        run: node loadprofile/parity/compare.mjs
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: services/analytics/go.mod
+          cache-dependency-path: services/analytics/go.sum
+
+      # No `make generate` here: internal/loadshape is deliberately
+      # dependency-free (stdlib only, no internal/pb import) so this
+      # gate needs no proto codegen step.
+      - name: Run Go parity check (loadshape vs goldens, self-consistency)
+        working-directory: services/analytics
+        run: go test ./internal/loadshape/... -v
