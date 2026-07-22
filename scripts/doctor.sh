@@ -11,6 +11,7 @@ NODE_MAJOR="$(sed -n 's/^node = "\(.*\)"/\1/p' .mise.toml)"
 RUST_MINOR="$(sed -n 's/^rust = "\(.*\)"/\1/p' .mise.toml)"
 GO_MINOR="$(sed -n 's/^go = "\(.*\)"/\1/p' .mise.toml)"
 BUF_MINOR="$(sed -n 's/^buf = "\(.*\)"/\1/p' .mise.toml)"
+K6_MINOR="$(sed -n 's/^k6 = "\(.*\)"/\1/p' .mise.toml)"
 MIN_RAM_GB=4
 MIN_DISK_GB=5
 
@@ -49,6 +50,7 @@ require_cmd npm "ships with Node; run 'mise install'"
 require_cmd cargo "run 'mise install' (see .mise.toml) or install Rust ${RUST_MINOR}"
 require_cmd go "run 'mise install' (see .mise.toml) or install Go ${GO_MINOR}"
 require_cmd buf "run 'mise install' (see .mise.toml) or install buf ${BUF_MINOR} (https://buf.build/docs/installation)"
+require_cmd k6 "run 'mise install' (see .mise.toml) or install k6 ${K6_MINOR} (https://grafana.com/docs/k6/latest/set-up/install-k6/)"
 
 # --- docker daemon and compose v2 --------------------------------------
 if command -v docker >/dev/null 2>&1; then
@@ -107,6 +109,15 @@ if command -v buf >/dev/null 2>&1; then
     pass "buf ${bv}"
   else
     warn "buf ${bv}, expected ${BUF_MINOR}" "mise install, then activate mise in your shell: eval \"\$(mise activate zsh)\" in ~/.zshrc"
+  fi
+fi
+
+if command -v k6 >/dev/null 2>&1; then
+  kv="$(k6 version | sed -n 's/^k6 v\([0-9]*\.[0-9]*\).*/\1/p')"
+  if [ "$kv" = "$K6_MINOR" ]; then
+    pass "k6 ${kv}"
+  else
+    warn "k6 ${kv}, expected ${K6_MINOR}" "mise install, then activate mise in your shell: eval \"\$(mise activate zsh)\" in ~/.zshrc"
   fi
 fi
 

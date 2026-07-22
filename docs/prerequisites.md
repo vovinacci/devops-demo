@@ -12,6 +12,7 @@ Platform support: macOS and Linux only.
 - [Canary](#canary)
 - [Analytics](#analytics)
 - [Proto](#proto)
+- [Loadgen](#loadgen)
 - [Infrastructure](#infrastructure)
 - [Learning Resources](#learning-resources)
 
@@ -223,6 +224,54 @@ for the backend/analytics gRPC contract.
   comments for the discipline used here)
 - Unary vs server-streaming RPCs; connection direction vs data direction
   (ADR-0002)
+
+---
+
+## Loadgen
+
+`loadgen/` (RFC-0001 D4, ADR-0006) is a single k6 image running scripts
+against the shared load profile (`loadprofile/`, RFC-0001 D5).
+
+### k6 scripting
+
+- k6's own JS dialect: ES modules, an init context that runs once before
+  any VU/iteration (script-level `import`/top-level code, including
+  `open()` for local files and `client.load()` for gRPC protos) versus
+  per-iteration exported functions
+- `ramping-arrival-rate` / `constant-arrival-rate` executors: `stages`
+  computed once at init time in this repo (`loadgen/lib/schedule.js`),
+  not evaluated live per request -- see `loadgen/README.md`'s "Reference
+  time" section for why
+- `http.expectedStatuses()` / `responseCallback`: marking an intentional
+  4xx as not-a-failure, distinct from k6 `check()` (pass/fail reporting,
+  a separate metric)
+- Custom metrics (`k6/metrics`: `Rate`, `Counter`, `Trend`) for
+  correctness signals k6's built-ins don't cover (e.g. gRPC has no
+  `http_req_failed` equivalent)
+- `k6/net/grpc`: unary `client.invoke()`, proto loaded at runtime from a
+  mounted/copied `.proto` file, not compiled in
+
+### k6 outputs
+
+- `-o experimental-prometheus-rw`: built into the stock k6 v2.x binary
+  (not an xk6 extension); requires Prometheus's
+  `--web.enable-remote-write-receiver`
+- Metric name mapping worth knowing when writing a dashboard query:
+  Counter -> `k6_<name>_total`, Rate -> `k6_<name>_rate`, Gauge ->
+  `k6_<name>` (no suffix), Trend -> `k6_<name>_<stat>` per
+  `K6_PROMETHEUS_RW_TREND_STATS` (e.g. `_p95`, `_p99`, `_avg`) -- every
+  k6 tag (including the automatic `scenario` tag) becomes a label
+
+### Threshold design (D4 CI-gate contract)
+
+- Per-scenario submetrics via tags (`http_req_duration{scenario:browse}`),
+  not one blanket threshold across a mixed scenario set
+- A Rate-type remote-write metric (e.g. `k6_http_req_failed_rate`) is a
+  snapshot fraction per unique tag combination per push interval --
+  averaging it across combinations is not weighted by request volume and
+  reads wrong; a Counter's `rate()` with a tag filter
+  (`expected_response="false"`) is the request-volume-correct way to
+  compute an aggregate error rate for a dashboard
 
 ---
 

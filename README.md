@@ -27,6 +27,10 @@ devops-demo/
 │   ├── exercises/               # Student exercises
 │   └── runbooks/                # Alert runbooks (meaning, triage, remediation)
 │
+├── loadgen/                      # k6 scenarios + Dockerfile (RFC-0001 D4, ADR-0006)
+│   ├── scenarios/                # main.js (long-running) + incident.js (make incident)
+│   └── lib/                      # env parsing + shared-profile stage scheduling
+│
 ├── loadprofile/                 # Shared load-shape definition (RFC-0001 D5, ADR-0003)
 │   └── parity/                  # Golden-file cross-language parity test + goldens
 │

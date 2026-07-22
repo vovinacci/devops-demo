@@ -7,6 +7,10 @@ Compose. Design rationale and history live in the RFCs:
 
 ```mermaid
 flowchart LR
+    subgraph traffic [Traffic]
+        lg["loadgen (k6)<br/>load profile"]
+    end
+
     subgraph app [Application]
         fe["frontend (React + nginx)<br/>:8080"]
         be["api (FastAPI + grpc.aio)<br/>:8000, :50051"]
@@ -35,6 +39,10 @@ flowchart LR
     be -.->|"WatchItemEvents pushes events (data direction, opposite the dial)"| an
     can -->|"journey: create -> verify -> delete"| be
     can -.->|"pipeline-lag poll (skipped when analytics profile absent)"| an
+    lg -->|"HTTP: browse, crud, abuse, expensive"| be
+    lg -->|"HTTP: browse"| fe
+    lg -.->|"gRPC unary: ListItems, GetItemStats"| be
+    lg -.->|"remote-write (experimental-prometheus-rw)"| prom
     prom -->|scrape| be
     prom -->|scrape| pgx
     prom -->|scrape| cad
@@ -93,6 +101,21 @@ motivating exhibit for the NATS capstone (RFC-0001 Section 10).
   layer (RFC-0001 D9, ADR-0007); v2 adds a pipeline-lag step polling
   analytics, tolerating it being absent (ADR-0008 D10 graceful
   degradation). `synthetic` compose profile.
+- **Loadgen** ([readme](../loadgen/README.md)) -- k6, shaped continuous
+  load (RFC-0001 D4, ADR-0006). `load` compose profile (opt-in via
+  `make up-full` or `--profile load`); depends only on `api` being
+  started (D10 graceful degradation, same as analytics/canary above).
+  Five `ramping-arrival-rate` scenarios, all weighted shares of the one
+  shared load profile (`loadprofile/`, RFC-0001 D5): browse (REST +
+  frontend), CRUD (create -> delete, `loadgen-` prefixed), abuse
+  (intentional 4xx, marked expected so they do not pollute
+  `http_req_failed`), gRPC (unary `ListItems`/`GetItemStats`), and an
+  occasional concurrent-burst "expensive" scenario. Pushes every k6
+  metric to Prometheus via the built-in `-o experimental-prometheus-rw`
+  output. `make incident` / `make heal` run a separate one-shot script
+  (`loadgen/scenarios/incident.js`) that spikes offered load or error
+  rate on demand, under a fixed container name so `heal` can stop it
+  from any terminal.
 - **Observability** -- Prometheus (+ SLO rules), Grafana (provisioned
   dashboards), Loki + Grafana Alloy (logs), postgres-exporter, cAdvisor,
   Alertmanager (routing/grouping/inhibition, RFC-0001 Section 7) +

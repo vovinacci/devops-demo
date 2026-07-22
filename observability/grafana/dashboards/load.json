@@ -1,0 +1,196 @@
+{
+  "annotations": { "list": [{ "builtIn": 1, "datasource": "-- Grafana --", "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "Annotations & Alerts", "type": "dashboard" }] },
+  "editable": true,
+  "fiscalYearStartMonth": 1,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "iteration": 1,
+  "links": [],
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Offered Load: k6 Request Rate by Scenario",
+      "description": "loadgen (RFC-0001 D4, ADR-0006): k6's own request rate, pushed via -o experimental-prometheus-rw. Compare against Observed Latency to the right -- offered load next to what the system actually delivered.",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(k6_http_reqs_total[$__rate_interval])) by (scenario)",
+          "legendFormat": "{{ scenario }}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5, "stacking": { "mode": "normal" } }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Observed Latency: Backend p95 by Endpoint",
+      "description": "Whitebox RED p95 (services/backend), same expression as the main DevOps Demo dashboard -- what the backend actually served under loadgen's offered load.",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, endpoint) (rate(http_request_latency_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "{{ endpoint }}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "k6 Worst Tagged-Series p95 by Scenario",
+      "description": "Worst tagged-series p95 within each scenario: k6's remote-write output emits one p95 series per tag combination, so max() by scenario reports the slowest tag combo, not a combined scenario-wide p95. k6's own http_req_duration Trend, mapped to k6_http_req_duration_p95 by the Prometheus remote-write output (K6_PROMETHEUS_RW_TREND_STATS=p(95),p(99),avg, loadgen/README.md). Client-side view: includes DNS/connect/TLS that the backend's own RED metric (left) does not.",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "max(k6_http_req_duration_p95) by (scenario)",
+          "legendFormat": "{{ scenario }}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Error Rate by Scenario (unexpected responses)",
+      "description": "Fraction of k6_http_reqs_total tagged expected_response=false -- a proper request-volume-weighted rate() over the Counter, not k6_http_req_failed_rate's own Rate-sink snapshots (those are one value per unique tag combination per push interval; naively averaging them across combinations is not weighted by how many requests each combination represents and reads noisy/wrong in practice, verified live in this PR's e2e run). abuse's intentional 4xx/422 are marked expected via http.expectedStatuses() in loadgen/scenarios/main.js, so they carry expected_response=true and do not inflate this series.",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(k6_http_reqs_total{expected_response=\"false\"}[$__rate_interval])) by (scenario) / sum(rate(k6_http_reqs_total[$__rate_interval])) by (scenario)",
+          "legendFormat": "{{ scenario }}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "gRPC p95 Duration (grpc scenario)",
+      "description": "Unary ListItems/GetItemStats against api:50051 (RFC-0001 D3). grpc has no http_req_failed equivalent -- loadgen_grpc_call_failed (bottom right) is this scenario's correctness signal instead.",
+      "gridPos": { "x": 0, "y": 16, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "k6_grpc_req_duration_p95{scenario=\"grpc\"}",
+          "legendFormat": "{{ method }} {{ service }}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Active VUs",
+      "description": "k6_vus: total virtual users currently executing across every scenario (global gauge, not tagged per-scenario).",
+      "gridPos": { "x": 8, "y": 16, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "k6_vus",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto"
+      },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "type": "stat",
+      "title": "Abuse / gRPC Correctness",
+      "description": "loadgen's own custom Rate metrics (loadgen/scenarios/main.js): did the abuse scenario's responses match the status it was designed to provoke, and did gRPC unary calls return grpc.StatusOK. Both should sit at (or very near) 0.",
+      "gridPos": { "x": 16, "y": 16, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "k6_loadgen_abuse_unexpected_status_rate",
+          "legendFormat": "abuse: unexpected status",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        },
+        {
+          "expr": "k6_loadgen_grpc_call_failed_rate",
+          "legendFormat": "grpc: call failed",
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true },
+        "orientation": "auto",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 0.01, "color": "red" }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["devops-demo", "load"],
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "selected": true },
+        "hide": 0,
+        "label": "Prometheus"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "title": "Load (k6)",
+  "version": 1,
+  "weekStart": ""
+}
