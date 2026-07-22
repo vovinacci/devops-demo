@@ -103,6 +103,8 @@ After successful startup, all services will be available at the following URLs:
 | **Loki**              | http://localhost:3100       | -           | API for accessing logs                                                                    |
 | **Postgres Exporter** | http://localhost:9187       | -           | PostgreSQL metrics in Prometheus format                                                   |
 | **cAdvisor**          | http://localhost:8081       | -           | Container and resource metrics                                                            |
+| **Alertmanager**      | http://localhost:9093       | -           | Alert routing, grouping, silencing, inhibition                                            |
+| **Mailpit**           | http://localhost:8025       | -           | Visible alert receiver: SMTP sink + web UI for notifications                              |
 | **Canary**            | http://localhost:8085       | -           | Synthetic-journey canary (`synthetic` profile)                                            |
 | **Analytics API**     | http://localhost:8082       | -           | Event ingestion + read API (`/api/v1/items/{id}`, `/api/v1/stats`) (`analytics` profile)  |
 

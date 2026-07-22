@@ -23,6 +23,8 @@ flowchart LR
         alloy["Alloy"]
         loki["Loki"]
         graf["Grafana"]
+        am["Alertmanager<br/>:9093"]
+        mp["Mailpit<br/>:8025 (web), :1025 (SMTP)"]
     end
 
     fe -->|HTTP| be
@@ -40,6 +42,8 @@ flowchart LR
     alloy -->|container logs| loki
     graf --> prom
     graf --> loki
+    prom -->|"alerting: block"| am
+    am -->|"email_configs (SMTP)"| mp
 ```
 
 This diagram tracks the code: a change that alters the topology updates it
@@ -90,8 +94,9 @@ motivating exhibit for the NATS capstone (RFC-0001 Section 10).
   analytics, tolerating it being absent (ADR-0008 D10 graceful
   degradation). `synthetic` compose profile.
 - **Observability** -- Prometheus (+ SLO rules), Grafana (provisioned
-  dashboards), Loki + Grafana Alloy (logs), postgres-exporter, cAdvisor.
-  Details: [observability.md](observability.md).
+  dashboards), Loki + Grafana Alloy (logs), postgres-exporter, cAdvisor,
+  Alertmanager (routing/grouping/inhibition, RFC-0001 Section 7) +
+  Mailpit (visible receiver). Details: [observability.md](observability.md).
 - **Infrastructure** -- Docker Compose (`deploy/compose/`), multi-stage
   Dockerfiles, healthchecks, isolated network. Runtime versions are pinned
   (`.mise.toml` for toolchains, digests for images).

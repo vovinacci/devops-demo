@@ -76,6 +76,60 @@ services:
     networks:
       - devnet
     restart: unless-stopped
+    # No depends_on on alertmanager, deliberately (ADR-0008 D10 graceful
+    # degradation, same reasoning as grafana -> prometheus below):
+    # Prometheus's alerting: block is static-config discovery, tolerated
+    # being absent or started later, same as any other scrape target.
+
+  # Alerting layer (RFC-0001 Section 7, ADR-0007): core, not profiled --
+  # observability is the repo's promise, not an opt-in extra (D10
+  # principle, same reasoning as prometheus/grafana/loki above). Routes,
+  # groups, and inhibits the four alerts in prometheus_alerts.yml; config
+  # as code under observability/alertmanager/.
+  alertmanager:
+    image: prom/alertmanager:v0.28.1@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba
+    volumes:
+      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      # silences and notification-log state live here -- without it a
+      # container recreation silently drops every active silence
+      - alertmanager-data:/alertmanager
+    ports:
+      - "9093:9093"
+    depends_on:
+      mailpit:
+        condition: service_healthy
+    networks:
+      - devnet
+    restart: unless-stopped
+    healthcheck:
+      # image ships wget (see blackbox-exporter above for the same
+      # pattern) -- /-/healthy is Alertmanager's own liveness endpoint.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9093/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Visible dummy receiver (RFC-0001 Section 7, amended during Phase 4:
+  # originally MailHog, unmaintained; Mailpit is its maintained
+  # successor). SMTP sink only reachable in-network -- no host port on
+  # :1025, nothing outside the compose network should ever submit mail
+  # to it directly; the web UI at :8025 is the only host-exposed surface,
+  # for a student to watch a notification arrive.
+  mailpit:
+    image: axllent/mailpit:v1.27.5@sha256:5921fa3c3f0a34eb000a89ac8279d1f9d711e486a9a8fd094f7db5a1920256ab
+    ports:
+      - "8025:8025"
+    networks:
+      - devnet
+    restart: unless-stopped
+    healthcheck:
+      # image ships wget -- /livez is Mailpit's own liveness endpoint.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8025/livez"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   postgres_exporter:
     image: prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e
@@ -317,6 +371,7 @@ volumes:
   loki-data: {}
   alloy-data: {}
   grafana-data: {}
+  alertmanager-data: {}
 
 networks:
   devnet: {}

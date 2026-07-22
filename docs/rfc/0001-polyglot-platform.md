@@ -507,10 +507,11 @@ Conventions:
 - k6 -> Prometheus remote-write: "offered load" panels next to observed latency.
 - SLO burn-rate alerts exercised live via `make incident`.
 - **Alertmanager** completes the alerting path: routing, grouping, silencing,
-  and inhibition, delivering to a **visible dummy receiver** (MailHog or a
-  webhook-logger container) so `make incident` ends with a notification
-  students can see arrive -- then silence, then watch recovery. Alert
-  routing/silencing is core on-call material, not plumbing.
+  and inhibition, delivering to a **visible dummy receiver** (Mailpit) so
+  `make incident` ends with a notification students can see arrive -- then
+  silence, then watch recovery. Alert routing/silencing is core on-call
+  material, not plumbing. (Amended during Phase 4: originally MailHog,
+  unmaintained; Mailpit is its maintained successor.)
 - **Every alert rule links to a runbook** (`docs/runbooks/`) via a
   `runbook_url` annotation; an alert without a runbook fails review.
 - Trace IDs in all structured logs from day one (D11): log-trace correlation

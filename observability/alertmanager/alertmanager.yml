@@ -1,0 +1,84 @@
+# Alertmanager config as code (RFC-0001 Section 7, ADR-0007): routing,
+# grouping, and inhibition for the four alerts in
+# observability/prometheus_alerts.yml. Nothing here is set up only in
+# the UI -- amtool check-config validates this file in CI/pre-commit,
+# same "config as code" posture as every other observability/* file.
+
+route:
+  # group_by [alertname] only (not cluster/instance): with one demo
+  # environment and four alerts total, grouping by more would just
+  # split single-alert groups apart for no benefit -- alertname is the
+  # natural unit a student reads in the notification subject.
+  group_by: ['alertname']
+  # group_wait short enough to see in a workshop: a student who just
+  # triggered `make incident` should not wait longer than it takes to
+  # read the terminal before Mailpit shows a mail. 15s is long enough to
+  # let a burst of same-group alerts (e.g. ProbeDown firing on more than
+  # one target at once) land in a single notification instead of one per
+  # target, which group_wait exists for.
+  group_wait: 15s
+  # group_interval controls how soon *new* alerts in an already-notified
+  # group re-trigger a mail (e.g. CanaryPipelineLagHigh joining a group
+  # that already sent for ProbeDown). 2m keeps that inside one demo
+  # session without spamming on every evaluation cycle.
+  group_interval: 2m
+  # repeat_interval governs re-sending an *unchanged* firing group. 4h
+  # is short enough that a workshop spanning a day still sees at most a
+  # couple of repeats, long enough that a 10-30 minute demo session never
+  # sees a noisy duplicate of the same still-firing alert.
+  repeat_interval: 4h
+  # The root route's receiver is `blackhole` -- a real but non-user-
+  # facing no-op fallback: every alert this repo defines today carries
+  # `severity: warning` (see prometheus_alerts.yml), so the child route
+  # below is what actually delivers. A future `severity: critical` alert
+  # with no matching child route lands on the explicit no-op receiver
+  # instead of being a config error -- a deliberate, visible gap.
+  # Adding a critical-severity route is left for whoever adds the first
+  # critical alert.
+  receiver: blackhole
+  routes:
+    - matchers:
+        - severity="warning"
+      receiver: mailpit
+      continue: false
+
+inhibit_rules:
+  # AnalyticsStreamDown and CanaryPipelineLagHigh can share one root
+  # cause: the gRPC event-stream path is broken upstream of the
+  # pipeline-lag measurement (ADR-0002). When the stream is confirmed
+  # down, a simultaneously-elevated pipeline-lag p95 is redundant noise
+  # describing the same outage from a different angle -- the
+  # AnalyticsStreamDown runbook already covers triage for both. This
+  # mirrors the same anti-duplicate-paging reasoning the alert rules'
+  # own comments call out for `up{job="analytics"}` vs.
+  # `analytics_stream_connected`.
+  # `equal: []` is deliberate: the two alertnames already scope this
+  # precisely enough (this demo runs a single analytics replica with no
+  # other shared label to match on); nothing else needs to line up.
+  - source_matchers:
+      - alertname="AnalyticsStreamDown"
+    target_matchers:
+      - alertname="CanaryPipelineLagHigh"
+    equal: []
+
+receivers:
+  # Root route's fallback (see comment above) -- Alertmanager requires
+  # every receiver referenced by a route to exist, including this one,
+  # but it configures no integrations: matching alerts are acknowledged
+  # and dropped, not delivered anywhere.
+  - name: blackhole
+  # Mailpit (RFC-0001 Section 7, amended during Phase 4: see
+  # docs/rfc/0001-polyglot-platform.md) is the visible receiver: SMTP
+  # sink on the compose network, web UI at :8025 for a student to watch
+  # a notification arrive. require_tls is false because Mailpit is a
+  # local sink with no TLS listener, not a real mail provider.
+  # send_resolved is true on purpose: the recovery mail after `make
+  # incident` heals is as much a part of the on-call exercise as the
+  # firing one.
+  - name: mailpit
+    email_configs:
+      - to: 'oncall@devops-demo.local'
+        from: 'alertmanager@devops-demo.local'
+        smarthost: 'mailpit:1025'
+        require_tls: false
+        send_resolved: true
