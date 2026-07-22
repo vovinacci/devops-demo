@@ -195,7 +195,7 @@ test-analytics: generate ## Run analytics tests (Go toolchain from mise -- see .
 ##@ Code Quality
 
 .PHONY: lint
-lint: lint-infra lint-backend type-check lint-frontend lint-canary lint-analytics lint-proto ## Code quality check for entire project (backend + frontend + canary + analytics + proto + infra)
+lint: lint-infra lint-backend type-check lint-frontend lint-canary lint-analytics lint-proto parity ## Code quality check for entire project (backend + frontend + canary + analytics + proto + infra + load profile parity)
 
 .PHONY: lint-backend
 lint-backend: ## Backend code quality check via ruff
@@ -223,6 +223,12 @@ lint-proto: ## proto/ code quality check via buf lint + buf format --diff
 	$(PRINT_TARGET)
 	cd proto && buf lint
 	cd proto && buf format --diff --exit-code
+
+.PHONY: parity
+parity: ## Load profile parity: JS (loadprofile/shape.js) + Go (loadshape) vs goldens (Hard rule 8)
+	$(PRINT_TARGET)
+	node loadprofile/parity/compare.mjs
+	$(MAKE) -C services/analytics test-loadshape
 
 .PHONY: lint-infra
 lint-infra: ## CI: Infrastructure validation via prek hooks (single source of truth)

@@ -27,6 +27,9 @@ devops-demo/
 │   ├── exercises/               # Student exercises
 │   └── runbooks/                # Alert runbooks (meaning, triage, remediation)
 │
+├── loadprofile/                 # Shared load-shape definition (RFC-0001 D5, ADR-0003)
+│   └── parity/                  # Golden-file cross-language parity test + goldens
+│
 ├── observability/               # Observability configuration
 │   ├── prometheus.yml           # Prometheus configuration
 │   ├── prometheus_slo_rules.yml # SLO recording rules
