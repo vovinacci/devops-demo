@@ -1,0 +1,69 @@
+name: E2E
+
+# The e2e gate (RFC-0001 D12, ADR-0009, PR-4): brings up the
+# core + analytics + load profile combo, runs the k6 smoke gate
+# (scenarios/smoke.js, same scenario functions and thresholds as the
+# long-running scenarios/main.js), and asserts the services are actually
+# wired together, not just "up". This IS `make smoke` -- CI runs exactly
+# the command documented for local reproduction (D12 make-ci-parity).
+#
+# `reports` (the JVM profile, Phase 6) does not exist yet; when it lands
+# it stays out of this stage per the RFC-0001 D12 CI resource constraint
+# (standard 7 GB runners do not comfortably fit `full`) and is exercised
+# in nightly.yml instead.
+
+on:
+  pull_request:
+    paths:
+      - "services/**"
+      - "deploy/compose/**"
+      - "observability/**"
+      - "loadgen/**"
+      - "loadprofile/**"
+      - "proto/**"
+      - "Makefile"
+      - "scripts/e2e-smoke.sh"
+      - ".github/workflows/e2e.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "services/**"
+      - "deploy/compose/**"
+      - "observability/**"
+      - "loadgen/**"
+      - "loadprofile/**"
+      - "proto/**"
+      - "Makefile"
+      - "scripts/e2e-smoke.sh"
+      - ".github/workflows/e2e.yml"
+
+jobs:
+  e2e-smoke:
+    name: e2e smoke (core + analytics + load)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          # build + local compose run only, nothing pushes back -- keep
+          # the token out of the local git config
+          persist-credentials: false
+
+      - name: make smoke (bring-up + k6 gate + assertions)
+        run: make smoke
+
+      # A second, coarser net on top of scripts/e2e-smoke.sh's own
+      # targeted dump (which only prints the one failing service): if the
+      # bring-up itself failed before any assertion ran, this is the only
+      # diagnostics CI gets.
+      - name: Dump compose state on failure
+        if: failure()
+        run: |
+          docker compose -f deploy/compose/docker-compose.yml --project-directory . --profile "*" ps
+          docker compose -f deploy/compose/docker-compose.yml --project-directory . --profile "*" logs --tail=200
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f deploy/compose/docker-compose.yml --project-directory . --profile "*" down -v

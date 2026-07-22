@@ -1,0 +1,43 @@
+name: Nightly
+
+# The "full" profile stage (RFC-0001 D12, PR-4): everything e2e.yml
+# covers plus the `synthetic` profile (blackbox + canary), which the
+# PR-scoped e2e gate omits to stay fast. `reports` (the JVM profile,
+# Phase 6) does not exist in this repo yet -- when it lands, this is
+# where it is exercised instead of per-PR, per the RFC-0001 D12 CI
+# resource constraint (standard 7 GB runners do not comfortably fit
+# `full`). Until then "full" here means every profile the repo currently
+# ships: core + analytics + synthetic + load.
+#
+# This IS `make smoke-full` -- same make-ci-parity principle as e2e.yml.
+
+on:
+  schedule:
+    # 03:00 UTC -- outside typical US/EU working hours, low interference
+    # with anyone actively developing against the same runners/images.
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  nightly-smoke:
+    name: nightly smoke (all current profiles)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: make smoke-full (bring-up + longer k6 gate + full assertions)
+        run: make smoke-full
+
+      - name: Dump compose state on failure
+        if: failure()
+        run: |
+          docker compose -f deploy/compose/docker-compose.yml --project-directory . --profile "*" ps
+          docker compose -f deploy/compose/docker-compose.yml --project-directory . --profile "*" logs --tail=200
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f deploy/compose/docker-compose.yml --project-directory . --profile "*" down -v

@@ -130,8 +130,9 @@ loadgen_abuse_unexpected_status        rate<1%   (custom Rate: did abuse get the
 does not count an expected 4xx in `http_req_failed` at all, so there is
 deliberately no `http_req_failed{scenario:abuse}` threshold;
 `loadgen_abuse_unexpected_status` is the scenario's real correctness
-signal instead. These are the exact expressions PR-4 (the CI e2e
-workflow) is expected to reuse.
+signal instead. These live in `lib/thresholds.js` (PR-4), imported by
+both `scenarios/main.js` and `scenarios/smoke.js` so the CI/nightly gate
+cannot drift from what the long-running service enforces on itself.
 
 (422, not 400: `POST /items` binds its body straight into a Pydantic
 model, so a malformed-JSON parse failure there is FastAPI's own
@@ -160,13 +161,39 @@ make heal                                       # from a different terminal: kil
   a duplicate-name conflict (409), malformed JSON (422, FastAPI's
   automatic body validation), and a delete of a nonexistent id (404) --
   none marked expected, so they count against `http_req_failed` for real
-  and are meant to move the SLO burn-rate alerts (RFC-0001 Section 7).
+  and move the Load dashboard's error-rate panel and the
+  `slo:error_rate:*` recording rules (`observability/prometheus_slo_rules.yml`).
+  Correction (found live during PR-4/exercise 04): all three are 4xx, so
+  they do not move any *alert* today -- `observability/prometheus_alerts.yml`
+  has no SLO burn-rate alert rule yet, only the four unrelated alerts
+  (`ProbeDown`, `CanaryJourneyFailing`, `CanaryPipelineLagHigh`,
+  `AnalyticsStreamDown`), and `blackbox_exporter`'s `probe_success` only
+  checks reachability, which 4xx responses do not affect either. See
+  `docs/exercises/04-incident-to-inbox.md` for the live-verified reality
+  check and what a real SLO burn-rate alert would need.
 
 `incident.js` has no thresholds: it exists to fail loudly, not to gate
 anything. `make incident` runs the container under the fixed name
 `loadgen-incident` (`docker compose run --rm --name loadgen-incident`);
 `make heal` targets that exact name (`docker rm -f loadgen-incident`)
 from any terminal, so it can stop an incident started elsewhere.
+
+## CI/nightly smoke gate (`scenarios/smoke.js`, PR-4)
+
+Another one-shot script, distinct from both `main.js` and `incident.js`:
+`make smoke` (`.github/workflows/e2e.yml`) and `make smoke-full`
+(`.github/workflows/nightly.yml`, longer `SMOKE_DURATION_SECONDS`) run it
+against a freshly-brought-up stack as the CI/nightly e2e gate (RFC-0001
+D12). It re-exports `browse`, `crud`, `abuse`, and `grpcScenario` straight
+from `main.js` and imports the exact same `THRESHOLDS` from
+`lib/thresholds.js` -- a short `constant-arrival-rate` run of the same
+code, not a separate approximation of it. `expensive` is not exercised
+here (its burst modulation is stage-index-driven, meaningless in a flat
+single-stage run); its threshold key stays imported anyway since a
+threshold with zero matching samples is simply not evaluated by k6, not
+a failure. See `docs/ci.md` for what the surrounding workflow asserts
+beyond the k6 thresholds (health endpoints, Prometheus targets, and, on
+the nightly/full run only, canary + blackbox).
 
 ## Environment variables
 
@@ -186,6 +213,7 @@ from any terminal, so it can stop an incident started elsewhere.
 | `INCIDENT_MINUTES` | `5` | Incident duration (`incident.js` only) |
 | `INCIDENT_SPIKE_MULTIPLIER` | `10` | Spike-mode rate multiplier (`incident.js` only) |
 | `INCIDENT_ERROR_RATE_PER_S` | `5` | Errors-mode arrival rate (`incident.js` only) |
+| `SMOKE_DURATION_SECONDS` | `75` | Per-scenario run length (`smoke.js` only); nightly.yml overrides to a longer run |
 
 ## Metrics (Prometheus remote-write)
 
