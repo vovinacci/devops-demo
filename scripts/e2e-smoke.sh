@@ -35,7 +35,10 @@ check_http_200() {
   # echo "000"` fallback on top of that would double up to "000000" on
   # a connect refusal (curl also exits non-zero), so this only supplies
   # the fallback when curl produced no output at all.
-  code=$(curl -sS -o /dev/null -w '%{http_code}' "$url" 2>/dev/null)
+  # `|| true`: under set -euo pipefail a connect-refused curl (non-zero
+  # exit) inside the substitution would kill the script here, before
+  # fail() gets to print its diagnostics.
+  code=$(curl -sS -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || true)
   code="${code:-000}"
   if [ "$code" != "200" ]; then
     fail "$service" "$label returned $code (expected 200), url=$url"
@@ -50,7 +53,7 @@ echo "== analytics /readyz =="
 check_http_200 "analytics /readyz" "http://localhost:8082/readyz" analytics
 
 echo "== analytics stream_connected =="
-stream_connected=$(curl -sS http://localhost:8082/metrics | awk '/^analytics_stream_connected /{print $2}')
+stream_connected=$(curl -sS http://localhost:8082/metrics 2>/dev/null | awk '/^analytics_stream_connected /{print $2}' || true)
 if [ "${stream_connected:-}" != "1" ]; then
   fail analytics "analytics_stream_connected == '${stream_connected:-<absent>}', expected 1"
 fi
@@ -58,8 +61,8 @@ echo "OK: analytics_stream_connected == 1"
 
 echo "== prometheus targets api + analytics up =="
 for job in api analytics; do
-  health=$(curl -sS "${PROM_URL}/api/v1/targets" | jq -r --arg job "$job" \
-    '.data.activeTargets[] | select(.labels.job==$job) | .health' | head -n1)
+  health=$(curl -sS "${PROM_URL}/api/v1/targets" 2>/dev/null | jq -r --arg job "$job" \
+    '.data.activeTargets[] | select(.labels.job==$job) | .health' | head -n1 || true)
   if [ "${health:-}" != "up" ]; then
     fail prometheus "target job=$job health='${health:-<absent>}', expected up"
   fi
@@ -69,16 +72,16 @@ done
 if [ "${NIGHTLY:-0}" = "1" ]; then
   echo "== canary journey success (nightly only) =="
   canary_success=$(curl -sS "${PROM_URL}/api/v1/query" \
-    --data-urlencode 'query=sum(canary_journey_total{result="success"})' |
-    jq -r '.data.result[0].value[1] // "0"')
+    --data-urlencode 'query=sum(canary_journey_total{result="success"})' 2>/dev/null |
+    jq -r '.data.result[0].value[1] // "0"' || true)
   if ! awk -v v="$canary_success" 'BEGIN { exit !(v > 0) }'; then
     fail canary "sum(canary_journey_total{result=\"success\"}) == $canary_success, expected > 0"
   fi
   echo "OK: canary journey success total = $canary_success"
 
   echo "== blackbox probe_success all 1 (nightly only) =="
-  down_count=$(curl -sS "${PROM_URL}/api/v1/query" --data-urlencode 'query=probe_success == 0' |
-    jq -r '.data.result | length')
+  down_count=$(curl -sS "${PROM_URL}/api/v1/query" --data-urlencode 'query=probe_success == 0' 2>/dev/null |
+    jq -r '.data.result | length' || true)
   if [ "${down_count:-1}" != "0" ]; then
     fail blackbox "probe_success == 0 for $down_count target(s), expected none"
   fi

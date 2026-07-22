@@ -161,14 +161,18 @@ docker compose -f deploy/compose/docker-compose.yml --project-directory . start 
 - `ProbeDown` moves from `firing` to resolved in Prometheus once
   `probe_success == 0` stops being true (no `for:` delay on the way down
   -- resolution is immediate once the condition clears).
-- Mailpit receives a second mail: the resolved notification
+- The silence from step 5 suppresses the resolved notification too --
+  a silenced alert sends nothing, including its recovery mail. Expire it
+  first (or wait out its `--duration`):
+
+  ```shell
+  docker compose -f deploy/compose/docker-compose.yml --project-directory . exec alertmanager amtool silence expire <id> --alertmanager.url=http://localhost:9093
+  ```
+
+- Only then expect Mailpit's second mail: the resolved notification
   (`send_resolved: true` in `observability/alertmanager/alertmanager.yml`)
   -- open it and confirm the subject/body marks it resolved, not a
   duplicate firing notice.
-- The silence you created in step 5 has nothing left to suppress once
-  the alert resolves; it simply expires at its `--duration` (or delete it
-  early via `amtool silence expire <id>` if you want to confirm cleanup
-  explicitly).
 
 ## Timing expectations
 
@@ -178,7 +182,7 @@ docker compose -f deploy/compose/docker-compose.yml --project-directory . start 
 | `ProbeDown` starts firing | ~2m (`for: 2m`) |
 | Mail appears in Mailpit | ~2m + `group_wait` (15s) |
 | `ProbeDown` resolves | immediate on next scrape after `docker compose start analytics` completes readiness |
-| Resolved mail appears | next Alertmanager notification cycle, typically within `group_wait` again |
+| Resolved mail appears | ~`group_interval` (2m) after resolution reaches Alertmanager, plus scrape/evaluation delay -- updates to an existing group ride `group_interval`, not `group_wait`; an active silence delays it further (see step 7) |
 
 ## Cleanup
 
