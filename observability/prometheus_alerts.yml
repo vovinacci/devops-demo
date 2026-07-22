@@ -77,6 +77,42 @@ groups:
             backend CRUD journey is not completing end to end.
           runbook_url: https://github.com/vovinacci/devops-demo/blob/main/docs/runbooks/canary-journey-failing.md
 
+      # Synthetic layer, v2 (RFC-0001 D9): the pipeline-lag step's own
+      # latency, distinct from CanaryJourneyFailing above -- Hard rule 9
+      # (ADR-0008 D10) means a slow or stuck pipeline never fails the
+      # journey itself, so it needs its own alert to be visible at all.
+      #
+      # `and on() (... result="ok" ...) > 0` scopes this to "analytics is
+      # actually being reached and returning success sometimes" -- without
+      # it, a fully-skipped window (analytics profile simply not up) would
+      # have no "ok" samples to quantile over and `histogram_quantile`
+      # returns NaN, which Prometheus's comparison operators treat as not
+      # matching `> 5` anyway; the explicit guard makes that intent
+      # readable rather than relying on NaN-comparison semantics. It also
+      # means sustained timeouts alone (zero "ok" samples) do NOT fire
+      # this alert -- that failure mode has no p95 to compute from and is
+      # instead visible via canary_pipeline_check_total{result="timeout"}
+      # on the dashboard (deliberately not alerted on: a stuck stream
+      # already pages via AnalyticsStreamDown, and paging twice for one
+      # root cause is the exact anti-pattern CanaryJourneyFailing's design
+      # note calls out for `up{job="analytics"}`).
+      - alert: CanaryPipelineLagHigh
+        expr: >-
+          histogram_quantile(0.95, sum(rate(canary_pipeline_lag_seconds_bucket[15m])) by (le)) > 5
+          and on()
+          (sum(increase(canary_pipeline_check_total{result="ok"}[15m])) > 0)
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Canary pipeline-lag p95 is elevated"
+          description: >-
+            The canary's create -> analytics-visible p95 lag has been
+            above 5s for over 10 minutes while pipeline checks are still
+            succeeding -- the gRPC event-stream path (ADR-0002) is slow,
+            not down.
+          runbook_url: https://github.com/vovinacci/devops-demo/blob/main/docs/runbooks/canary-pipeline-lag-high.md
+
   - name: analytics_ingest
     interval: 30s
     rules:

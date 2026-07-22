@@ -285,6 +285,9 @@ services:
   # depends_on api with service_started, not service_healthy -- observing
   # a down backend is the canary's job (RFC-0001 D10 graceful degradation);
   # it must be able to start and report failures even while api is down.
+  # No depends_on on analytics, deliberately (RFC-0001 D9 v2, ADR-0008
+  # D10): the `synthetic` profile must run standalone, with `analytics`
+  # absent -- the pipeline-lag step skips instead of failing the journey.
   canary:
     build:
       context: ./services/canary
@@ -292,6 +295,7 @@ services:
       - synthetic
     environment:
       - CANARY_BACKEND_URL=http://api:8000
+      - CANARY_ANALYTICS_URL=http://analytics:8082
     depends_on:
       api:
         condition: service_started

@@ -43,7 +43,7 @@ curl -sS "http://localhost:8082/api/v1/items/$ID" | jq
 
 ## Steps
 
-1. Open three or four queries side by side (Grafana or the Prometheus
+1. Open the five queries below side by side (Grafana or the Prometheus
    UI) so you can watch them update together:
 
    ```promql
@@ -51,6 +51,7 @@ curl -sS "http://localhost:8082/api/v1/items/$ID" | jq
    probe_success{instance=~"http://api:8000.*"}
    analytics_stream_connected
    canary_journey_total
+   canary_pipeline_check_total
    ```
 
 2. Break the connection. Either works; the second is closer to a real
@@ -71,8 +72,25 @@ curl -sS "http://localhost:8082/api/v1/items/$ID" | jq
      similar timescale, confirmed from outside the process.
    - `analytics_stream_connected` -- drops to `0` as soon as the current
      `Recv()` on the stream errors (within moments of either option).
-   - `canary_journey_total{result="failure"}` -- only on the canary's
-     next scheduled journey (`CANARY_INTERVAL_SECONDS`).
+   - `canary_journey_total{result="failure"}` -- Option A only: with the
+     backend down, `create` itself fails. Option B leaves the backend up,
+     so `create`/`verify`/`delete` (all backend calls) keep succeeding
+     and this counter never shows a failure at all during the outage.
+   - `canary_pipeline_check_total{result="skipped"}` -- the signal Option
+     B *does* produce: the network disconnect cuts analytics off from the
+     canary too, so the pipeline-lag step's first poll gets a connection
+     failure and records `skipped` on the canary's next journey --
+     detected on the first poll, well inside one journey interval and far
+     faster than `AnalyticsStreamDown`'s 5-minute window. Note the honest
+     limitation: the canary cannot tell "analytics profile not up" from
+     "analytics partitioned away" -- both are connect failures (a
+     `timeout` result would instead mean analytics answered but the item
+     never appeared, e.g. only the gRPC stream is broken). Per Hard
+     rule 9 (ADR-0008 D10) neither fails the journey
+     (`canary_journey_total` stays all `success`) -- a strictly
+     finer-grained signal than journey success/failure, visible only in
+     this counter and in `canary_pipeline_lag_seconds` having no new
+     samples.
 
 4. Confirm `analytics` itself stays healthy throughout (graceful
    degradation, RFC-0001 D10 -- an ingest outage must not take the HTTP
@@ -143,6 +161,17 @@ curl -sS "http://localhost:8082/api/v1/items/$ID" | jq
   healthy -- try Option B and confirm `up{job="api"}`/`ProbeDown` never
   fire at all, since the backend never went down), and the canary is
   slowest because it only samples on its own schedule.
+- With canary v2's pipeline-lag step, "the canary" is no longer one
+  signal but two, and they diverge under Option B specifically:
+  `canary_journey_total` (the CRUD journey against the backend) stays
+  all `success` throughout, while `canary_pipeline_check_total{result="skipped"}`
+  fires within one journey interval (the partition takes analytics away
+  from the canary too, so the first poll's connect failure records
+  `skipped`). This is the concrete illustration of Hard rule 9
+  (ADR-0008 D10): the pipeline-lag step is deliberately decoupled from
+  the journey's own success/failure verdict, so a real, measurable
+  pipeline problem is visible without ever making the canary itself
+  look "down".
 - `analytics_reconnects_total` climbs throughout the outage -- the client
   never gives up, it backs off and retries (ADR-0002), bounded by
   `ANALYTICS_INGEST_BACKOFF_MAX`.
@@ -187,3 +216,11 @@ curl -sS http://localhost:8000/items | jq '[.[] | select(.name | test("stream-ex
    behavior. If you only had the `AnalyticsStreamDown` alert (no
    whitebox/blackbox layer at all), could you tell the two options apart
    from inside analytics alone? What would you need to add to be able to?
+4. `CanaryPipelineLagHigh` (the pipeline-lag alert) requires at least one
+   `result="ok"` sample in its window to fire at all -- during this
+   exercise's outage, checks are all `skipped` (the canary cannot reach
+   analytics at all), so that alert never fires, only
+   `AnalyticsStreamDown` does. Is that the right call, or should a
+   canary pipeline-lag alert be able to fire on sustained `timeout` or
+   `skipped` results too? Argue both sides using what
+   `AnalyticsStreamDown` already covers.

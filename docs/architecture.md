@@ -13,6 +13,7 @@ flowchart LR
         pg[("db (PostgreSQL)<br/>:5432")]
         an["analytics (Go)<br/>:8082, analytics profile"]
         pgA[("postgres-analytics (PostgreSQL)<br/>:5433, analytics profile")]
+        can["canary (Rust)<br/>:8085, synthetic profile"]
     end
 
     subgraph obs [Observability]
@@ -30,6 +31,8 @@ flowchart LR
     an -->|pgx| pgA
     an -->|"dials :50051 (TCP direction)"| be
     be -.->|"WatchItemEvents pushes events (data direction, opposite the dial)"| an
+    can -->|"journey: create -> verify -> delete"| be
+    can -.->|"pipeline-lag poll (skipped when analytics profile absent)"| an
     prom -->|scrape| be
     prom -->|scrape| pgx
     prom -->|scrape| cad
@@ -82,6 +85,10 @@ motivating exhibit for the NATS capstone (RFC-0001 Section 10).
   `ANALYTICS_RETENTION_DAYS` (default 7) -- once immediately at startup,
   then on a ticker -- keyed on event time (RFC-0001 D7, ADR-0005);
   `event_buckets` is already the aggregate and is left untouched.
+- **Canary** ([readme](../services/canary/README.md)) -- Rust synthetic
+  layer (RFC-0001 D9, ADR-0007); v2 adds a pipeline-lag step polling
+  analytics, tolerating it being absent (ADR-0008 D10 graceful
+  degradation). `synthetic` compose profile.
 - **Observability** -- Prometheus (+ SLO rules), Grafana (provisioned
   dashboards), Loki + Grafana Alloy (logs), postgres-exporter, cAdvisor.
   Details: [observability.md](observability.md).

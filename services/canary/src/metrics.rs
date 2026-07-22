@@ -1,8 +1,11 @@
-use prometheus::{CounterVec, Encoder, Gauge, HistogramVec, Opts, Registry, TextEncoder};
+use prometheus::{
+    CounterVec, Encoder, Gauge, Histogram, HistogramVec, Opts, Registry, TextEncoder,
+};
 
 /// Canary-exclusive metrics (ADR-0007 D9): journey outcome, per-step
-/// latency (localizes which step is failing), and staleness of the last
-/// success. Each instance owns its own registry so tests can create
+/// latency (localizes which step is failing), staleness of the last
+/// success, and (v2) the pipeline-lag step's own lag and three-valued
+/// result. Each instance owns its own registry so tests can create
 /// independent `Metrics` without colliding on Prometheus's global default
 /// registry.
 pub struct Metrics {
@@ -10,6 +13,8 @@ pub struct Metrics {
     pub journey_total: CounterVec,
     pub step_duration_seconds: HistogramVec,
     pub last_success_timestamp_seconds: Gauge,
+    pub pipeline_lag_seconds: Histogram,
+    pub pipeline_check_total: CounterVec,
 }
 
 impl Metrics {
@@ -23,7 +28,8 @@ impl Metrics {
         )
         .expect("valid journey_total metric");
 
-        // Bounded label set: "step" is create|verify|delete, never free text.
+        // Bounded label set: "step" is create|verify|pipeline|delete, never
+        // free text.
         let step_duration_seconds = HistogramVec::new(
             prometheus::HistogramOpts::new(
                 "canary_journey_step_duration_seconds",
@@ -39,6 +45,30 @@ impl Metrics {
         )
         .expect("valid last_success_timestamp_seconds metric");
 
+        // Buckets span sub-second (fast ingestion) to the default
+        // CANARY_PIPELINE_TIMEOUT_SECONDS (10s) -- only "ok" outcomes are
+        // observed here (RFC-0001 D9 v2), so the histogram stays a clean
+        // read of actual pipeline latency, not diluted by timeouts/skips.
+        let pipeline_lag_seconds = Histogram::with_opts(
+            prometheus::HistogramOpts::new(
+                "canary_pipeline_lag_seconds",
+                "End-to-end lag from item creation to first visibility in analytics",
+            )
+            .buckets(vec![0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.5, 10.0]),
+        )
+        .expect("valid pipeline_lag_seconds metric");
+
+        // Bounded label set: "result" is ok|timeout|skipped, never free
+        // text (Hard rule 9: none of the three fails the journey itself).
+        let pipeline_check_total = CounterVec::new(
+            Opts::new(
+                "canary_pipeline_check_total",
+                "Pipeline-lag polls against analytics, by result",
+            ),
+            &["result"],
+        )
+        .expect("valid pipeline_check_total metric");
+
         registry
             .register(Box::new(journey_total.clone()))
             .expect("register journey_total");
@@ -48,12 +78,20 @@ impl Metrics {
         registry
             .register(Box::new(last_success_timestamp_seconds.clone()))
             .expect("register last_success_timestamp_seconds");
+        registry
+            .register(Box::new(pipeline_lag_seconds.clone()))
+            .expect("register pipeline_lag_seconds");
+        registry
+            .register(Box::new(pipeline_check_total.clone()))
+            .expect("register pipeline_check_total");
 
         Self {
             registry,
             journey_total,
             step_duration_seconds,
             last_success_timestamp_seconds,
+            pipeline_lag_seconds,
+            pipeline_check_total,
         }
     }
 

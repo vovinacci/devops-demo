@@ -43,6 +43,14 @@ start).
    journey itself is failing (see triage below). Either non-200 -> the
    canary process itself is the problem, not what it is monitoring.
 
+3. Is this the first journey right after a cold `make up-full`? The
+   canary depends on `api` with `service_started`, not `service_healthy`
+   (deliberate, RFC-0001 D10: the canary must be able to start and report
+   failures while the backend it monitors is still down), so it can tick
+   before the backend has finished its Alembic migration on startup. One
+   failed journey in this narrow window is expected, not an incident --
+   confirm by checking whether the very next scheduled journey succeeds.
+
 ## Dashboards / queries
 
 - `canary_journey_total{result="failure"}` vs `{result="success"}` --
