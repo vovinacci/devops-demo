@@ -112,7 +112,8 @@ one deliberately rejected alternative being a faster two-tier
 seed/aggregate-direct design).
 
 ```shell
-make seed-history   # needs the analytics profile already up: make up-full (or --profile analytics)
+make up-full        # or: docker compose -f deploy/compose/docker-compose.yml --project-directory . --profile analytics up -d --build
+make seed-history
 ```
 
 `make seed-history` first tops up backend items (`make seed`, additive --

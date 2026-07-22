@@ -173,29 +173,35 @@ func Run(ctx context.Context, cfg Config, profile loadshape.Profile, items []Ite
 		return nil
 	}
 
+	// flushDetachedOnCancel is the single save-whats-pending path for
+	// every cancellation exit (top-of-hour check, mid-loop batch flush,
+	// final flush): ctx is already canceled by then, so flushing against
+	// it would fail instantly (pgxpool.Begin gives up before dialing) --
+	// "save whatever is pending" needs its own detached, bounded context
+	// to actually happen. A cancellation that lands mid-flush fails that
+	// tx atomically (nothing partially written), so retrying the same
+	// pending batch here is safe. The outer cancellation error is still
+	// returned by the caller regardless of this flush's outcome; this is
+	// purely about not silently losing already-generated events.
+	flushDetachedOnCancel := func() {
+		pendingCount := len(pending)
+		flushCtx, cancelFlush := context.WithTimeout(context.WithoutCancel(ctx), cancelFlushTimeout)
+		flushErr := flush(flushCtx)
+		cancelFlush()
+
+		logCtx := context.WithoutCancel(ctx)
+		if flushErr != nil {
+			slog.ErrorContext(logCtx, "seed cancellation flush failed, pending batch lost",
+				"error", flushErr, "pending_lost", pendingCount)
+		} else if pendingCount > 0 {
+			slog.InfoContext(logCtx, "seed canceled, flushed pending batch before exit",
+				"flushed", pendingCount, "events_written", totalWritten)
+		}
+	}
+
 	for h := range totalHours {
 		if err := ctx.Err(); err != nil {
-			// ctx is already canceled here, so flushing against it would
-			// fail instantly (pgxpool.Begin gives up before dialing) --
-			// "save whatever is pending" needs its own detached, bounded
-			// context to actually happen, not the same canceled context
-			// that triggered this branch. The outer cancellation error is
-			// still returned regardless of whether this flush succeeds;
-			// this is purely about not silently losing already-generated
-			// events on the way out.
-			pendingCount := len(pending)
-			flushCtx, cancelFlush := context.WithTimeout(context.WithoutCancel(ctx), cancelFlushTimeout)
-			flushErr := flush(flushCtx)
-			cancelFlush()
-
-			logCtx := context.WithoutCancel(ctx)
-			if flushErr != nil {
-				slog.ErrorContext(logCtx, "seed cancellation flush failed, pending batch lost",
-					"error", flushErr, "pending_lost", pendingCount)
-			} else if pendingCount > 0 {
-				slog.InfoContext(logCtx, "seed canceled, flushed pending batch before exit",
-					"flushed", pendingCount, "events_written", totalWritten)
-			}
+			flushDetachedOnCancel()
 			return Result{EventsWritten: totalWritten}, fmt.Errorf("seed canceled after %d/%d hours: %w", h, totalHours, err)
 		}
 
@@ -219,6 +225,10 @@ func Run(ctx context.Context, cfg Config, profile loadshape.Profile, items []Ite
 
 			if len(pending) >= batchSize {
 				if err := flush(ctx); err != nil {
+					if ctx.Err() != nil {
+						flushDetachedOnCancel()
+						return Result{EventsWritten: totalWritten}, fmt.Errorf("seed canceled after %d/%d hours: %w", h, totalHours, ctx.Err())
+					}
 					return Result{EventsWritten: totalWritten}, err
 				}
 			}
@@ -237,6 +247,10 @@ func Run(ctx context.Context, cfg Config, profile loadshape.Profile, items []Ite
 	}
 
 	if err := flush(ctx); err != nil {
+		if ctx.Err() != nil {
+			flushDetachedOnCancel()
+			return Result{EventsWritten: totalWritten}, fmt.Errorf("seed canceled at final flush: %w", ctx.Err())
+		}
 		return Result{EventsWritten: totalWritten}, err
 	}
 	return Result{EventsWritten: totalWritten}, nil

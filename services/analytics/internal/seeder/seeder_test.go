@@ -305,3 +305,43 @@ func TestRunCancellationFlushUsesDetachedContext(t *testing.T) {
 		t.Fatalf("want the flushed batch size to match EventsWritten: batch=%d written=%d", got, result.EventsWritten)
 	}
 }
+
+// TestRunCancellationDuringMidLoopFlushStillFlushesDetached covers the
+// second cancellation surface: a small BatchSize forces the periodic
+// mid-loop flush, and the cancel is timed (via the Err()-counting
+// wrapper) to land on the store's own context check inside one of those
+// flushes -- the store fails like real pgx, and the seeder must retry
+// the same pending batch through the detached context instead of
+// dropping it, while still returning the cancellation error.
+func TestRunCancellationDuringMidLoopFlushStillFlushesDetached(t *testing.T) {
+	cfg := baseConfig()
+	cfg.Days = 5
+	cfg.BatchSize = 50
+
+	base, cancel := context.WithCancel(context.Background())
+	checks := 0
+	// Call order: top-of-hour Err() (#1), then one store-side Err() per
+	// mid-loop flush -- triggering on #3 cancels inside the second
+	// mid-loop flush attempt.
+	ctx := &cancelAfterNChecks{Context: base, cancel: cancel, triggerAt: 3, checks: &checks}
+
+	fs := &ctxCheckingStore{}
+	result, err := seeder.Run(ctx, cfg, testProfile(), testItems(), fs)
+	if err == nil {
+		t.Fatal("want a cancellation error, got nil")
+	}
+	if len(fs.batches) < 2 {
+		t.Fatalf("want at least one successful mid-loop flush plus the detached cancellation flush, got %d batches", len(fs.batches))
+	}
+	last := fs.batches[len(fs.batches)-1]
+	if len(last) == 0 {
+		t.Fatal("want the detached cancellation flush to carry the pending batch, got an empty final batch")
+	}
+	var total int64
+	for _, b := range fs.batches {
+		total += int64(len(b))
+	}
+	if total != result.EventsWritten {
+		t.Fatalf("want EventsWritten to equal the sum of flushed batches: batches=%d written=%d", total, result.EventsWritten)
+	}
+}

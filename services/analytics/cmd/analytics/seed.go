@@ -1,12 +1,14 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"flag"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
+	"slices"
 	"strconv"
 	"syscall"
 	"time"
@@ -160,6 +162,9 @@ func fetchBackendItems(ctx context.Context, backendAddr string) ([]seeder.Item, 
 	for i, it := range protoItems {
 		items[i] = seeder.Item{ID: it.GetId(), Name: it.GetName()}
 	}
+	// Deterministic seeding draws items by index: pin the order here
+	// instead of trusting the backend's response ordering forever.
+	slices.SortFunc(items, func(a, b seeder.Item) int { return cmp.Compare(a.ID, b.ID) })
 	return items, nil
 }
 

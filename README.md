@@ -94,9 +94,10 @@ free RAM, 3 GB free disk.
   ```
 
 - Seed 90 days of analytics history (RFC-0001 Phase 5 D5; needs the
-  `analytics` profile up first -- `make up-full` or `--profile analytics`)
+  `analytics` profile up first)
 
   ```shell
+  make up-full
   make seed-history
   ```
 

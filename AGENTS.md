@@ -86,11 +86,15 @@ first, the diff second. Applies to human authors equally.
 - Full stack when relevant: `make up` (core), `make up-full` (all
   profiles), `make seed`, `make test`.
 - `make seed-history` -- historical seeder (RFC-0001 Phase 5 D5): needs
-  the `analytics` profile already up (`make up-full` or `--profile
-  analytics`); `SEED_DAYS`/`SEED_SEED` override the `--days 90`/`--seed
-  42` defaults. Re-running on top of existing data is idempotent-ish, not
-  exact (see `services/analytics/README.md`'s Historical seed section);
-  reset via `--profile analytics down -v` for a clean re-seed.
+  the `analytics` profile already up -- run `make up-full` first (or
+  `docker compose -f deploy/compose/docker-compose.yml
+  --project-directory . --profile analytics up -d --build` for the
+  analytics profile alone); `SEED_DAYS`/`SEED_SEED` override the
+  `--days 90`/`--seed 42` defaults. Re-running on top of existing data
+  is idempotent-ish, not exact (see `services/analytics/README.md`'s
+  Historical seed section); clean re-seed = drop the analytics volume
+  first: `docker compose -f deploy/compose/docker-compose.yml
+  --project-directory . --profile analytics down -v`.
 - Per-service targets where the service ships its own Makefile:
   `make -C services/canary build test lint run`.
 - `make generate` -- regenerates gRPC/protobuf Python stubs into
