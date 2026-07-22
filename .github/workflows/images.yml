@@ -11,6 +11,8 @@ on:
     paths:
       - "services/**"
       - "deploy/compose/**"
+      - "loadgen/**"
+      - "loadprofile/**"
       - ".github/workflows/images.yml"
   push:
     branches:
@@ -18,6 +20,8 @@ on:
     paths:
       - "services/**"
       - "deploy/compose/**"
+      - "loadgen/**"
+      - "loadprofile/**"
       - ".github/workflows/images.yml"
 
 jobs:
@@ -32,16 +36,29 @@ jobs:
           # additional build context to generate gRPC stubs at build time
           # (RFC-0001 D8, ADR-0002), without widening its own build context
           - service: backend
+            context: services/backend
             extra_build_args: "--build-context proto=proto"
           - service: frontend
+            context: services/frontend
             extra_build_args: ""
           - service: canary
+            context: services/canary
             extra_build_args: ""
           # analytics reaches proto/ the same way backend does (RFC-0001
           # D8, ADR-0002): a named additional build context for Go gRPC
           # stub generation at build time.
           - service: analytics
+            context: services/analytics
             extra_build_args: "--build-context proto=proto"
+          # loadgen lives at the repo root, not under services/ (RFC-0001
+          # D8): its build context needs two named additional contexts,
+          # same pattern as backend/analytics for proto/ above --
+          # loadprofile/ (k6 imports shape.js/profile.json directly) and
+          # proto/ (items.proto loaded at runtime), see deploy/compose and
+          # loadgen/Dockerfile for the identical additional_contexts.
+          - service: loadgen
+            context: loadgen
+            extra_build_args: "--build-context loadprofile=loadprofile --build-context proto=proto"
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
@@ -51,7 +68,7 @@ jobs:
 
       - name: Build image
         run: |
-          docker build --pull ${{ matrix.extra_build_args }} -t "devops-demo-${{ matrix.service }}:ci" "services/${{ matrix.service }}"
+          docker build --pull ${{ matrix.extra_build_args }} -t "devops-demo-${{ matrix.service }}:ci" "${{ matrix.context }}"
 
       - name: Trivy scan (fail on critical)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0

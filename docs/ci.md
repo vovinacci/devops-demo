@@ -18,23 +18,27 @@ flowchart LR
     pr --> an["analytics.yml<br/>codegen + lint + test + govulncheck + image build<br/>(services/analytics/**, proto/**)"]
     pr --> proto["proto.yml<br/>buf lint + format + breaking<br/>(proto/** only)"]
     pr --> par["parity.yml<br/>load profile parity: JS vs Go goldens<br/>(loadprofile/**, services/analytics/internal/loadshape/**)"]
-    pr --> img["images.yml<br/>docker build + Trivy<br/>(services/** only)"]
+    pr --> img["images.yml<br/>docker build + Trivy<br/>(services/**, loadgen/**, loadprofile/**)"]
+    pr --> e2e["e2e.yml<br/>compose up core+analytics+load, k6 smoke gate, wiring assertions"]
+    night["nightly.yml<br/>schedule + workflow_dispatch<br/>all current profiles, longer k6 run, +canary/blackbox assertions"]
     merge[Squash-merge to main] --> rp["release-please.yml<br/>maintains release PR"]
     rp -->|release PR merged| rel["release.yml<br/>tag + publish (placeholder)"]
 ```
 
-| Workflow           | Triggers on                                              | Jobs                                                                                            |
-| ------------------ | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| checks.yml         | every PR, push to main                                   | prek hooks (all files), PR title commitlint                                                     |
-| backend.yml        | services/backend/** changes                              | no-committed-codegen check, ruff + mypy, `make generate` + pytest against real Postgres         |
-| frontend.yml       | services/frontend/** changes                             | eslint, vitest                                                                                  |
-| canary.yml         | services/canary/** changes                               | fmt + clippy, cargo test, cargo-deny, image                                                     |
-| analytics.yml      | services/analytics/**, proto/** changes                  | no-committed-codegen check, buf generate + lint + test (Postgres container), govulncheck, image |
-| proto.yml          | proto/** changes                                         | buf lint + format, buf breaking (against main)                                                  |
-| parity.yml         | loadprofile/**, services/analytics/internal/loadshape/** | JS (shape.js) vs Go (loadshape) parity against checked-in goldens (Hard rule 8)                 |
-| images.yml         | services/**, deploy/compose/**                           | docker build + Trivy scan per service (matrix)                                                  |
-| release-please.yml | push to main                                             | maintain release PR from commit history                                                         |
-| release.yml        | release published                                        | placeholder (image publishing comes later)                                                      |
+| Workflow           | Triggers on                                                                  | Jobs                                                                                                  |
+|--------------------|------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
+| checks.yml         | every PR, push to main                                                       | prek hooks (all files), PR title commitlint                                                           |
+| backend.yml        | services/backend/** changes                                                  | no-committed-codegen check, ruff + mypy, `make generate` + pytest against real Postgres               |
+| frontend.yml       | services/frontend/** changes                                                 | eslint, vitest                                                                                        |
+| canary.yml         | services/canary/** changes                                                   | fmt + clippy, cargo test, cargo-deny, image                                                           |
+| analytics.yml      | services/analytics/**, proto/** changes                                      | no-committed-codegen check, buf generate + lint + test (Postgres container), govulncheck, image       |
+| proto.yml          | proto/** changes                                                             | buf lint + format, buf breaking (against main)                                                        |
+| parity.yml         | loadprofile/**, services/analytics/internal/loadshape/**                     | JS (shape.js) vs Go (loadshape) parity against checked-in goldens (Hard rule 8)                       |
+| images.yml         | services/**, deploy/compose/**, loadgen/**, loadprofile/**                   | docker build + Trivy scan per service (matrix, includes loadgen)                                      |
+| e2e.yml            | services/**, deploy/compose/**, observability/**, loadgen/**, loadprofile/** | `make smoke`: compose up core+analytics+load (`--wait`), k6 smoke gate, wiring assertions (see below) |
+| nightly.yml        | schedule (daily) + workflow_dispatch                                         | `make smoke-full`: same gate, every current profile, longer run, +canary/blackbox assertions          |
+| release-please.yml | push to main                                                                 | maintain release PR from commit history                                                               |
+| release.yml        | release published                                                            | placeholder (image publishing comes later)                                                            |
 
 New services add their own path-filtered workflow in the phase that adds the
 service -- "has CI" is part of the Definition of Done
@@ -104,8 +108,32 @@ compatible).
   drift -- the formula's only transcendental). See
   `loadprofile/README.md` for the scale and noise
   determinism contract both implementations must keep identical.
-- **Planned (later phases):** compose e2e stage with k6 thresholds,
-  nightly full-profile workflow.
+- **e2e stage (`e2e.yml`, PR-4):** `make smoke` -- the same command a
+  developer runs locally -- brings up `core + analytics + load`
+  (`docker compose ... up -d --build --wait`, time-bounded via
+  `--wait-timeout`), one-shot runs the k6 smoke gate
+  (`loadgen/scenarios/smoke.js`: the same exec functions and the same
+  threshold contract as the long-running `loadgen/scenarios/main.js`,
+  shared via `loadgen/lib/thresholds.js` so the two cannot drift), then
+  asserts the pieces are actually wired together
+  (`scripts/e2e-smoke.sh`: backend `/healthz`, analytics `/readyz`,
+  `analytics_stream_connected == 1`, Prometheus targets `api`/`analytics`
+  both `up`). The JVM (`reports`, Phase 6) stays out of this stage --
+  standard GitHub-hosted runners (7 GB) do not comfortably fit it
+  alongside everything else (RFC-0001 D12 CI resource constraint).
+  Failures print `compose ps` plus the failing service's own log tail
+  (from the assertion script) and, as a coarser net, the full compose
+  state (from the workflow's own `if: failure()` step); teardown
+  (`--profile "*" down -v`) always runs.
+- **Nightly full-profile workflow (`nightly.yml`, PR-4):** `make
+  smoke-full` runs the identical gate on every profile the repo
+  currently ships (`core + analytics + synthetic + load`), a longer k6
+  run (`SMOKE_DURATION_SECONDS` override), and two extra assertions the
+  `synthetic` profile enables: canary journey success
+  (`sum(canary_journey_total{result="success"}) > 0`) and blackbox
+  `probe_success == 0` returning no targets. Scheduled daily plus
+  `workflow_dispatch`, not per-PR -- this is also where `reports` lands
+  once Phase 6 adds it, per the same RAM constraint above.
 
 ## Releases
 
@@ -149,10 +177,13 @@ settings are not otherwise reviewable:
   squash message = PR title. Linear history required.
 - **Required status checks** on main: `Git hooks (prek)`,
   `PR title (Conventional Commits)`.
-- Per-module checks (backend, frontend, images) are intentionally **not**
-  required: a workflow skipped by its path filter leaves required checks
-  pending forever, blocking docs-only PRs. Reviewers treat a red module
-  check as blocking; the required cross-cutting gates catch the rest.
+- Per-module checks (backend, frontend, images, e2e) are intentionally
+  **not** required: a workflow skipped by its path filter leaves required
+  checks pending forever, blocking docs-only PRs -- e2e.yml is
+  path-filtered the same way. Reviewers treat a red module check as
+  blocking; the required cross-cutting gates catch the rest.
+  `nightly.yml` runs on a schedule, not per-PR, so it is never a branch
+  protection candidate at all.
 - At least one approving review; conversation resolution before merge.
 
 ## Caching

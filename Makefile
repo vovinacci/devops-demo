@@ -133,6 +133,31 @@ heal: ## Stop a running `make incident` overlay early (safe to run even if nothi
 	$(PRINT_TARGET)
 	-docker rm -f loadgen-incident
 
+##@ E2E
+
+.PHONY: smoke
+smoke: ## e2e CI stage, runnable locally: bring up core+analytics+load, run the k6 smoke gate, assert wiring (RFC-0001 D12; .github/workflows/e2e.yml runs exactly this)
+	$(PRINT_TARGET)
+	$(COMPOSE) --profile analytics --profile load up -d --build --wait --wait-timeout 180
+	$(COMPOSE) --profile load run --rm \
+		-e K6_PROMETHEUS_RW_SERVER_URL=http://prometheus:9090/api/v1/write \
+		-e "K6_PROMETHEUS_RW_TREND_STATS=p(95),p(99),avg" \
+		loadgen run -o experimental-prometheus-rw /home/k6/scenarios/smoke.js
+	bash scripts/e2e-smoke.sh
+	@echo "Stack left running -- tear down with: make down"
+
+.PHONY: smoke-full
+smoke-full: ## nightly CI stage, runnable locally: all current profiles (core+analytics+synthetic+load), a longer k6 smoke run, canary/blackbox assertions (RFC-0001 D12; .github/workflows/nightly.yml runs exactly this)
+	$(PRINT_TARGET)
+	$(COMPOSE) --profile analytics --profile synthetic --profile load up -d --build --wait --wait-timeout 240
+	$(COMPOSE) --profile load run --rm \
+		-e SMOKE_DURATION_SECONDS=$${SMOKE_DURATION_SECONDS:-300} \
+		-e K6_PROMETHEUS_RW_SERVER_URL=http://prometheus:9090/api/v1/write \
+		-e "K6_PROMETHEUS_RW_TREND_STATS=p(95),p(99),avg" \
+		loadgen run -o experimental-prometheus-rw /home/k6/scenarios/smoke.js
+	NIGHTLY=1 bash scripts/e2e-smoke.sh
+	@echo "Stack left running -- tear down with: make down"
+
 ##@ Testing
 
 .PHONY: test

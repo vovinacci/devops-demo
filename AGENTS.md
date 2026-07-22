@@ -94,6 +94,13 @@ first, the diff second. Applies to human authors equally.
 - `make incident` / `make heal` -- one-shot k6 incident overlay (10x
   spike or error storm) and its kill switch (RFC-0001 D4, ADR-0006);
   verify recovery afterward on the load dashboard and in Mailpit.
+- `make smoke` -- the e2e CI stage (`.github/workflows/e2e.yml`), runnable
+  locally: brings up `core + analytics + load`, runs the k6 smoke gate,
+  asserts service wiring (RFC-0001 D12, PR-4). CI-only otherwise: not
+  part of `make ci` (it needs Docker and takes longer than a lint/test
+  pass), but the local == CI command is the same one either way.
+  `make smoke-full` is the nightly workflow's equivalent (all current
+  profiles, longer run).
 
 ## Rejected Findings
 

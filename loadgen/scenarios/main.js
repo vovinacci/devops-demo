@@ -12,6 +12,7 @@ import { Rate } from "k6/metrics";
 
 import { env, profile } from "../lib/env.js";
 import { buildStages } from "../lib/schedule.js";
+import { THRESHOLDS } from "../lib/thresholds.js";
 
 // Custom correctness signals, separate from k6's built-in http_req_failed
 // (RFC-0001 D4 CI-gate contract, see Thresholds below):
@@ -127,27 +128,17 @@ export const options = {
     grpc: scenarioConfig("grpcScenario", stagesGrpc),
     expensive: scenarioConfig("expensive", stagesExpensive),
   },
-  // RFC-0001 D4 CI-gate contract (reused as-is by the future e2e workflow,
-  // PR-4): per-scenario submetrics via k6's automatic `scenario` tag, not
-  // one blanket threshold -- abuse's 4xx responses are marked EXPECTED via
-  // http.expectedStatuses() in abuse() below, so they never enter
-  // http_req_failed in the first place; there is deliberately no
-  // http_req_failed{scenario:abuse} threshold here, its correctness
-  // signal is loadgen_abuse_unexpected_status instead. "expensive" gets a
-  // looser latency budget: it exists specifically to produce a real p99
-  // tail, so gating it at the same 300ms as everything else would be
-  // gating the exhibit itself.
-  thresholds: {
-    "http_req_duration{scenario:browse}": ["p(95)<300"],
-    "http_req_duration{scenario:crud}": ["p(95)<300"],
-    "http_req_duration{scenario:expensive}": ["p(95)<800"],
-    "http_req_failed{scenario:browse}": ["rate<0.01"],
-    "http_req_failed{scenario:crud}": ["rate<0.01"],
-    "http_req_failed{scenario:expensive}": ["rate<0.01"],
-    "grpc_req_duration{scenario:grpc}": ["p(95)<300"],
-    loadgen_grpc_call_failed: ["rate<0.01"],
-    loadgen_abuse_unexpected_status: ["rate<0.01"],
-  },
+  // RFC-0001 D4 CI-gate contract, reused verbatim by scenarios/smoke.js
+  // (PR-4, loadgen/lib/thresholds.js): per-scenario submetrics via k6's
+  // automatic `scenario` tag, not one blanket threshold -- abuse's 4xx
+  // responses are marked EXPECTED via http.expectedStatuses() in abuse()
+  // below, so they never enter http_req_failed in the first place; there
+  // is deliberately no http_req_failed{scenario:abuse} threshold here, its
+  // correctness signal is loadgen_abuse_unexpected_status instead.
+  // "expensive" gets a looser latency budget: it exists specifically to
+  // produce a real p99 tail, so gating it at the same 300ms as everything
+  // else would be gating the exhibit itself.
+  thresholds: THRESHOLDS,
 };
 
 // --- browse (~60%): read-only traffic against backend + frontend -----
