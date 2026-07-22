@@ -35,7 +35,8 @@ func envDuration(key string, def time.Duration) time.Duration {
 		return def
 	}
 	d, err := time.ParseDuration(v)
-	if err != nil {
+	// Zero or negative would panic time.NewTicker; treat as invalid.
+	if err != nil || d <= 0 {
 		return def
 	}
 	return d
@@ -47,7 +48,9 @@ func envInt(key string, def int) int {
 		return def
 	}
 	n, err := strconv.Atoi(v)
-	if err != nil {
+	// Zero or negative retention days would place the cutoff at or past
+	// now() and delete live data; treat as invalid.
+	if err != nil || n <= 0 {
 		return def
 	}
 	return n

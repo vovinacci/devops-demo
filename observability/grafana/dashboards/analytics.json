@@ -367,7 +367,7 @@
   {
    "type": "timeseries",
    "title": "Retention: Deleted Rows Rate",
-   "description": "rate(analytics_retention_deleted_rows_total[5m]) -- pace of raw item_events cleanup. Expected to track ingest volume roughly RetentionDays in the past; a long flat zero while Deleted Rows (total) also stays flat and Runs (success) keeps climbing just means nothing has aged past the horizon yet.",
+   "description": "increase(analytics_retention_deleted_rows_total[2h]) -- pace of raw item_events cleanup; 2h window = 2x the default retention cadence (ANALYTICS_RETENTION_INTERVAL, 1h), a 5m window would only show slivers around each hourly run. Expected to track ingest volume roughly RetentionDays in the past; a long flat zero while Deleted Rows (total) also stays flat and Runs (success) keeps climbing just means nothing has aged past the horizon yet.",
    "gridPos": {
     "x": 12,
     "y": 24,
@@ -376,7 +376,7 @@
    },
    "targets": [
     {
-     "expr": "rate(analytics_retention_deleted_rows_total[5m])",
+     "expr": "increase(analytics_retention_deleted_rows_total[2h])",
      "refId": "A",
      "datasource": {
       "type": "prometheus",
@@ -400,7 +400,7 @@
   {
    "type": "timeseries",
    "title": "Retention: Run Duration p95",
-   "description": "histogram_quantile(0.95, sum(rate(analytics_retention_run_duration_seconds_bucket[5m])) by (le)) -- wall-clock duration of the DELETE FROM item_events run, success or failure alike.",
+   "description": "histogram_quantile(0.95, sum(rate(analytics_retention_run_duration_seconds_bucket[2h])) by (le)) -- 2h window = 2x the default retention cadence -- wall-clock duration of the DELETE FROM item_events run, success or failure alike.",
    "gridPos": {
     "x": 0,
     "y": 32,
@@ -409,7 +409,7 @@
    },
    "targets": [
     {
-     "expr": "histogram_quantile(0.95, sum(rate(analytics_retention_run_duration_seconds_bucket[5m])) by (le))",
+     "expr": "histogram_quantile(0.95, sum(rate(analytics_retention_run_duration_seconds_bucket[2h])) by (le))",
      "refId": "A",
      "datasource": {
       "type": "prometheus",
@@ -433,7 +433,7 @@
   {
    "type": "timeseries",
    "title": "Retention: Runs by Result",
-   "description": "sum(rate(analytics_retention_runs_total[5m])) by (result) -- bounded label set (success|failure). A nonzero failure rate combined with a climbing Last Success Age is the signal this phase relies on in place of a dedicated alert (services/analytics/README.md).",
+   "description": "sum(increase(analytics_retention_runs_total[2h])) by (result) -- 2h window = 2x the default retention cadence so a failed hourly run stays visible -- bounded label set (success|failure). A nonzero failure rate combined with a climbing Last Success Age is the signal this phase relies on in place of a dedicated alert (services/analytics/README.md).",
    "gridPos": {
     "x": 12,
     "y": 32,
@@ -442,7 +442,7 @@
    },
    "targets": [
     {
-     "expr": "sum(rate(analytics_retention_runs_total[5m])) by (result)",
+     "expr": "sum(increase(analytics_retention_runs_total[2h])) by (result)",
      "legendFormat": "{{ result }}",
      "refId": "A",
      "datasource": {

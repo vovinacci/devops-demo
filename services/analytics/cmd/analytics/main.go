@@ -129,8 +129,8 @@ func serve() int {
 	case err := <-errCh:
 		logger.Error("http server failed", "error", err)
 		cancelIngest()
-		<-ingestDone
 		cancelRetention()
+		<-ingestDone
 		<-retentionDone
 		return 1
 	}
@@ -140,8 +140,8 @@ func serve() int {
 	// (ADR-0005), but both goroutines still hold a *pgxpool.Pool they must
 	// stop using before shutdown proceeds.
 	cancelIngest()
-	<-ingestDone
 	cancelRetention()
+	<-ingestDone
 	<-retentionDone
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
