@@ -3,9 +3,10 @@
 Go analytics service (RFC-0001 D1, ADR-0005) -- event ingestion,
 aggregation, retention, and historical seed, with its own Postgres
 instance. Ships the HTTP surface, database, migrations, Docker/CI/compose
-wiring (`feat/analytics-scaffold`) and the gRPC ingest client
+wiring (`feat/analytics-scaffold`), the gRPC ingest client
 (`feat/analytics-ingest`, RFC-0001 Phase 3 PR-B, ADR-0002): backend
-serves, analytics dials.
+serves, analytics dials, and the retention job
+(`feat/analytics-retention`, RFC-0001 Phase 3 PR-C, ADR-0005 D7).
 
 ## Ingest (RFC-0001 Phase 3 PR-B, ADR-0002)
 
@@ -52,6 +53,51 @@ Tracing: one OTel span per reconnect cycle
 its `trace_id` (`internal/logging`); outbound `ListItems`/
 `WatchItemEvents` calls carry W3C trace context via a small manual
 gRPC client interceptor (no `otelgrpc` dependency for two RPC shapes).
+
+## Retention (RFC-0001 Phase 3 PR-C, ADR-0005 D7)
+
+`internal/retention` runs a ticker loop deleting raw `item_events` rows
+older than `ANALYTICS_RETENTION_DAYS` (default `7`) every
+`ANALYTICS_RETENTION_INTERVAL` (default `1h`), plus once immediately at
+startup -- an interval-only loop on a service restarted before its first
+tick (a daily redeploy against the 1h default, for instance) would
+otherwise never run at all.
+
+**Delete-only, not "aggregate-then-delete" in the literal D7 sense.** D7
+says the retention job aggregates, then deletes. In this design the
+hourly `event_buckets` rows already ARE that aggregation: `IngestEvent`
+writes the bucket upsert in the same transaction as the raw
+`item_events` insert, at ingest time, not at retention time. So by the
+time a raw event is old enough for this job to delete, its aggregate has
+already existed for up to `ANALYTICS_RETENTION_DAYS` -- there is no
+re-aggregation step left to perform here, and the aggregate outlives the
+raw event by construction. `internal/store.DeleteEventsOlderThan` only
+issues `DELETE FROM item_events WHERE event_time < cutoff`.
+
+The cutoff is keyed on `event_time`, never `received_at` (Hard rule 7,
+same as ingest's own bucket keying, ADR-0005 D1) -- retention must expire
+data by when it happened, not by when analytics happened to observe it,
+or seeded/late-arriving history could be deleted before it ever reaches
+its correct bucket.
+
+`event_buckets` and `current_items` are both left untouched by this job:
+buckets are the durable business-data aggregate (ADR-0005), and
+`current_items` is live state, not history -- neither is data this job
+expires.
+
+Metrics: `analytics_retention_runs_total{result="success"|"failure"}`,
+`analytics_retention_deleted_rows_total` (counter),
+`analytics_retention_last_success_timestamp_seconds` (gauge),
+`analytics_retention_run_duration_seconds` (histogram). One `slog` line
+per run (deleted count, cutoff, duration), with `trace_id` via a
+dedicated `analytics.ingest.cycle`-style OTel span
+(`analytics.retention.run`) per run.
+
+No dedicated alert exists for retention failures this phase: a run
+failure surfaces via `analytics_retention_runs_total{result="failure"}`
+plus rising `analytics_retention_last_success_timestamp_seconds` age on
+the `Analytics Ingest` dashboard instead. Adding an alert is not in the
+Phase 3 plan; this is a deliberate scope decision, not an oversight.
 
 ## Read API (`/api/v1`)
 
@@ -103,7 +149,8 @@ gRPC client interceptor (no `otelgrpc` dependency for two RPC shapes).
 - `/readyz` -- readiness = Postgres reachable (see Semantics above).
 - `/metrics` -- Prometheus exposition format: Go runtime/process metrics
   plus `analytics_db_up` (mirrors the last `/readyz` outcome as a
-  whitebox metric) and the ingest metrics listed above.
+  whitebox metric), the ingest metrics listed above, and the retention
+  metrics listed in Retention above.
 - `/api/v1/items/{item_id}`, `/api/v1/stats` -- ingest read API, see above.
 
 ## Environment variables
@@ -115,6 +162,8 @@ gRPC client interceptor (no `otelgrpc` dependency for two RPC shapes).
 | `ANALYTICS_BACKEND_GRPC_ADDR` | `localhost:50051` | Backend `ItemService` gRPC target analytics dials (ADR-0002); compose sets this to `api:50051` |
 | `ANALYTICS_INGEST_BACKOFF_BASE` | `1s` | Reconnect backoff base delay (Go duration syntax) |
 | `ANALYTICS_INGEST_BACKOFF_MAX` | `30s` | Reconnect backoff cap (Go duration syntax) |
+| `ANALYTICS_RETENTION_INTERVAL` | `1h` | Retention job ticker interval (Go duration syntax); also runs once at startup regardless |
+| `ANALYTICS_RETENTION_DAYS` | `7` | Raw `item_events` older than this many days (by `event_time`) are deleted each run (ADR-0005 D7) |
 
 ## Database
 
@@ -198,5 +247,5 @@ Runs as the image's built-in non-root user.
 
 ## Roadmap
 
-- **PR-C** (`feat/analytics-retention`): aggregate-then-delete raw events
-  older than N days (ADR-0005 D7).
+- **PR-D** (`feat/canary-v2`): canary pipeline-lag step polling this
+  service's `GET /api/v1/items/{item_id}` (RFC-0001 D9).

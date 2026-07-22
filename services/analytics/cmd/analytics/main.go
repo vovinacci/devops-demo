@@ -18,6 +18,7 @@ import (
 	"github.com/vovinacci/devops-demo/services/analytics/internal/ingest"
 	"github.com/vovinacci/devops-demo/services/analytics/internal/logging"
 	"github.com/vovinacci/devops-demo/services/analytics/internal/otelsetup"
+	"github.com/vovinacci/devops-demo/services/analytics/internal/retention"
 	"github.com/vovinacci/devops-demo/services/analytics/internal/store"
 )
 
@@ -94,6 +95,18 @@ func serve() int {
 		ingestClient.Run(ingestCtx)
 	}()
 
+	// Retention runs on its own cancelable context, mirroring ingest above
+	// for the same reason: an unexpected HTTP server failure (errCh below)
+	// must stop it too, not just a shutdown signal.
+	retentionCtx, cancelRetention := context.WithCancel(ctx)
+	defer cancelRetention()
+	retentionRunner := retention.New(retention.ConfigFromEnv(), db)
+	retentionDone := make(chan struct{})
+	go func() {
+		defer close(retentionDone)
+		retentionRunner.Run(retentionCtx)
+	}()
+
 	addr := envString("ANALYTICS_HTTP_ADDR", ":8082")
 	srv := httpserver.New(db, db)
 	httpSrv := &http.Server{
@@ -116,16 +129,20 @@ func serve() int {
 	case err := <-errCh:
 		logger.Error("http server failed", "error", err)
 		cancelIngest()
+		cancelRetention()
 		<-ingestDone
+		<-retentionDone
 		return 1
 	}
 
-	// Stop ingest before closing the pool (deferred above, LIFO-last):
-	// stream health is an alerting concern, not readyz's (ADR-0005), but
-	// the ingest goroutine still holds a *pgxpool.Pool it must stop using
-	// before shutdown proceeds.
+	// Stop ingest and retention before closing the pool (deferred above,
+	// LIFO-last): stream health is an alerting concern, not readyz's
+	// (ADR-0005), but both goroutines still hold a *pgxpool.Pool they must
+	// stop using before shutdown proceeds.
 	cancelIngest()
+	cancelRetention()
 	<-ingestDone
+	<-retentionDone
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
