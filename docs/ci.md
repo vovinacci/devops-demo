@@ -17,24 +17,24 @@ flowchart LR
     pr --> ca["canary.yml<br/>lint + test + audit + image build<br/>(services/canary/** only)"]
     pr --> an["analytics.yml<br/>codegen + lint + test + govulncheck + image build<br/>(services/analytics/**, proto/**)"]
     pr --> proto["proto.yml<br/>buf lint + format + breaking<br/>(proto/** only)"]
-    pr --> par["parity.yml<br/>load profile parity: JS vs Go goldens<br/>(loadprofile/**, loadshape/**)"]
+    pr --> par["parity.yml<br/>load profile parity: JS vs Go goldens<br/>(loadprofile/**, services/analytics/internal/loadshape/**)"]
     pr --> img["images.yml<br/>docker build + Trivy<br/>(services/** only)"]
     merge[Squash-merge to main] --> rp["release-please.yml<br/>maintains release PR"]
     rp -->|release PR merged| rel["release.yml<br/>tag + publish (placeholder)"]
 ```
 
-| Workflow           | Triggers on                             | Jobs                                                                                            |
-|--------------------|-----------------------------------------|-------------------------------------------------------------------------------------------------|
-| checks.yml         | every PR, push to main                  | prek hooks (all files), PR title commitlint                                                     |
-| backend.yml        | services/backend/** changes             | no-committed-codegen check, ruff + mypy, `make generate` + pytest against real Postgres         |
-| frontend.yml       | services/frontend/** changes            | eslint, vitest                                                                                  |
-| canary.yml         | services/canary/** changes              | fmt + clippy, cargo test, cargo-deny, image                                                     |
-| analytics.yml      | services/analytics/**, proto/** changes | no-committed-codegen check, buf generate + lint + test (Postgres container), govulncheck, image |
-| proto.yml          | proto/** changes                        | buf lint + format, buf breaking (against main)                                                  |
-| parity.yml         | loadprofile/**, internal/loadshape/**   | JS (shape.js) vs Go (loadshape) parity against checked-in goldens (Hard rule 8)                 |
-| images.yml         | services/**, deploy/compose/**          | docker build + Trivy scan per service (matrix)                                                  |
-| release-please.yml | push to main                            | maintain release PR from commit history                                                         |
-| release.yml        | release published                       | placeholder (image publishing comes later)                                                      |
+| Workflow           | Triggers on                                              | Jobs                                                                                            |
+| ------------------ | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| checks.yml         | every PR, push to main                                   | prek hooks (all files), PR title commitlint                                                     |
+| backend.yml        | services/backend/** changes                              | no-committed-codegen check, ruff + mypy, `make generate` + pytest against real Postgres         |
+| frontend.yml       | services/frontend/** changes                             | eslint, vitest                                                                                  |
+| canary.yml         | services/canary/** changes                               | fmt + clippy, cargo test, cargo-deny, image                                                     |
+| analytics.yml      | services/analytics/**, proto/** changes                  | no-committed-codegen check, buf generate + lint + test (Postgres container), govulncheck, image |
+| proto.yml          | proto/** changes                                         | buf lint + format, buf breaking (against main)                                                  |
+| parity.yml         | loadprofile/**, services/analytics/internal/loadshape/** | JS (shape.js) vs Go (loadshape) parity against checked-in goldens (Hard rule 8)                 |
+| images.yml         | services/**, deploy/compose/**                           | docker build + Trivy scan per service (matrix)                                                  |
+| release-please.yml | push to main                                             | maintain release PR from commit history                                                         |
+| release.yml        | release published                                        | placeholder (image publishing comes later)                                                      |
 
 New services add their own path-filtered workflow in the phase that adds the
 service -- "has CI" is part of the Definition of Done
@@ -93,14 +93,16 @@ compatible).
   step checks `git ls-tree origin/main -- proto` first and skips the
   breaking step cleanly when absent. The guard becomes a permanent no-op
   once `proto/` exists on `main` (every later PR sees it).
-- **Load profile parity (`loadprofile/**`, `internal/loadshape/**`):** the
+- **Load profile parity (`loadprofile/**`,
+  `services/analytics/internal/loadshape/**`):** the
   seam invariant (Hard rule 8, RFC-0001 D5, ADR-0003) is enforced in CI,
   not eyeballed -- `parity.yml` recomputes a fixed golden grid with both
   the JS (`loadprofile/shape.js`) and Go
   (`services/analytics/internal/loadshape`) implementations and compares
   against checked-in goldens: Go exactly (it is the canonical generator),
-  JS within a `1e-9` relative tolerance (cross-language `Math.sin`/`Exp`
-  ULP drift). See `loadprofile/README.md` for the scale and noise
+  JS within a `1e-9` relative tolerance (cross-language `cos` ULP
+  drift -- the formula's only transcendental). See
+  `loadprofile/README.md` for the scale and noise
   determinism contract both implementations must keep identical.
 - **Planned (later phases):** compose e2e stage with k6 thresholds,
   nightly full-profile workflow.

@@ -15,6 +15,7 @@ package loadshape
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 )
 
@@ -52,7 +53,7 @@ type Anomaly struct {
 	DurationHours float64 `json:"duration_hours"`
 	// Multiplier is the factor applied: direct multiplier for spike/outage
 	// (0 for outage), the ramp target for degradation (rate reaches
-	// base*Multiplier linearly by the end of the window).
+	// the normal rate times Multiplier linearly by the end of the window).
 	Multiplier float64 `json:"multiplier"`
 }
 
@@ -73,10 +74,30 @@ type Profile struct {
 }
 
 // ParseProfile parses loadprofile/profile.json bytes into a Profile.
+// It validates what encoding/json silently tolerates: a fixed [7]float64
+// drops extra JSON elements and zero-fills missing ones (a 6-element
+// array would zero out Sundays), and an unknown anomaly type would
+// evaluate as a silent no-op factor.
 func ParseProfile(data []byte) (Profile, error) {
 	var p Profile
 	if err := json.Unmarshal(data, &p); err != nil {
 		return Profile{}, err
+	}
+	var shape struct {
+		WeekdayCoefficients []float64 `json:"weekday_coefficients"`
+	}
+	if err := json.Unmarshal(data, &shape); err != nil {
+		return Profile{}, err
+	}
+	if len(shape.WeekdayCoefficients) != 7 {
+		return Profile{}, fmt.Errorf("weekday_coefficients must have exactly 7 values (Monday..Sunday), got %d", len(shape.WeekdayCoefficients))
+	}
+	for _, a := range p.Anomalies {
+		switch a.Type {
+		case "spike", "outage", "degradation":
+		default:
+			return Profile{}, fmt.Errorf("anomaly %q has unknown type %q (want spike, outage, or degradation)", a.Name, a.Type)
+		}
 	}
 	return p, nil
 }
@@ -100,7 +121,9 @@ func ParseProfile(data []byte) (Profile, error) {
 func Rate(unixSeconds float64, profile Profile, refUnixSeconds float64, scale float64) float64 {
 	profileTime := refUnixSeconds + (unixSeconds-refUnixSeconds)*scale
 
-	diurnalFactor := 1 + profile.Diurnal.Amplitude*math.Sin(
+	// cos, not sin: phase_hours is documented as the UTC PEAK hour
+	// (loadprofile/README.md), and cos(0) = 1 puts the peak exactly there.
+	diurnalFactor := 1 + profile.Diurnal.Amplitude*math.Cos(
 		2*math.Pi*(hourOfDay(profileTime)-profile.Diurnal.PhaseHours)/24,
 	)
 	weekdayFactor := profile.WeekdayCoefficients[mondayIndex(profileTime)]

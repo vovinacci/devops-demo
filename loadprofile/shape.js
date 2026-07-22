@@ -66,7 +66,6 @@ function anomalyFactor(a, profileTime, refUnixSeconds) {
   }
   switch (a.type) {
     case "spike":
-      return a.multiplier;
     case "outage":
       return a.multiplier;
     case "degradation": {
@@ -94,13 +93,18 @@ function anomalyFactor(a, profileTime, refUnixSeconds) {
 // backwards from ref) and live traffic (evaluated forwards from ref) on
 // the same shape across a scale change (Hard rule 8 / ADR-0003).
 export function rate(unixSeconds, profile, { scale = 1, refUnixSeconds } = {}) {
+  if (!Number.isFinite(refUnixSeconds)) {
+    throw new TypeError("rate: refUnixSeconds is required (RFC-0001 D5 reference time)");
+  }
   const ref = refUnixSeconds;
   const profileTime = ref + (unixSeconds - ref) * scale;
 
+  // cos, not sin: phase_hours is documented as the UTC PEAK hour
+  // (loadprofile/README.md), and cos(0) = 1 puts the peak exactly there.
   const diurnalFactor =
     1 +
     profile.diurnal.amplitude *
-      Math.sin((2 * Math.PI * (hourOfDay(profileTime) - profile.diurnal.phase_hours)) / 24);
+      Math.cos((2 * Math.PI * (hourOfDay(profileTime) - profile.diurnal.phase_hours)) / 24);
 
   const weekdayFactor = profile.weekday_coefficients[mondayIndex(profileTime)];
 

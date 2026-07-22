@@ -38,8 +38,8 @@ Anomaly types:
 - **spike**: rate is multiplied by `multiplier` for the whole window (e.g. `4.0` = 4x traffic).
 - **outage**: rate is multiplied by `multiplier` (`0.0`) for the whole window -- a hard gap.
 - **degradation**: rate ramps *linearly* from the normal rate (factor 1) at
-  the start of the window to `base * multiplier` at the end (e.g.
-  `multiplier: 0.3` = down to 30% of normal by the end of the ramp) --
+  the start of the window to the normal rate times `multiplier` at the end
+  (e.g. `multiplier: 0.3` = down to 30% of normal by the end of the ramp) --
   a gradual, not instant, decline.
 
 The three anomalies in `profile.json` are the Phase 5 history story
@@ -55,7 +55,7 @@ compute:
 profileTime = refUnixSeconds + (unixSeconds - refUnixSeconds) * scale
 
 rate = base_rate_per_s
-     * (1 + diurnal.amplitude * sin(2*pi * (hourOfDay(profileTime) - diurnal.phase_hours) / 24))
+     * (1 + diurnal.amplitude * cos(2*pi * (hourOfDay(profileTime) - diurnal.phase_hours) / 24))
      * weekday_coefficients[mondayIndex(profileTime)]
      * (1 + trend.pct_per_day * (profileTime - refUnixSeconds) / 86400)
      * (1 + noise_pct * noiseSample(profileTime))
@@ -67,8 +67,10 @@ rate = max(0, rate)
 `hourOfDay` and `mondayIndex` are computed from integer seconds-since-epoch
 arithmetic (not `Date`/`time.Time` calendar objects) so both languages do
 provably the same math: `daysSinceEpoch = floor(profileTime / 86400)`,
-`mondayIndex = ((daysSinceEpoch % 7) + 3) % 7` (1970-01-01, day 0, was a
-Thursday, hence the `+3` to land on Monday-indexed 0).
+`mondayIndex = (((daysSinceEpoch % 7) + 3) % 7 + 7) % 7` (1970-01-01,
+day 0, was a Thursday, hence the `+3` to land on Monday-indexed 0; the
+final `+ 7) % 7` keeps the index non-negative for dates before 1970,
+where the languages' truncated `%` goes negative).
 
 ### `refUnixSeconds` -- the evaluation reference time
 
@@ -161,10 +163,9 @@ Two parity checks run in CI (`.github/workflows/parity.yml`) and via
   the current `profile.json`/`loadshape.go`.
 - **JS** (`parity/compare.mjs`): recomputes the grid with `shape.js` and
   compares against both goldens within a **relative tolerance of
-  `1e-9`** -- `Math.sin`/`Math.exp` in V8 and `math.Sin`/`math.Exp` in Go
-  can differ by a few ULP on the same input even though both are
-  correctly rounded, and exact-equality would make the gate flaky, not
-  meaningful.
+  `1e-9`** -- `Math.cos` in V8 and `math.Cos` in Go (the only
+  transcendental in the formula) can differ by a few ULP on the same
+  input, and exact-equality would make the gate flaky, not meaningful.
 
 ### Regenerating goldens
 
