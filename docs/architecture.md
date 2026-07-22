@@ -13,6 +13,7 @@ flowchart LR
         pg[("db (PostgreSQL)<br/>:5432")]
         an["analytics (Go)<br/>:8082, analytics profile"]
         pgA[("postgres-analytics (PostgreSQL)<br/>:5433, analytics profile")]
+        can["canary (Rust)<br/>:8085, synthetic profile"]
     end
 
     subgraph obs [Observability]
@@ -30,6 +31,8 @@ flowchart LR
     an -->|pgx| pgA
     an -->|"dials :50051 (TCP direction)"| be
     be -.->|"WatchItemEvents pushes events (data direction, opposite the dial)"| an
+    can -->|"journey: create -> verify -> delete"| be
+    can -.->|"pipeline-lag poll (skipped when analytics profile absent)"| an
     prom -->|scrape| be
     prom -->|scrape| pgx
     prom -->|scrape| cad

@@ -50,7 +50,7 @@ profile must tolerate `analytics` being absent):
 | Result | Meaning |
 | ------ | ------- |
 | `ok` | The item became visible within `CANARY_PIPELINE_TIMEOUT_SECONDS`. Lag is recorded in `canary_pipeline_lag_seconds`. |
-| `timeout` | Analytics was reachable throughout but the item never appeared -- the pipeline-lag signal this step exists to catch. |
+| `timeout` | The item never appeared within the timeout -- the pipeline-lag signal this step exists to catch. Analytics answered the first poll; a connection failure on a *later* poll also ends up here (see `skipped`). |
 | `skipped` | Analytics was unreachable (connection refused / DNS failure) on the *first* poll -- read as "the `analytics` profile is not up", not a failure. A connect error on a later poll (analytics was reachable moments ago) is treated as transient instead and polled through to `timeout`. |
 
 ## Metrics
@@ -61,7 +61,7 @@ profile must tolerate `analytics` being absent):
 | `canary_journey_step_duration_seconds` | histogram | `step=create\|verify\|pipeline\|delete` | Per-step latency, recorded even on failure |
 | `canary_journey_last_success_timestamp_seconds` | gauge | -- | Unix timestamp of the last fully successful journey |
 | `canary_pipeline_lag_seconds` | histogram | -- | Create -> analytics-visible lag; only `ok` outcomes are observed |
-| `canary_pipeline_check_total` | counter | `result=ok\|timeout\|skipped` | Pipeline-lag polls, by result (Hard rule 9: none fails the journey) |
+| `canary_pipeline_check_total` | counter | `result=ok\|timeout\|skipped` | Pipeline-lag checks, one outcome per journey (not per HTTP poll), by result (Hard rule 9: none fails the journey) |
 
 ## Endpoints (`:8080`)
 
