@@ -41,3 +41,21 @@ log panel, SLO status.
 Prometheus recording rules define availability, latency, and error-rate
 SLOs: `observability/prometheus_slo_rules.yml`, explained in
 [SLO.md](../observability/SLO.md).
+
+## Alerting
+
+Prometheus evaluates the four alert rules in
+`observability/prometheus_alerts.yml` and forwards them to Alertmanager
+(`alerting:` block in `observability/prometheus.yml`), which owns
+routing, grouping, and inhibition as code:
+`observability/alertmanager/alertmanager.yml`. The visible receiver is
+Mailpit (RFC-0001 Section 7, amended during Phase 4 -- see the RFC) --
+notifications land at http://localhost:8025, both the web UI and the
+REST API (`/api/v1/messages`).
+
+- Alertmanager UI: http://localhost:9093 (active alerts, silences).
+- Silence an alert during triage: `amtool silence add alertname=<name>
+  --alertmanager.url=http://localhost:9093`, or use the Alertmanager UI
+  directly -- see the relevant runbook's Escalation section.
+- `AnalyticsStreamDown` inhibits `CanaryPipelineLagHigh`: one root cause,
+  one notification.
