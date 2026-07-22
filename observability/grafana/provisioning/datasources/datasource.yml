@@ -9,3 +9,28 @@ datasources:
     type: loki
     access: proxy
     url: http://loki:3100
+  # RFC-0001 D5/Section 5: "grafana -->|historical dashboards| pgA" --
+  # the durable-business-data half of "ops metrics are ephemeral,
+  # business data is durable". Read-only in spirit only: Grafana's
+  # postgres datasource has no dedicated read-only flag, and creating a
+  # separate least-privilege DB role is out of scope for this PR (no new
+  # analytics DB users) -- this reuses the same demo-grade
+  # analytics/analytics credentials postgres-analytics itself defaults to
+  # (deploy/compose/docker-compose.yml's ANALYTICS_POSTGRES_USER/
+  # PASSWORD), which is why they are plain strings here, not env-var
+  # expanded: overriding those compose vars without also updating this
+  # file breaks this datasource, documented as a known demo-only limitation.
+  - name: Analytics Postgres
+    type: postgres
+    access: proxy
+    url: postgres-analytics:5432
+    database: analytics
+    user: analytics
+    uid: DS_ANALYTICS_PG
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: false
+    secureJsonData:
+      password: analytics
+    editable: false

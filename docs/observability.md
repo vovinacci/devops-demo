@@ -49,6 +49,32 @@ every metric name and the exact expressions). `make incident` /
 `make heal` (`loadgen/README.md`) spike offered load or error rate on
 demand to exercise this dashboard and the SLO burn-rate alerts live.
 
+## Historical dashboard and the D5 boundary
+
+The **Analytics History** dashboard (`analytics` compose profile,
+RFC-0001 Phase 5 D5/Section 7, ADR-0003) queries `postgres-analytics`
+directly via a dedicated Grafana **Postgres datasource** (`Analytics
+Postgres`, uid `DS_ANALYTICS_PG`, provisioned in
+`observability/grafana/provisioning/datasources/`) -- not Prometheus.
+This is the D5 boundary made visible: **Prometheus is not backfilled**
+(its panels, e.g. `Analytics Ingest`, show data only since the stack
+last started); this dashboard reads `event_buckets`, `current_items`,
+and `seed_marker` as durable business data, so a panel spanning the seam
+(`now-30d -> now+1h`) between seeded history and live traffic shows no
+discontinuity. "Ops metrics are ephemeral, business data is durable."
+
+Panels: events/hour stacked by `event_type` (created/deleted only, see
+`services/analytics/README.md`'s by-type seam note) and daily totals
+over a 30-day default range, `current_items` live-vs-tombstoned counts,
+and a `seed_marker` info panel (scale/seed/days/ref time/events
+written) -- the same contract loadgen's scale guard checks at startup
+(`loadgen/README.md`). Vertical annotations mark the 3 seeded story
+anomalies (spike/outage/degradation), written by `analytics seed` at
+seed time via the Grafana HTTP annotation API
+(`services/analytics/README.md`'s Grafana annotations section) and
+tagged `seed-anomaly` so this dashboard's annotation query finds them
+regardless of which dashboard they were written from.
+
 ## SLOs
 
 Prometheus recording rules define availability, latency, and error-rate

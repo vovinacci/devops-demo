@@ -319,6 +319,14 @@ services:
       # loadprofile build context (see services/analytics/Dockerfile).
       - ANALYTICS_LOADPROFILE_PATH=/etc/analytics/loadprofile/profile.json
       - DEMO_TIME_SCALE=${DEMO_TIME_SCALE:-1}
+      # Only consumed by the `seed` subcommand's Grafana annotation step
+      # (RFC-0001 Phase 5 PR-2, internal/grafana): same demo-grade
+      # admin/admin as the grafana service's own GF_SECURITY_ADMIN_*
+      # below -- write failure (Grafana absent/unreachable) is logged and
+      # does not fail the seed run (D10 spirit).
+      - GRAFANA_URL=${GRAFANA_URL:-http://grafana:3000}
+      - GRAFANA_USER=${GRAFANA_USER:-admin}
+      - GRAFANA_PASSWORD=${GRAFANA_PASSWORD:-admin}
     depends_on:
       postgres-analytics:
         condition: service_healthy
@@ -410,6 +418,13 @@ services:
       - LOADGEN_BACKEND_URL=http://api:8000
       - LOADGEN_WEB_URL=http://web:80
       - LOADGEN_GRPC_ADDR=api:50051
+      # setup()'s scale guard (RFC-0001 Phase 5 PR-2, D5 enforcement):
+      # fetches analytics' seed-marker to check DEMO_TIME_SCALE against
+      # what history was seeded at. In-network target, same naming
+      # pattern as the canary service's CANARY_ANALYTICS_URL -- `analytics`
+      # is a separate opt-in profile, so this must tolerate it being
+      # entirely absent (D10 graceful degradation).
+      - LOADGEN_ANALYTICS_URL=http://analytics:8082
       - LOADGEN_DURATION_HOURS=${LOADGEN_DURATION_HOURS:-24}
       - LOADGEN_STAGE_MINUTES=${LOADGEN_STAGE_MINUTES:-15}
       - LOADGEN_PREALLOCATED_VUS=${LOADGEN_PREALLOCATED_VUS:-10}

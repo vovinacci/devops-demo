@@ -12,6 +12,7 @@ import { Rate } from "k6/metrics";
 
 import { env, profile } from "../lib/env.js";
 import { buildStages } from "../lib/schedule.js";
+import { checkSeedMarker } from "../lib/scaleguard.js";
 import { THRESHOLDS } from "../lib/thresholds.js";
 
 // Custom correctness signals, separate from k6's built-in http_req_failed
@@ -140,6 +141,15 @@ export const options = {
   // else would be gating the exhibit itself.
   thresholds: THRESHOLDS,
 };
+
+// setup() runs once, before any scenario/VU starts (RFC-0001 Phase 5
+// PR-2, D5 enforcement): a scale mismatch against what analytics history
+// was seeded at aborts the whole run here instead of silently producing
+// a seam later. See lib/scaleguard.js for the absent/never-seeded paths,
+// which must NOT abort (D10 graceful degradation).
+export function setup() {
+  checkSeedMarker();
+}
 
 // --- browse (~60%): read-only traffic against backend + frontend -----
 

@@ -50,6 +50,7 @@ flowchart LR
     alloy -->|container logs| loki
     graf --> prom
     graf --> loki
+    graf -.->|"historical dashboards<br/>(Postgres datasource)"| pgA
     prom -->|"alerting: block"| am
     am -->|"email_configs (SMTP)"| mp
 ```
@@ -62,6 +63,13 @@ direction: analytics -> backend), while the backend pushes `ItemEvent`s
 over it (data direction: backend -> analytics, drawn as the separate
 dashed edge above) -- the two arrows point opposite ways on purpose, the
 classic streaming-direction confusion RFC-0001 D3 calls out explicitly.
+
+The `graf -> pgA` edge is the RFC-0001 D5 boundary made visible: Grafana
+queries `postgres-analytics` directly via a Postgres datasource for
+historical/business-data dashboards (`Analytics History`,
+`docs/observability.md`), separate from the `prom -> an` scrape edge
+above -- Prometheus panels show data only since the stack last started,
+while this edge is durable business history (RFC-0001 Phase 5 PR-2).
 
 The gRPC client owns all reconnect logic (ADR-0002): on (re)connect it
 pulls a `ListItems` snapshot, reconciles it into `current_items`, then
@@ -100,7 +108,10 @@ motivating exhibit for the NATS capstone (RFC-0001 Section 10).
   untouched. The `analytics seed` subcommand is real (RFC-0001 Phase 5
   D5, ADR-0003): deterministic per-event historical backfill through the
   same ingestion path, driven by the shared `loadprofile/profile.json`
-  shape function, `make seed-history` to run it.
+  shape function, `make seed-history` to run it. On success it also
+  writes Grafana annotations for the 3 seeded story anomalies (Phase 5
+  PR-2, see `services/analytics/README.md`) -- best-effort, does not fail
+  the seed run if Grafana is unreachable.
 - **Canary** ([readme](../services/canary/README.md)) -- Rust synthetic
   layer (RFC-0001 D9, ADR-0007); v2 adds a pipeline-lag step polling
   analytics, tolerating it being absent (ADR-0008 D10 graceful
@@ -121,9 +132,11 @@ motivating exhibit for the NATS capstone (RFC-0001 Section 10).
   rate on demand, under a fixed container name so `heal` can stop it
   from any terminal.
 - **Observability** -- Prometheus (+ SLO rules), Grafana (provisioned
-  dashboards), Loki + Grafana Alloy (logs), postgres-exporter, cAdvisor,
-  Alertmanager (routing/grouping/inhibition, RFC-0001 Section 7) +
-  Mailpit (visible receiver). Details: [observability.md](observability.md).
+  dashboards, including the `Analytics History` dashboard over a
+  dedicated Postgres datasource, RFC-0001 Phase 5 PR-2), Loki + Grafana
+  Alloy (logs), postgres-exporter, cAdvisor, Alertmanager
+  (routing/grouping/inhibition, RFC-0001 Section 7) + Mailpit (visible
+  receiver). Details: [observability.md](observability.md).
 - **Infrastructure** -- Docker Compose (`deploy/compose/`), multi-stage
   Dockerfiles, healthchecks, isolated network. Runtime versions are pinned
   (`.mise.toml` for toolchains, digests for images).

@@ -62,6 +62,11 @@ export const env = {
   webUrl: __ENV.LOADGEN_WEB_URL || "http://web:80",
   grpcAddr: __ENV.LOADGEN_GRPC_ADDR || "api:50051",
   protoImportPath: __ENV.LOADGEN_PROTO_DIR || "/home/k6/proto",
+  // RFC-0001 Phase 5 PR-2 (D5 enforcement): setup()'s scale guard
+  // (lib/scaleguard.js) fetches this service's /api/v1/seed-marker.
+  // `analytics` is a separate opt-in compose profile from `load` --
+  // absent entirely is an expected, tolerated state (D10), not an error.
+  analyticsUrl: __ENV.LOADGEN_ANALYTICS_URL || "http://analytics:8082",
 };
 
 // loadprofile/profile.json is a sibling of lib/ under the image's

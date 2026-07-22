@@ -22,8 +22,11 @@ import { THRESHOLDS } from "../lib/thresholds.js";
 // against this script's own export table, so main.js's scenario bodies
 // must be re-exported by name to be reusable as exec targets in options
 // below (main.js's own module-level code, e.g. its stage precomputation,
-// still runs once on import -- harmless, just unused output here).
-export { browse, crud, abuse, grpcScenario } from "./main.js";
+// still runs once on import -- harmless, just unused output here). `setup`
+// is re-exported the same way (RFC-0001 Phase 5 PR-2): this is what makes
+// the CI/nightly smoke gate exercise the scale guard's absent/
+// never-seeded paths too, not just the long-running service.
+export { browse, crud, abuse, grpcScenario, setup } from "./main.js";
 
 function positiveInt(name, fallback) {
   const raw = __ENV[name];

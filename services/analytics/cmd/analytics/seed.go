@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/vovinacci/devops-demo/services/analytics/internal/grafana"
 	"github.com/vovinacci/devops-demo/services/analytics/internal/loadshape"
 	"github.com/vovinacci/devops-demo/services/analytics/internal/logging"
 	itemsv1 "github.com/vovinacci/devops-demo/services/analytics/internal/pb/devopsdemo/items/v1"
@@ -115,6 +116,20 @@ func seed(args []string) int {
 	// is canonical regardless of --days, not a seeder-specific rebuild
 	// of the retention logic.
 	retention.New(retention.ConfigFromEnv(), db).RunOnce(ctx)
+
+	// Grafana annotations for the 3 story anomalies (RFC-0001 Phase 5
+	// D5/Section 7, Phase 5 PR-2): best-effort, D10 spirit -- Grafana is a
+	// profile-independent process, so a write failure here (absent,
+	// unreachable, wrong creds) is logged and the seed run still succeeds
+	// and still writes its marker below. Idempotent: re-running replaces
+	// the previous run's annotations by tag instead of accumulating them.
+	gc := grafana.NewClient(grafana.ConfigFromEnv())
+	anns := grafana.ComputeAnnotations(profile, refTime, scale)
+	if annErr := gc.ReplaceAnomalyAnnotations(ctx, anns); annErr != nil {
+		logger.Warn("grafana annotation write failed, continuing without them", "error", annErr)
+	} else {
+		logger.Info("grafana annotations written", "count", len(anns))
+	}
 
 	// Written LAST, success only: GET /api/v1/seed-marker existing means
 	// "a seed run completed", the contract loadgen's scale guard (Phase 5
