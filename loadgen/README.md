@@ -107,6 +107,28 @@ This is a property of the shared, canonical `shape.js` (Hard rule 8:
 not touched by this PR) and is cosmetic -- one stage out of many, at
 every container start.
 
+## Scale guard (`setup()`, RFC-0001 Phase 5 PR-2, D5 enforcement)
+
+`scenarios/main.js` exports a `setup()` that runs once, before any
+scenario/VU starts: `lib/scaleguard.js`'s `checkSeedMarker()` fetches
+analytics' `GET /api/v1/seed-marker` (`LOADGEN_ANALYTICS_URL`, default
+`http://analytics:8082`) and reasons over three outcomes:
+
+| Outcome | Behavior |
+| ------- | -------- |
+| `200` + `marker.scale !== DEMO_TIME_SCALE` | **Refuse:** `setup()` throws (`seed scale X != DEMO_TIME_SCALE Y -- re-run \`make seed-history\` or match the env`), which aborts the entire k6 run before any traffic is generated. A scale mismatch silently breaks the seam invariant (ADR-0003 Hard rule 8): history seeded at one diurnal frequency, live traffic evaluated at another. |
+| `404` | Analytics has never completed a seed run on this stack (fresh `make up`/`make up-full` with no `make seed-history` yet). Not an error: an info log, then continue -- there is nothing to be inconsistent with. |
+| Connection error, timeout, or any other status | `analytics` is a separate opt-in compose profile from `load` (D10 graceful degradation): its absence (or a slow/broken response) must not brick `make up` with no analytics profile at all. A warning log, then continue. k6 does not throw on network-level failures (it returns `status: 0` with an `error` field), so this path is a status check, not a try/catch. |
+
+The HTTP call is bounded to 2 seconds (`SEED_MARKER_TIMEOUT` in
+`lib/scaleguard.js`): `setup()` blocks every scenario from starting until
+it returns, so an unreachable analytics must not meaningfully delay
+loadgen's own startup.
+
+`scenarios/smoke.js` re-exports the same `setup` from `main.js` (not a
+separate copy) -- this is what makes the CI/nightly e2e gate exercise the
+guard's absent/never-seeded paths too, not just the long-running service.
+
 ## Thresholds (RFC-0001 D4 CI-gate contract)
 
 Defined per-scenario via k6's automatic `scenario` tag, not as one
@@ -209,6 +231,7 @@ the nightly/full run only, canary + blackbox).
 | `LOADGEN_WEB_URL` | `http://web:80` | Frontend base URL |
 | `LOADGEN_GRPC_ADDR` | `api:50051` | Backend gRPC address |
 | `LOADGEN_PROTO_DIR` | `/home/k6/proto` | gRPC `client.load()` import path |
+| `LOADGEN_ANALYTICS_URL` | `http://analytics:8082` | Analytics base URL for `setup()`'s scale guard (Phase 5 PR-2), see Scale guard above |
 | `INCIDENT_MODE` | `spike` | `spike` or `errors` (`incident.js` only) |
 | `INCIDENT_MINUTES` | `5` | Incident duration (`incident.js` only) |
 | `INCIDENT_SPIKE_MULTIPLIER` | `10` | Spike-mode rate multiplier (`incident.js` only) |

@@ -1,0 +1,265 @@
+{
+ "annotations": {
+  "list": [
+   {
+    "builtIn": 1,
+    "datasource": "-- Grafana --",
+    "enable": true,
+    "hide": true,
+    "iconColor": "rgba(0, 211, 255, 1)",
+    "name": "Annotations & Alerts",
+    "type": "dashboard"
+   },
+   {
+    "datasource": {
+     "type": "grafana",
+     "uid": "-- Grafana --"
+    },
+    "enable": true,
+    "iconColor": "rgba(255, 96, 96, 1)",
+    "name": "Seeded anomalies",
+    "target": {
+     "limit": 100,
+     "matchAny": true,
+     "tags": ["seed-anomaly"],
+     "type": "tags"
+    },
+    "type": "tags"
+   }
+  ]
+ },
+ "editable": true,
+ "fiscalYearStartMonth": 1,
+ "gnetId": null,
+ "graphTooltip": 0,
+ "id": null,
+ "iteration": 1,
+ "links": [],
+ "panels": [
+  {
+   "type": "text",
+   "title": "Durable business history vs ephemeral ops metrics",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 4
+   },
+   "options": {
+    "mode": "markdown",
+    "content": "**RFC-0001 D5 boundary:** Prometheus is not backfilled -- its panels (e.g. the `Analytics Ingest` dashboard) show data only since the stack last started. **This dashboard queries `postgres-analytics` directly** (the `Analytics Postgres` Grafana datasource, `event_buckets`/`current_items`/`seed_marker`) and is the durable business-data history: seeded events written through the live ingestion path (`analytics seed`, ADR-0003) join seamlessly with live traffic -- a panel spanning the seam (`now-30d -> now+1h`) shows no discontinuity. \"Ops metrics are ephemeral, business data is durable.\" Vertical red markers are the 3 seeded story anomalies (`seed-anomaly` tag, written by `analytics seed` at seed time)."
+   },
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Events per Hour by Type",
+   "description": "sum(count) from event_buckets, grouped by hour and event_type (created|deleted only, RFC-0001 Phase 5 D5 by-type seam -- the backend has no PUT endpoint, so no live-traffic EVENT_TYPE_UPDATED ever exists to seed a lookalike for). Default range is 30d so seeded history and live traffic sit in the same panel.",
+   "gridPos": {
+    "x": 0,
+    "y": 4,
+    "w": 24,
+    "h": 9
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "postgres",
+      "uid": "${DS_ANALYTICS_PG}"
+     },
+     "editorMode": "code",
+     "format": "time_series",
+     "rawQuery": true,
+     "rawSql": "SELECT\n  $__timeGroupAlias(bucket_start,'1h'),\n  event_type AS metric,\n  sum(count) AS value\nFROM event_buckets\nWHERE $__timeFilter(bucket_start)\nGROUP BY 1, event_type\nORDER BY 1",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "bars",
+      "lineInterpolation": "linear",
+      "fillOpacity": 60,
+      "pointSize": 5,
+      "stacking": {
+       "mode": "normal",
+       "group": "A"
+      }
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Daily Totals",
+   "description": "sum(count) from event_buckets, grouped by day (all event types combined) -- the coarse-grained business-volume view over the same 30d default range as the by-type panel above.",
+   "gridPos": {
+    "x": 0,
+    "y": 13,
+    "w": 24,
+    "h": 8
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "postgres",
+      "uid": "${DS_ANALYTICS_PG}"
+     },
+     "editorMode": "code",
+     "format": "time_series",
+     "rawQuery": true,
+     "rawSql": "SELECT\n  $__timeGroupAlias(bucket_start,'1d'),\n  sum(count) AS value\nFROM event_buckets\nWHERE $__timeFilter(bucket_start)\nGROUP BY 1\nORDER BY 1",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "bars",
+      "lineInterpolation": "linear",
+      "fillOpacity": 30,
+      "pointSize": 5
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "current_items: Live vs Tombstoned",
+   "description": "current_items is reconciled STATE (ADR-0002 snapshot + stream), not an event_buckets aggregate: live = tombstoned_at IS NULL, tombstoned = tombstoned_at IS NOT NULL. A single-row query; Grafana renders one stat tile per returned column.",
+   "gridPos": {
+    "x": 0,
+    "y": 21,
+    "w": 12,
+    "h": 6
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "postgres",
+      "uid": "${DS_ANALYTICS_PG}"
+     },
+     "editorMode": "code",
+     "format": "table",
+     "rawQuery": true,
+     "rawSql": "SELECT\n  count(*) FILTER (WHERE tombstoned_at IS NULL) AS live,\n  count(*) FILTER (WHERE tombstoned_at IS NOT NULL) AS tombstoned\nFROM current_items",
+     "refId": "A"
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": ["lastNotNull"],
+     "fields": "",
+     "values": false
+    },
+    "orientation": "horizontal",
+    "textMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "min": 0
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "live"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "green"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "tombstoned"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "orange"
+        }
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "type": "table",
+   "title": "Seed Marker",
+   "description": "The seed_marker row (RFC-0001 Phase 5 D5): parameters of the most recently completed `analytics seed` run, backing GET /api/v1/seed-marker -- the same contract loadgen's scale guard checks at startup (Phase 5 PR-2). Empty table means no seed run has ever completed on this stack.",
+   "gridPos": {
+    "x": 12,
+    "y": 21,
+    "w": 12,
+    "h": 6
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "postgres",
+      "uid": "${DS_ANALYTICS_PG}"
+     },
+     "editorMode": "code",
+     "format": "table",
+     "rawQuery": true,
+     "rawSql": "SELECT\n  scale,\n  days,\n  seed,\n  to_timestamp(ref_unix) AS ref_time,\n  seeded_at,\n  events_written\nFROM seed_marker\nWHERE id = 1",
+     "refId": "A"
+    }
+   ],
+   "options": {
+    "showHeader": true
+   },
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   }
+  }
+ ],
+ "refresh": "1m",
+ "schemaVersion": 39,
+ "style": "dark",
+ "tags": [
+  "devops-demo",
+  "analytics",
+  "history"
+ ],
+ "templating": {
+  "list": [
+   {
+    "name": "DS_ANALYTICS_PG",
+    "type": "datasource",
+    "query": "postgres",
+    "current": {
+     "selected": true
+    },
+    "hide": 0,
+    "label": "Analytics Postgres"
+   }
+  ]
+ },
+ "time": {
+  "from": "now-30d",
+  "to": "now"
+ },
+ "timezone": "browser",
+ "title": "Analytics History",
+ "version": 1,
+ "weekStart": ""
+}

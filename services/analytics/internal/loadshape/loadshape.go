@@ -182,6 +182,28 @@ func splitmix64(seed uint64) uint64 {
 	return z
 }
 
+// AnomalyRealWindow returns the wall-clock [start, end] unix-second
+// window during which anomaly a is active, given the same refUnixSeconds
+// and scale Rate uses. Rate evaluates anomalies in *profile time*
+// (profileTime = ref + (real-ref)*scale, see Rate's own doc comment);
+// this function inverts that mapping (real = ref + (profileTime-ref)/
+// scale) to answer "at what real wall-clock instant does this anomaly's
+// profile-time window occur" -- the window the seeder's events actually
+// land in (seeder generates events across real/wall-clock hours, not
+// profile-time hours) and therefore the window a Grafana annotation
+// marking that seeded anomaly should span (RFC-0001 Phase 5 PR-2,
+// ADR-0003). At scale=1 this is the identity offset (start = ref +
+// OffsetDays days); at scale=24 (workshop mode) the real window is 24x
+// narrower, matching how the seeder's own hour-by-hour Rate lookups
+// compress the same anomaly into fewer wall-clock hours.
+func AnomalyRealWindow(a Anomaly, refUnixSeconds, scale float64) (start, end float64) {
+	profileStart := refUnixSeconds + a.OffsetDays*secondsPerDay
+	profileEnd := profileStart + a.DurationHours*secondsPerHour
+	start = refUnixSeconds + (profileStart-refUnixSeconds)/scale
+	end = refUnixSeconds + (profileEnd-refUnixSeconds)/scale
+	return start, end
+}
+
 // anomalyFactor returns the multiplicative factor anomaly a contributes
 // at profileTime, given the reference time a.OffsetDays is relative to.
 // 1 (no-op) outside the anomaly's [start, start+duration] window.

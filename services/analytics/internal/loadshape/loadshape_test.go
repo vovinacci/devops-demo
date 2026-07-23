@@ -50,3 +50,36 @@ func TestParseProfileRejectsUnknownAnomalyType(t *testing.T) {
 		t.Fatalf("want unknown-type validation error, got %v", err)
 	}
 }
+
+func TestAnomalyRealWindowScaleOne(t *testing.T) {
+	// scale=1: real time IS profile time, so the real window is exactly
+	// [ref+offset_days, ref+offset_days+duration_hours] -- no compression.
+	ref := 1767571200.0
+	a := Anomaly{Name: "traffic-spike", Type: "spike", OffsetDays: -10, DurationHours: 6, Multiplier: 4.0}
+	start, end := AnomalyRealWindow(a, ref, 1)
+	wantStart := ref + a.OffsetDays*secondsPerDay
+	wantEnd := wantStart + a.DurationHours*secondsPerHour
+	if start != wantStart || end != wantEnd {
+		t.Fatalf("scale=1 window: want [%v, %v], got [%v, %v]", wantStart, wantEnd, start, end)
+	}
+}
+
+func TestAnomalyRealWindowScale24Compresses(t *testing.T) {
+	// scale=24 (workshop mode, RFC-0001 D5): the SAME profile-time window
+	// occupies 1/24th the real wall-clock span around ref -- this is the
+	// window seeded events actually land in, since the seeder generates
+	// events across real hours while Rate() evaluates them at compressed
+	// profile time.
+	ref := 1767571200.0
+	a := Anomaly{Name: "ingestion-outage", Type: "outage", OffsetDays: -6, DurationHours: 4, Multiplier: 0.0}
+	start, end := AnomalyRealWindow(a, ref, 24)
+	wantStart := ref + (a.OffsetDays*secondsPerDay)/24
+	wantEnd := ref + (a.OffsetDays*secondsPerDay+a.DurationHours*secondsPerHour)/24
+	if start != wantStart || end != wantEnd {
+		t.Fatalf("scale=24 window: want [%v, %v], got [%v, %v]", wantStart, wantEnd, start, end)
+	}
+	if got := end - start; got <= 0 || got >= a.DurationHours*secondsPerHour {
+		t.Fatalf("scale=24 window duration: want shorter than %v (uncompressed), got %v",
+			a.DurationHours*secondsPerHour, got)
+	}
+}

@@ -9,3 +9,25 @@ datasources:
     type: loki
     access: proxy
     url: http://loki:3100
+  # RFC-0001 D5/Section 5: "grafana -->|historical dashboards| pgA" --
+  # the durable-business-data half of "ops metrics are ephemeral,
+  # business data is durable". Connects as grafana_ro: a dedicated
+  # least-privilege role (CONNECT + USAGE + SELECT on exactly the
+  # dashboard tables) created by analytics migration
+  # 0004_grafana_readonly.sql -- Grafana never holds the writing
+  # account. Demo-grade credential, plain string by the same convention
+  # as every other checked-in default in this repo.
+  - name: Analytics Postgres
+    type: postgres
+    access: proxy
+    url: postgres-analytics:5432
+    database: analytics
+    user: grafana_ro
+    uid: DS_ANALYTICS_PG
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: false
+    secureJsonData:
+      password: grafana_ro
+    editable: false

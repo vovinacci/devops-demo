@@ -300,6 +300,45 @@ what history was seeded at, warns-and-continues when the row is absent).
     `docker compose -f deploy/compose/docker-compose.yml --project-directory . --profile analytics down -v` (drops `pgdata-analytics`), then bring the
     profile back up and run `make seed-history` once.
 
+## Grafana annotations (RFC-0001 Phase 5 PR-2, D5/Section 7)
+
+After the closing retention pass, `analytics seed` writes one Grafana
+annotation per `loadprofile/profile.json` anomaly (`internal/grafana`) via
+the Grafana HTTP annotation API (basic auth). This is a post-success,
+best-effort step: annotation write failure (Grafana absent, unreachable,
+wrong credentials) is logged as a warning and does **not** fail the seed
+run or block the seed-marker write below (RFC-0001 D10 spirit -- Grafana
+is a profile-independent process a seed run must not depend on).
+
+- **Window:** each annotation's `time`/`timeEnd` is the anomaly's *real
+  wall-clock* window (`internal/loadshape.AnomalyRealWindow`), not its
+  profile-time window -- these differ under `DEMO_TIME_SCALE != 1`
+  (workshop mode): `Rate` evaluates anomalies in profile time
+  (`profileTime = ref + (real-ref)*scale`), but the seeder generates
+  events across real/wall-clock hours, so the annotation must mark the
+  window those events actually landed in, computed by inverting that same
+  scaling.
+- **Tags:** every annotation carries `seed-anomaly` plus the anomaly's
+  own type (`spike`/`outage`/`degradation`), e.g.
+  `["seed-anomaly", "spike"]`.
+- **Replace-by-tag semantics, not append:** `GET
+  /api/annotations?tags=seed-anomaly`, `DELETE` every match, then `POST`
+  the fresh set. Grafana's annotation API has no bulk or tag-scoped
+  delete (only delete-by-id), so this is a fetch-then-delete-then-create
+  sequence, not a single call -- re-running `analytics seed` (e.g. a
+  repeated `make seed-history`) replaces the previous run's 3 annotations
+  instead of accumulating duplicates every run.
+- **Env:** `GRAFANA_URL` (default `http://grafana:3000`), `GRAFANA_USER`/
+  `GRAFANA_PASSWORD` (default `admin`/`admin`, the same demo-grade
+  credentials the `grafana` compose service's own
+  `GF_SECURITY_ADMIN_USER`/`_PASSWORD` set -- not a credential worth
+  protecting in this repo).
+- Unit-tested against a fake HTTP server (`internal/grafana/grafana_test.go`):
+  write-all-on-empty-start, delete-stale-then-create, and an
+  absent-Grafana case (closed listener) asserting an error is returned
+  for the caller to log and continue past -- no real Grafana in unit
+  tests.
+
 ## Read API (`/api/v1`)
 
 - `GET /api/v1/items/{item_id}` -- `current_items` row as JSON
@@ -375,6 +414,9 @@ what history was seeded at, warns-and-continues when the row is absent).
 | `ANALYTICS_RETENTION_DAYS` | `7` | Raw `item_events` older than this many days (by `event_time`) are deleted each run (ADR-0005 D7) |
 | `ANALYTICS_LOADPROFILE_PATH` | `../../loadprofile/profile.json` | `seed` subcommand only (RFC-0001 Phase 5 D5): path to `loadprofile/profile.json`. Compose sets this to `/etc/analytics/loadprofile/profile.json`, baked in from the `loadprofile` build context (see Docker below) |
 | `DEMO_TIME_SCALE` | `1` | `seed` subcommand only: the shared load-shape scale (Hard rule 8, ADR-0003) -- must match whatever loadgen runs with, or the seam invariant breaks |
+| `GRAFANA_URL` | `http://grafana:3000` | `seed` subcommand only (Phase 5 PR-2): Grafana base URL for the seed-time annotation write, see Grafana annotations above |
+| `GRAFANA_USER` | `admin` | `seed` subcommand only: Grafana basic-auth user (demo-grade, matches the `grafana` compose service's own default) |
+| `GRAFANA_PASSWORD` | `admin` | `seed` subcommand only: Grafana basic-auth password (demo-grade, matches the `grafana` compose service's own default) |
 
 ## Database
 
@@ -465,6 +507,9 @@ builder) at `/etc/analytics/loadprofile/` -- `seed` reads
 
 - **PR-D** (`feat/canary-v2`): canary pipeline-lag step polling this
   service's `GET /api/v1/items/{item_id}` (RFC-0001 D9).
-- **Phase 5 PR-2** (`feat/history-dashboards`): Grafana historical
-  dashboards over `event_buckets`, Grafana annotations for the seeded
-  anomalies, loadgen's `/api/v1/seed-marker` scale guard.
+- **Phase 5 PR-2** (`feat/history-dashboards`, this PR): Grafana
+  historical dashboard over `event_buckets`/`current_items`/
+  `seed_marker` (`observability/grafana/dashboards/history.json`), the
+  `Analytics Postgres` Grafana datasource, Grafana annotations for the
+  seeded anomalies (see Grafana annotations above), and loadgen's
+  `/api/v1/seed-marker` scale guard (`loadgen/README.md`).

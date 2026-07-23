@@ -61,12 +61,50 @@ func TestMigrateAppliesCleanlyAndIsIdempotent(t *testing.T) {
 		t.Fatalf("expected 4 tables (item_events, event_buckets, current_items, seed_marker), got %d", tableCount)
 	}
 
-	for _, version := range []string{"0001_init", "0002_current_items", "0003_seed_marker"} {
+	for _, version := range []string{"0001_init", "0002_current_items", "0003_seed_marker", "0004_grafana_readonly"} {
 		var got string
 		if err := pool.QueryRow(ctx,
 			`SELECT version FROM schema_migrations WHERE version = $1`, version,
 		).Scan(&got); err != nil {
 			t.Fatalf("expected %s recorded in schema_migrations: %v", version, err)
 		}
+	}
+
+	// 0004's role contract: grafana_ro can log in, is not superuser, and
+	// holds exactly the least-privilege surface the datasource needs --
+	// USAGE plus SELECT on the three dashboard tables, and nothing on
+	// item_events (raw events are not a dashboard table; a new grant
+	// there must be a visible, deliberate migration change).
+	var canLogin, super bool
+	if err := pool.QueryRow(ctx,
+		`SELECT rolcanlogin, rolsuper FROM pg_roles WHERE rolname = 'grafana_ro'`,
+	).Scan(&canLogin, &super); err != nil {
+		t.Fatalf("grafana_ro role missing: %v", err)
+	}
+	if !canLogin || super {
+		t.Fatalf("grafana_ro: want login=true superuser=false, got login=%v superuser=%v", canLogin, super)
+	}
+	var usage bool
+	if err := pool.QueryRow(ctx,
+		`SELECT has_schema_privilege('grafana_ro', 'public', 'USAGE')`,
+	).Scan(&usage); err != nil || !usage {
+		t.Fatalf("grafana_ro schema USAGE: got %v err %v", usage, err)
+	}
+	for _, table := range []string{"event_buckets", "current_items", "seed_marker"} {
+		var sel bool
+		if err := pool.QueryRow(ctx,
+			`SELECT has_table_privilege('grafana_ro', $1, 'SELECT')`, table,
+		).Scan(&sel); err != nil || !sel {
+			t.Fatalf("grafana_ro SELECT on %s: got %v err %v", table, sel, err)
+		}
+	}
+	var rawSel bool
+	if err := pool.QueryRow(ctx,
+		`SELECT has_table_privilege('grafana_ro', 'item_events', 'SELECT')`,
+	).Scan(&rawSel); err != nil {
+		t.Fatalf("check item_events privilege: %v", err)
+	}
+	if rawSel {
+		t.Fatal("grafana_ro must NOT have SELECT on item_events (least privilege)")
 	}
 }
