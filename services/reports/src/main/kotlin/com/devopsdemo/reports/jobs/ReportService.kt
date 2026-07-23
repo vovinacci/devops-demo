@@ -65,25 +65,43 @@ class ReportService(
     private val scope =
         CoroutineScope(SupervisorJob() + executor.asCoroutineDispatcher() + CoroutineName("report-jobs"))
 
-    // Flipped false FIRST in destroy(), before the executor is shut down, so
-    // job admission is atomic with shutdown: submit() rejects with a 503 rather
-    // than persisting a PENDING row whose launch the draining executor would
-    // reject, leaving an un-runnable job only the next-startup sweep reconciles.
-    @Volatile private var acceptingJobs = true
+    // Guards the whole admission critical section (the acceptingJobs check
+    // through scope.launch) against destroy(). A @Volatile flag alone cannot
+    // serialise check-then-launch against shutdown: a submit that passes the
+    // check can still have its scope.launch rejected by an executor destroy()
+    // shut down a moment later (a RejectedExecutionException that surfaces
+    // async in the SupervisorJob, uncatchable at submit), leaving an accepted
+    // PENDING row that never launches. Holding this lock across both admission
+    // and the acceptingJobs=false+shutdown in destroy() guarantees any submit
+    // past the check finishes its (non-blocking) scope.launch before the
+    // executor is shut down.
+    private val admissionLock = Any()
+
+    // Flipped false FIRST in destroy() under admissionLock, before the executor
+    // is shut down, so job admission is atomic with shutdown: submit() rejects
+    // with a 503 rather than persisting a PENDING row whose launch the draining
+    // executor would reject, leaving an un-runnable job only the next-startup
+    // sweep reconciles.
+    private var acceptingJobs = true
 
     fun submit(
         type: ReportType,
         format: ReportFormat,
         params: Map<String, Any?>,
     ): String {
-        if (!acceptingJobs) {
-            throw ReportServiceUnavailableException("reports service is shutting down, not accepting new jobs")
-        }
         val id = UUID.randomUUID().toString()
-        repository.insertPending(id, type, format, params)
-        metrics.jobSubmitted()
-        log.info("report job accepted id={} type={} format={}", id, type.wire, format.wire)
-        scope.launch { runJob(id, type, format) }
+        synchronized(admissionLock) {
+            if (!acceptingJobs) {
+                throw ReportServiceUnavailableException("reports service is shutting down, not accepting new jobs")
+            }
+            repository.insertPending(id, type, format, params)
+            metrics.jobSubmitted()
+            log.info("report job accepted id={} type={} format={}", id, type.wire, format.wire)
+            // Non-blocking: only schedules onto the still-alive executor. destroy()
+            // cannot shut the executor until it acquires admissionLock, which it
+            // cannot until this block exits, so this launch is never rejected.
+            scope.launch { runJob(id, type, format) }
+        }
         return id
     }
 
@@ -150,9 +168,14 @@ class ReportService(
     // here -- it is reconciled to FAILED on the next startup
     // (reconcileOrphanedJobs). This method promises only the best-effort drain.
     override fun destroy() {
-        // Stop admitting jobs BEFORE shutting the executor down, so no PENDING
-        // row is persisted for a launch the draining executor would reject.
-        acceptingJobs = false
+        // Stop admitting jobs BEFORE shutting the executor down, under the same
+        // lock submit() holds, so no PENDING row is persisted for a launch the
+        // draining executor would reject. Any submit already past its check has
+        // completed its scope.launch by the time this lock is acquired; any
+        // submit after it sees acceptingJobs=false and throws (-> 503).
+        synchronized(admissionLock) {
+            acceptingJobs = false
+        }
         log.info("shutting down report job scope, draining in-flight jobs")
         executor.shutdown()
         if (!executor.awaitTermination(DRAIN_SECONDS, TimeUnit.SECONDS)) {
