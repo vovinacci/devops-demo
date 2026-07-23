@@ -17,3 +17,9 @@ rust = "1.97"
 go = "1.26"
 buf = "1.72"
 k6 = "2.1"
+# JDK pinned at LTS major (Temurin), Gradle at minor -- added in Phase 6
+# with the Kotlin reports service (RFC-0001 D2). The reports Dockerfile
+# FROM lines and the committed Gradle wrapper are checked against these by
+# scripts/check-toolchain-drift.sh.
+java = "temurin-21"
+gradle = "8.14"

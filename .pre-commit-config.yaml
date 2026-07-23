@@ -87,7 +87,7 @@ repos:
         name: toolchain versions match .mise.toml
         entry: bash scripts/check-toolchain-drift.sh
         language: system
-        files: ^(\.mise\.toml|\.devcontainer/devcontainer\.json|services/frontend/\.nvmrc|services/.*/Dockerfile|loadgen/Dockerfile|services/backend/pyproject\.toml)$
+        files: ^(\.mise\.toml|\.devcontainer/devcontainer\.json|services/frontend/\.nvmrc|services/.*/Dockerfile|loadgen/Dockerfile|services/backend/pyproject\.toml|.*/gradle-wrapper\.properties)$
         pass_filenames: false
   # Secret scanning (ADR-0011)
   - repo: https://github.com/gitleaks/gitleaks
@@ -104,6 +104,10 @@ repos:
     rev: v3.13.1-1
     hooks:
       - id: shfmt
+        # gradlew is a generated wrapper script (Gradle's own template),
+        # committed verbatim for reproducible builds -- not hand-maintained,
+        # so it is exempt from our shell formatting like other generated code.
+        exclude: ^services/reports/gradlew$
         args:
           - "-i"
           - "2"

@@ -49,6 +49,21 @@ every metric name and the exact expressions). `make incident` /
 `make heal` (`loadgen/README.md`) spike offered load or error rate on
 demand to exercise this dashboard and the SLO burn-rate alerts live.
 
+## Reports JVM dashboard
+
+The **Reports JVM** dashboard (`observability/grafana/dashboards/reports.json`,
+`reports` compose profile, RFC-0001 D2/D6 Phase 6) is the JVM showcase's
+whitebox view: heap used vs committed and non-heap, GC pause rate and time
+by action, live threads, uptime, HTTP request rate and p95 latency, and a
+scrape-health stat (`up{job="reports"}`). Prometheus scrapes it via the
+`reports` job (`observability/prometheus.yml`). As of Phase 6 PR-1 the
+panels read the metrics the skeleton already exposes; the **GC sawtooth**
+exhibit -- bursty heap allocation from POI/PDF report generation making
+garbage collection visible on the heap and GC panels, the reason a
+heavyweight JVM framework earns its place here (RFC-0001 D2) -- arrives with
+PR-2's report workload. Being an opt-in profile, the panels show "No data"
+and the scrape target reads "down" when `reports` is not up (RFC-0001 D10).
+
 ## Historical dashboard and the D5 boundary
 
 The **Analytics History** dashboard (`analytics` compose profile,

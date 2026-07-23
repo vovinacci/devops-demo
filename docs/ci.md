@@ -16,6 +16,7 @@ flowchart LR
     pr --> fe["frontend.yml<br/>lint + test<br/>(services/frontend/** only)"]
     pr --> ca["canary.yml<br/>lint + test + audit + image build<br/>(services/canary/** only)"]
     pr --> an["analytics.yml<br/>codegen + lint + test + govulncheck + image build<br/>(services/analytics/**, proto/**)"]
+    pr --> rep["reports.yml<br/>ktlint + test + Trivy lockfile audit + image build<br/>(services/reports/** only)"]
     pr --> proto["proto.yml<br/>buf lint + format + breaking<br/>(proto/** only)"]
     pr --> par["parity.yml<br/>load profile parity: JS vs Go goldens<br/>(loadprofile/**, services/analytics/internal/loadshape/**)"]
     pr --> img["images.yml<br/>docker build + Trivy<br/>(services/**, loadgen/**, loadprofile/**)"]
@@ -32,6 +33,7 @@ flowchart LR
 | frontend.yml       | services/frontend/** changes                                                 | eslint, vitest                                                                                        |
 | canary.yml         | services/canary/** changes                                                   | fmt + clippy, cargo test, cargo-deny, image                                                           |
 | analytics.yml      | services/analytics/**, proto/** changes                                      | no-committed-codegen check, buf generate + lint + test (Postgres container), govulncheck, image       |
+| reports.yml        | services/reports/** changes                                                  | ktlint, test (Testcontainers Postgres), Trivy gradle.lockfile audit, image                            |
 | proto.yml          | proto/** changes                                                             | buf lint + format, buf breaking (against main)                                                        |
 | parity.yml         | loadprofile/**, services/analytics/internal/loadshape/**                     | JS (shape.js) vs Go (loadshape) parity against checked-in goldens (Hard rule 8)                       |
 | images.yml         | services/**, deploy/compose/**, loadgen/**, loadprofile/**                   | docker build + Trivy scan per service (matrix, includes loadgen)                                      |
@@ -49,8 +51,8 @@ service -- "has CI" is part of the Definition of Done
 `make ci` runs hooks + lint + tests -- the same make targets the workflows
 call (`lint-backend`, `type-check`, `lint-frontend`, `test-backend`,
 `test-frontend`, `lint-canary`, `test-canary`, `lint-analytics`,
-`test-analytics`, `lint-infra`). CI is the same commands with per-job
-caching and a real Postgres service container.
+`test-analytics`, `lint-reports`, `test-reports`, `lint-infra`). CI is the
+same commands with per-job caching and a real Postgres service container.
 
 Git hooks are the first, fastest gate: **prek** (pre-commit-compatible,
 single binary) runs formatting, docs linting, and secret scanning before the
@@ -79,8 +81,16 @@ compatible).
 - **Per-service dependency audit:** `cargo-deny` (advisories, license
   allow-list, banned/duplicate dependency policy, source allow-list) for
   the canary; `govulncheck` (known-vulnerability scan against the module
-  and stdlib) for analytics. `pip-audit` and OWASP dependency-check
-  arrive with their services (RFC-0001 D6).
+  and stdlib) for analytics. Reports uses a Trivy filesystem scan of its
+  committed `gradle.lockfile` rather than a native scanner: the JVM has no
+  reliable offline-capable govulncheck analog (OWASP dependency-check needs
+  a slow, flaky NVD feed), and this repo already standardizes on Trivy for
+  CVEs (RFC-0001 D13, ADR-0011) -- the same CRITICAL gate the image scan
+  uses, no external key. The lockfile (Gradle dependency locking) is scanned
+  rather than the boot jar because Trivy's filesystem jar analyzer does not
+  descend a Spring Boot executable jar's `BOOT-INF/lib`; the lockfile is the
+  reproducible, transitive-complete dependency inventory. `pip-audit` for the
+  backend remains a possible later addition (RFC-0001 D6).
 - **No committed generated code (backend, analytics):** a `git ls-files`
   check against each service's generate-in-build gRPC stub directory
   (`services/backend/app/proto_gen`, `services/analytics/internal/pb`)
@@ -190,7 +200,10 @@ settings are not otherwise reviewable:
 
 Per-ecosystem caches keyed by lockfiles: pip (`setup-python` cache), npm
 (`setup-node` cache), cargo (`Swatinem/rust-cache`, keyed on
-`services/canary/Cargo.lock`), and Go (`actions/setup-go`'s built-in
-cache, keyed on `services/analytics/go.sum`) today; Gradle caches arrive
-with reports. Five ecosystems in one repo make cache strategy a
-first-class exhibit -- this section grows with each phase.
+`services/canary/Cargo.lock`), Go (`actions/setup-go`'s built-in cache,
+keyed on `services/analytics/go.sum`), and -- the fifth ecosystem, added
+with reports -- Gradle (`gradle/actions/setup-gradle`, which caches the
+dependency downloads and build outputs keyed on the build scripts and the
+committed wrapper). Five language ecosystems in one repo (pip, npm, cargo,
+Go modules, Gradle) make cache strategy a first-class exhibit -- each
+`setup-*` action owns its own ecosystem's cache, no hand-rolled cache keys.

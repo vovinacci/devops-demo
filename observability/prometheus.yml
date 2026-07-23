@@ -46,6 +46,14 @@ scrape_configs:
   - job_name: "analytics"
     static_configs: [{ targets: ["analytics:8082"] }]
 
+  # reports profile only (RFC-0001 D2, Phase 6, ADR-0008 D10): the JVM
+  # showcase's whitebox metrics (JVM/GC/heap, HTTP, HikariCP). "down" on
+  # the Prometheus targets page when `reports` is not up -- expected,
+  # documented degradation, same as the analytics/synthetic targets above.
+  - job_name: "reports"
+    static_configs: [{ targets: ["reports:8083"] }]
+    metrics_path: /metrics
+
   - job_name: "blackbox_http"
     metrics_path: /probe
     params:

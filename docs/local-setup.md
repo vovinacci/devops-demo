@@ -5,9 +5,9 @@
 - **macOS or Linux** -- Windows is not supported.
 - **Docker Engine >= 24** with **Docker Compose v2** (the `docker compose` CLI plugin). Standalone `docker-compose` v1 is not supported. On macOS, [OrbStack](https://orbstack.dev/) is recommended.
 - **Make** -- macOS: `xcode-select --install`; Linux: `sudo apt-get install build-essential` (Debian/Ubuntu) or `sudo yum groupinstall "Development Tools"` (RHEL/CentOS).
-- **mise** -- toolchain manager that provides the pinned Python and Node versions from `.mise.toml`. Install: https://mise.jdx.dev. Shell activation: add `eval "$(mise activate zsh)"` to `~/.zshrc`.
+- **mise** -- toolchain manager that provides the pinned language toolchains (Python, Node, Rust, Go, buf, k6, and -- for the reports service -- a Temurin JDK and Gradle) from `.mise.toml`. Install: https://mise.jdx.dev. Shell activation: add `eval "$(mise activate zsh)"` to `~/.zshrc`.
 
-Toolchain versions (Python, Node) are pinned in `.mise.toml`. Never rely on system-installed versions; use `mise install` to pull the pinned toolchain.
+Toolchain versions are pinned in `.mise.toml`. Never rely on system-installed versions; use `mise install` to pull the pinned toolchain. The reports service also ships a committed Gradle wrapper (`services/reports/gradlew`), so its build uses the wrapper's pinned Gradle regardless -- the mise `gradle` pin is for running Gradle directly and is drift-checked against the wrapper.
 
 ## First Steps After Cloning
 
@@ -75,6 +75,12 @@ docker compose -f deploy/compose/docker-compose.yml --project-directory . <cmd>
 
 Services started: PostgreSQL, FastAPI backend, React frontend, Prometheus, Grafana, Loki, Grafana Alloy, Postgres Exporter, cAdvisor.
 
+### Optional profiles
+
+The core stack above is profile-less. Additive profiles opt in more services: `analytics` (Go analytics + its Postgres), `synthetic` (Rust canary + blackbox_exporter), `reports` (Kotlin/Spring Boot reports + its Postgres), and `load` (k6 loadgen). `make up-full` and `make up-workshop` start all of them; combine granularly on a constrained laptop, e.g. `docker compose ... --profile analytics --profile load up` to skip the JVM.
+
+The `reports` profile is the largest RAM increment of the set -- it is a JVM service (heap plus its own Postgres), which is the point of the D2 "JVM showcase" exhibit. On a memory-constrained machine, leave `reports` out of the profile list unless you are exercising it.
+
 ### Backend only (local process, DB in Docker)
 
 ```shell
@@ -112,6 +118,7 @@ make pre-commit-run           # run hooks against all files manually
 ```shell
 make test-backend             # starts db container if absent, runs backend tests
 make test-frontend            # runs frontend tests
+make test-reports             # reports tests (Testcontainers Postgres -- needs Docker)
 make ci                       # full CI suite (what the pipeline runs)
 ```
 

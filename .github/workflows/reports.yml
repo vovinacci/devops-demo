@@ -1,0 +1,98 @@
+name: Reports
+
+on:
+  pull_request:
+    paths:
+      - "services/reports/**"
+      - ".github/workflows/reports.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "services/reports/**"
+      - ".github/workflows/reports.yml"
+
+# JDK pinned to the same Temurin major as .mise.toml (drift-gated by
+# scripts/check-toolchain-drift.sh). Gradle itself comes from the committed
+# wrapper, so no Gradle version is set here -- setup-gradle only provides the
+# dependency cache and reads the wrapper for the version.
+env:
+  JAVA_VERSION: "21"
+
+jobs:
+  lint-reports:
+    name: Lint Reports
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Gradle (dependency cache)
+        uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
+
+      - name: ktlint
+        working-directory: services/reports
+        run: ./gradlew --no-daemon ktlintCheck
+
+  test-reports:
+    name: Test Reports
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Gradle (dependency cache)
+        uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
+
+      # Integration tests start a throwaway Postgres via Testcontainers; the
+      # Docker daemon is available on ubuntu-latest out of the box.
+      - name: Run tests
+        working-directory: services/reports
+        run: ./gradlew --no-daemon test
+
+  audit-reports:
+    name: Audit Reports (Trivy lockfile scan)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      # No govulncheck/cargo-deny analog is reliable offline for the JVM
+      # (OWASP dependency-check needs a slow, flaky NVD feed). This repo
+      # already standardizes on Trivy for CVEs (ADR-0011). Trivy's fs jar
+      # analyzer does not descend a Spring Boot executable jar's
+      # BOOT-INF/lib, so the audit scans the committed gradle.lockfile --
+      # the reproducible, transitive-complete dependency inventory (dependency
+      # locking, build.gradle.kts) -- same tool, same CRITICAL gate as the
+      # image scan, no external key, no build step required.
+      - name: Trivy scan gradle.lockfile (fail on critical)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: services/reports/gradle.lockfile
+          scanners: vuln
+          format: table
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+  build-reports-image:
+    name: Build reports image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Build image (no push)
+        run: |
+          docker build --pull -t devops-demo-reports:ci services/reports
