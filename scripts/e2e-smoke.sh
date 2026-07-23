@@ -86,6 +86,42 @@ if [ "${NIGHTLY:-0}" = "1" ]; then
     fail blackbox "probe_success == 0 for $down_count target(s), expected none"
   fi
   echo "OK: all blackbox probes succeeding"
+
+  # reports (the JVM profile, RFC-0001 D2/D12) is up only in the nightly/full
+  # path; the k6 `report` scenario already drives it, this proves the async
+  # job flow end to end (POST -> poll -> download) as a cheap, targeted check.
+  echo "== reports /readyz (nightly only) =="
+  check_http_200 "reports /readyz" "http://localhost:8083/readyz" reports
+
+  echo "== reports job POST -> poll -> download (nightly only) =="
+  # csv is the lightest format (no POI/PDF library), so this assertion stays
+  # fast and does not compete with the k6 report scenario's heavier renders.
+  submit_headers=$(curl -sS -D - -o /dev/null \
+    -X POST "http://localhost:8083/reports" \
+    -H 'Content-Type: application/json' \
+    -d '{"type":"items-summary","format":"csv"}' 2>/dev/null || true)
+  # Spring emits a capital-L `Location: /reports/{id}` over HTTP/1.1 -- match
+  # the header name case-insensitively and strip the trailing CR.
+  location=$(printf '%s' "$submit_headers" | awk 'tolower($1) == "location:" { print $2 }' | tr -d '\r')
+  if [ -z "${location:-}" ]; then
+    fail reports "POST /reports returned no Location header (submit failed)"
+  fi
+  echo "OK: reports job accepted -> ${location}"
+
+  status=""
+  for _ in $(seq 1 30); do
+    sleep 1
+    status=$(curl -sS "http://localhost:8083${location}" 2>/dev/null | jq -r '.status // ""' || true)
+    if [ "$status" = "SUCCEEDED" ] || [ "$status" = "FAILED" ]; then
+      break
+    fi
+  done
+  if [ "$status" != "SUCCEEDED" ]; then
+    fail reports "report job ${location} status='${status:-<none>}', expected SUCCEEDED"
+  fi
+  echo "OK: report job ${location} SUCCEEDED"
+
+  check_http_200 "reports download" "http://localhost:8083${location}/download" reports
 fi
 
 echo "All e2e smoke assertions passed."

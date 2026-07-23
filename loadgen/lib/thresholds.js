@@ -24,4 +24,14 @@ export const THRESHOLDS = {
   "grpc_req_duration{scenario:grpc}": ["p(95)<300"],
   loadgen_grpc_call_failed: ["rate<0.01"],
   loadgen_abuse_unexpected_status: ["rate<0.01"],
+  // report scenario (RFC-0001 Phase 6 PR-3, D12), scenarios/main.js report().
+  // 5%, not the 1% of the pure-correctness gates above: a report job SHOULD
+  // succeed, but it is an async POI/PDF render on a bounded-concurrency JVM
+  // under nightly load, with best-effort analytics enrichment (D10) and a
+  // bounded client-side poll -- eventual-consistency slack that warrants a
+  // little more tolerance than the synchronous 1% signals. Safe to keep here
+  // unconditionally even though per-PR smoke never schedules `report`: a
+  // threshold whose metric gets zero samples is simply not evaluated by k6
+  // (see the module note above), so the unset-URL per-PR run is unaffected.
+  loadgen_report_job_failed: ["rate<0.05"],
 };

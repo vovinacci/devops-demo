@@ -164,11 +164,20 @@ smoke: ## e2e CI stage, runnable locally: bring up core+analytics+load, run the 
 	@echo "Stack left running -- tear down with: make down"
 
 .PHONY: smoke-full
-smoke-full: ## nightly CI stage, runnable locally: all current profiles (core+analytics+synthetic+load), a longer k6 smoke run, canary/blackbox assertions (RFC-0001 D12; .github/workflows/nightly.yml runs exactly this)
+smoke-full: ## nightly CI stage, runnable locally: all profiles incl. reports/JVM (core+analytics+synthetic+reports+load), a longer k6 smoke run WITH the report scenario, canary/blackbox assertions (RFC-0001 D12; .github/workflows/nightly.yml runs exactly this)
 	$(PRINT_TARGET)
-	$(COMPOSE) --profile analytics --profile synthetic --profile load up -d --build --wait --wait-timeout 240
+	@# --profile reports (RFC-0001 D12): the JVM stays OUT of the per-PR
+	@# `smoke` target and is exercised here nightly/full instead. Longer
+	@# --wait-timeout than `smoke`: reports has the slowest start of any
+	@# service (JVM boot + Flyway; healthcheck start_period 40s).
+	$(COMPOSE) --profile analytics --profile synthetic --profile reports --profile load up -d --build --wait --wait-timeout 300
+	@# LOADGEN_REPORTS_URL is the enable-signal (loadgen/lib/env.js): setting
+	@# it here -- and ONLY here, never in `smoke` -- is what schedules the
+	@# `report` scenario in smoke.js. Unset in the per-PR gate, absent from
+	@# options.scenarios, JVM untouched.
 	$(COMPOSE) --profile load run --rm --no-deps \
 		-e SMOKE_DURATION_SECONDS=$${SMOKE_DURATION_SECONDS:-300} \
+		-e LOADGEN_REPORTS_URL=http://reports:8083 \
 		-e K6_PROMETHEUS_RW_SERVER_URL=http://prometheus:9090/api/v1/write \
 		-e "K6_PROMETHEUS_RW_TREND_STATS=p(95),p(99),avg" \
 		loadgen run -o experimental-prometheus-rw /home/k6/scenarios/smoke.js

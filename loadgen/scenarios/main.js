@@ -8,7 +8,8 @@
 import http from "k6/http";
 import grpc from "k6/net/grpc";
 import { check, sleep } from "k6";
-import { Rate } from "k6/metrics";
+import exec from "k6/execution";
+import { Rate, Trend } from "k6/metrics";
 
 import { env, profile } from "../lib/env.js";
 import { buildStages } from "../lib/schedule.js";
@@ -24,6 +25,14 @@ import { THRESHOLDS } from "../lib/thresholds.js";
 //   HTTP-only), so this Rate is the gRPC scenario's own failure signal.
 const abuseUnexpectedStatus = new Rate("loadgen_abuse_unexpected_status");
 const grpcCallFailed = new Rate("loadgen_grpc_call_failed");
+// report scenario correctness signal (RFC-0001 Phase 6 PR-3, D12): the JVM
+// reports service has no http_req_failed analogue for its async job outcome
+// (a 202-accepted POST whose job later FAILS is not an HTTP failure), so this
+// Rate is the scenario's own pass/fail signal -- see report() and thresholds.js.
+const reportJobFailed = new Rate("loadgen_report_job_failed");
+// accepted -> succeeded wall-clock for a report job (observed, not gated);
+// the `true` second arg tags it as a time metric so k6 renders ms/percentiles.
+const reportJobDuration = new Trend("loadgen_report_duration", true);
 
 const totalSeconds = env.durationHours * 3600;
 const stepSeconds = env.stageMinutes * 60;
@@ -121,14 +130,44 @@ function scenarioConfig(exec, stages) {
   };
 }
 
-export const options = {
-  scenarios: {
+// The `report` scenario runs at a deliberately LOW fixed rate, NOT off the
+// shared diurnal profile like the other five: each iteration triggers a heavy
+// async POI/PDF render on the JVM (bounded job-concurrency, README) plus a
+// bounded poll loop that can hold its VU for up to ~30s, so a shape-scaled
+// rate would either starve or exhaust VUs. It exists to exercise the endpoint
+// and drive the GC sawtooth on the Reports JVM dashboard, not to model report
+// traffic -- ~0.33 jobs/s (1 per 3s) is enough for that at nightly scale.
+const REPORT_RATE = 1;
+const REPORT_TIME_UNIT = "3s";
+
+function buildScenarios() {
+  const scenarios = {
     browse: scenarioConfig("browse", stagesBrowse),
     crud: scenarioConfig("crud", stagesCrud),
     abuse: scenarioConfig("abuse", stagesAbuse),
     grpc: scenarioConfig("grpcScenario", stagesGrpc),
     expensive: scenarioConfig("expensive", stagesExpensive),
-  },
+  };
+  // Gated on the reports enable-signal (LOADGEN_REPORTS_URL, lib/env.js):
+  // scheduled ONLY when reports is up (nightly `make smoke-full`, local
+  // `make up-full`). Per-PR `make smoke` leaves the var unset, so this key
+  // is absent and the JVM stays out of the per-PR e2e gate (RFC-0001 D12).
+  if (env.reportsEnabled) {
+    scenarios.report = {
+      executor: "constant-arrival-rate",
+      exec: "report",
+      rate: REPORT_RATE,
+      timeUnit: REPORT_TIME_UNIT,
+      duration: `${totalSeconds}s`,
+      preAllocatedVUs: env.preAllocatedVUs,
+      maxVUs: env.maxVUs,
+    };
+  }
+  return scenarios;
+}
+
+export const options = {
+  scenarios: buildScenarios(),
   // RFC-0001 D4 CI-gate contract, reused verbatim by scenarios/smoke.js
   // (PR-4, loadgen/lib/thresholds.js): per-scenario submetrics via k6's
   // automatic `scenario` tag, not one blanket threshold -- abuse's 4xx
@@ -307,4 +346,90 @@ export function expensive() {
   for (const r of responses) {
     check(r, { "expensive: items 200": (res) => res.status === 200 });
   }
+}
+
+// --- report (nightly/full only): drive the JVM reports service --------
+//
+// Scheduled only when env.reportsEnabled (LOADGEN_REPORTS_URL set) -- the
+// reports profile is EXCLUDED from the per-PR e2e gate (RFC-0001 D12) and
+// exercised nightly + locally instead. Each iteration submits an async
+// report job (POST /reports -> 202 + Location), polls GET /reports/{id} to a
+// terminal state, and downloads the artifact on SUCCEEDED, mirroring the
+// documented API (services/reports/README.md). loadgen_report_job_failed is
+// the correctness signal (see thresholds.js); the async job outcome is not an
+// HTTP-level failure, so http_req_failed cannot stand in for it.
+
+const REPORT_FORMATS = ["xlsx", "pdf", "csv"];
+// Bounded poll: ~30 attempts at 1s. A job that is still non-terminal after
+// this counts as a failure (poll-timeout), not an indefinite wait holding
+// the VU forever.
+const REPORT_POLL_ATTEMPTS = 30;
+const REPORT_POLL_INTERVAL_SECONDS = 1;
+
+// Spring emits a capital-L `Location: /reports/{id}` header over HTTP/1.1.
+// k6's res.headers keys are not guaranteed to preserve a canonical case, so
+// match case-INSENSITIVELY -- a case-sensitive `res.headers.Location` lookup
+// silently yields undefined and the poll never runs.
+function locationHeader(res) {
+  const headers = res.headers || {};
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === "location") return headers[key];
+  }
+  return undefined;
+}
+
+export function report() {
+  // Test-wide iteration counter, not __ITER (which resets per VU, so
+  // concurrent VUs would correlate on the same format): rotate formats
+  // evenly across the whole run.
+  const format = REPORT_FORMATS[exec.scenario.iterationInTest % REPORT_FORMATS.length];
+  const submitRes = http.post(
+    `${env.reportsUrl}/reports`,
+    JSON.stringify({ type: "items-summary", format }),
+    { headers: { "Content-Type": "application/json" }, tags: { name: "report_submit" } }
+  );
+  if (!check(submitRes, { "report: submit 202": (r) => r.status === 202 })) {
+    reportJobFailed.add(true);
+    return;
+  }
+
+  const location = locationHeader(submitRes);
+  if (!location) {
+    reportJobFailed.add(true);
+    return;
+  }
+
+  // Runtime wall-clock for the job's accepted->succeeded latency Trend. This
+  // Date.now() is unrelated to the profile reference-time machinery that
+  // lib/schedule.js deliberately avoids Date.now() for (that concerns the
+  // precomputed diurnal stages; this is a per-request timing at run time).
+  const startedMs = Date.now();
+  let status = "PENDING";
+  for (let i = 0; i < REPORT_POLL_ATTEMPTS; i++) {
+    sleep(REPORT_POLL_INTERVAL_SECONDS);
+    const statusRes = http.get(`${env.reportsUrl}${location}`, {
+      tags: { name: "report_status" },
+    });
+    if (statusRes.status !== 200) continue;
+    status = statusRes.json("status");
+    if (status === "SUCCEEDED" || status === "FAILED") break;
+  }
+
+  if (status !== "SUCCEEDED") {
+    // FAILED job or poll-timeout (still non-terminal) -- both are the
+    // scenario failing to get a report out of the service.
+    reportJobFailed.add(true);
+    return;
+  }
+
+  // Job's accepted->succeeded wall-clock, captured before the download so the
+  // Trend measures report completion latency, not the download transfer.
+  const completedMs = Date.now();
+
+  const downloadRes = http.get(`${env.reportsUrl}${location}/download`, {
+    tags: { name: "report_download" },
+  });
+  const downloaded = check(downloadRes, { "report: download 200": (r) => r.status === 200 });
+  reportJobFailed.add(!downloaded);
+  if (downloaded) reportJobDuration.add(completedMs - startedMs);
 }

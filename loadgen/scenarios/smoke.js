@@ -26,7 +26,7 @@ import { THRESHOLDS } from "../lib/thresholds.js";
 // is re-exported the same way (RFC-0001 Phase 5 PR-2): this is what makes
 // the CI/nightly smoke gate exercise the scale guard's absent/
 // never-seeded paths too, not just the long-running service.
-export { browse, crud, abuse, grpcScenario, setup } from "./main.js";
+export { browse, crud, abuse, grpcScenario, report, setup } from "./main.js";
 
 function positiveInt(name, fallback) {
   const raw = __ENV[name];
@@ -49,44 +49,63 @@ const DURATION = `${DURATION_SECONDS}s`;
 // split (browse > crud > abuse > grpc) but the absolute numbers matter
 // less here than "enough iterations in DURATION_SECONDS for the p(95)
 // thresholds to be meaningful, without hammering a CI runner".
-export const options = {
-  scenarios: {
-    browse: {
-      executor: "constant-arrival-rate",
-      exec: "browse",
-      rate: 10,
-      timeUnit: "1s",
-      duration: DURATION,
-      preAllocatedVUs: env.preAllocatedVUs,
-      maxVUs: env.maxVUs,
-    },
-    crud: {
-      executor: "constant-arrival-rate",
-      exec: "crud",
-      rate: 4,
-      timeUnit: "1s",
-      duration: DURATION,
-      preAllocatedVUs: env.preAllocatedVUs,
-      maxVUs: env.maxVUs,
-    },
-    abuse: {
-      executor: "constant-arrival-rate",
-      exec: "abuse",
-      rate: 2,
-      timeUnit: "1s",
-      duration: DURATION,
-      preAllocatedVUs: env.preAllocatedVUs,
-      maxVUs: env.maxVUs,
-    },
-    grpc: {
-      executor: "constant-arrival-rate",
-      exec: "grpcScenario",
-      rate: 1,
-      timeUnit: "1s",
-      duration: DURATION,
-      preAllocatedVUs: env.preAllocatedVUs,
-      maxVUs: env.maxVUs,
-    },
+const scenarios = {
+  browse: {
+    executor: "constant-arrival-rate",
+    exec: "browse",
+    rate: 10,
+    timeUnit: "1s",
+    duration: DURATION,
+    preAllocatedVUs: env.preAllocatedVUs,
+    maxVUs: env.maxVUs,
   },
+  crud: {
+    executor: "constant-arrival-rate",
+    exec: "crud",
+    rate: 4,
+    timeUnit: "1s",
+    duration: DURATION,
+    preAllocatedVUs: env.preAllocatedVUs,
+    maxVUs: env.maxVUs,
+  },
+  abuse: {
+    executor: "constant-arrival-rate",
+    exec: "abuse",
+    rate: 2,
+    timeUnit: "1s",
+    duration: DURATION,
+    preAllocatedVUs: env.preAllocatedVUs,
+    maxVUs: env.maxVUs,
+  },
+  grpc: {
+    executor: "constant-arrival-rate",
+    exec: "grpcScenario",
+    rate: 1,
+    timeUnit: "1s",
+    duration: DURATION,
+    preAllocatedVUs: env.preAllocatedVUs,
+    maxVUs: env.maxVUs,
+  },
+};
+
+// Same enable-signal as scenarios/main.js (lib/env.js reportsEnabled): the
+// `report` scenario is scheduled ONLY when LOADGEN_REPORTS_URL is set, which
+// the nightly `make smoke-full` path does and the per-PR `make smoke` path
+// does not -- so the JVM reports profile stays out of the per-PR e2e gate
+// (RFC-0001 D12). Low fixed rate, matching main.js: heavy async POI/PDF render.
+if (env.reportsEnabled) {
+  scenarios.report = {
+    executor: "constant-arrival-rate",
+    exec: "report",
+    rate: 1,
+    timeUnit: "3s",
+    duration: DURATION,
+    preAllocatedVUs: env.preAllocatedVUs,
+    maxVUs: env.maxVUs,
+  };
+}
+
+export const options = {
+  scenarios,
   thresholds: THRESHOLDS,
 };
