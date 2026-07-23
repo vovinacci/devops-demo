@@ -37,6 +37,31 @@ func TestComputeAnnotationsOnePerAnomaly(t *testing.T) {
 			t.Fatalf("annotation %d: want first tag %q, got %v", i, grafana.AnomalyTag, a.Tags)
 		}
 	}
+	// Exact bounds at scale 1: the spike (offset -10d, 6h) window is
+	// plain wall-clock offset arithmetic.
+	spikeStart := ref.Add(-10 * 24 * time.Hour).UnixMilli()
+	spikeEnd := ref.Add(-10*24*time.Hour + 6*time.Hour).UnixMilli()
+	if anns[0].TimeUnixMilli != spikeStart || anns[0].TimeEndUnixMilli != spikeEnd {
+		t.Fatalf("spike window at scale 1: want [%d, %d], got [%d, %d]",
+			spikeStart, spikeEnd, anns[0].TimeUnixMilli, anns[0].TimeEndUnixMilli)
+	}
+}
+
+func TestComputeAnnotationsScale24CompressesTowardRef(t *testing.T) {
+	ref := time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)
+	anns := grafana.ComputeAnnotations(testProfile(), ref, 24)
+	if len(anns) != 3 {
+		t.Fatalf("want 3 annotations, got %d", len(anns))
+	}
+	// At scale 24 the wall-clock window is the profile-time window
+	// divided by the scale: the spike's profile window [-10d, -10d+6h]
+	// lands at [-10h, -9h45m] real time (AnomalyRealWindow inversion).
+	spikeStart := ref.Add(-10 * time.Hour).UnixMilli()
+	spikeEnd := ref.Add(-10*time.Hour + 15*time.Minute).UnixMilli()
+	if anns[0].TimeUnixMilli != spikeStart || anns[0].TimeEndUnixMilli != spikeEnd {
+		t.Fatalf("spike window at scale 24: want [%d, %d], got [%d, %d]",
+			spikeStart, spikeEnd, anns[0].TimeUnixMilli, anns[0].TimeEndUnixMilli)
+	}
 }
 
 // fakeGrafana is an in-memory stand-in for the annotation API surface
@@ -69,6 +94,16 @@ func (f *fakeGrafana) handler() http.HandlerFunc {
 
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/annotations":
+			// Reject requests missing the production filters: without
+			// tags= the client would fetch (and then delete) unrelated
+			// annotations, and without an explicit limit Grafana's
+			// default 100 could orphan older entries -- this fake fails
+			// the test if either regresses.
+			q := r.URL.Query()
+			if q.Get("tags") != "seed-anomaly" || q.Get("limit") != "1000" {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
 			var out []map[string]any
 			for _, row := range f.rows {
 				out = append(out, row)

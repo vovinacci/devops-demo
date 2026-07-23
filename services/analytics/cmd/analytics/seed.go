@@ -117,21 +117,8 @@ func seed(args []string) int {
 	// of the retention logic.
 	retention.New(retention.ConfigFromEnv(), db).RunOnce(ctx)
 
-	// Grafana annotations for the 3 story anomalies (RFC-0001 Phase 5
-	// D5/Section 7, Phase 5 PR-2): best-effort, D10 spirit -- Grafana is a
-	// profile-independent process, so a write failure here (absent,
-	// unreachable, wrong creds) is logged and the seed run still succeeds
-	// and still writes its marker below. Idempotent: re-running replaces
-	// the previous run's annotations by tag instead of accumulating them.
-	gc := grafana.NewClient(grafana.ConfigFromEnv())
-	anns := grafana.ComputeAnnotations(profile, refTime, scale)
-	if annErr := gc.ReplaceAnomalyAnnotations(ctx, anns); annErr != nil {
-		logger.Warn("grafana annotation write failed, continuing without them", "error", annErr)
-	} else {
-		logger.Info("grafana annotations written", "count", len(anns))
-	}
-
-	// Written LAST, success only: GET /api/v1/seed-marker existing means
+	// Written after the data work, success only: GET /api/v1/seed-marker
+	// existing means
 	// "a seed run completed", the contract loadgen's scale guard (Phase 5
 	// PR-2) depends on -- a partial/failed run above returns before this
 	// point and leaves no marker. Note RunOnce (above) logs but does not
@@ -147,6 +134,21 @@ func seed(args []string) int {
 	}); err != nil {
 		logger.Error("write seed marker failed", "error", err)
 		return 1
+	}
+
+	// Grafana annotations for the 3 story anomalies (RFC-0001 Phase 5
+	// D5/Section 7): published only after the marker write succeeds --
+	// annotations decorate a completed seed, they never gate one.
+	// Best-effort, D10 spirit: Grafana is a profile-independent process,
+	// so a write failure here (absent, unreachable, wrong creds) is
+	// logged and the seed still exits 0. Idempotent: re-running replaces
+	// the previous run's annotations by tag instead of accumulating them.
+	gc := grafana.NewClient(grafana.ConfigFromEnv())
+	anns := grafana.ComputeAnnotations(profile, refTime, scale)
+	if annErr := gc.ReplaceAnomalyAnnotations(ctx, anns); annErr != nil {
+		logger.Warn("grafana annotation write failed, continuing without them", "error", annErr)
+	} else {
+		logger.Info("grafana annotations written", "count", len(anns))
 	}
 
 	logger.Info("seed complete", "events_written", result.EventsWritten, "days", *days, "seed", *seedValue)

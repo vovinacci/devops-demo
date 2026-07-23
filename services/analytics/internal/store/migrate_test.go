@@ -61,7 +61,7 @@ func TestMigrateAppliesCleanlyAndIsIdempotent(t *testing.T) {
 		t.Fatalf("expected 4 tables (item_events, event_buckets, current_items, seed_marker), got %d", tableCount)
 	}
 
-	for _, version := range []string{"0001_init", "0002_current_items", "0003_seed_marker"} {
+	for _, version := range []string{"0001_init", "0002_current_items", "0003_seed_marker", "0004_grafana_readonly"} {
 		var got string
 		if err := pool.QueryRow(ctx,
 			`SELECT version FROM schema_migrations WHERE version = $1`, version,
