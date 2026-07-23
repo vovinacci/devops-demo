@@ -1,15 +1,19 @@
 name: Nightly
 
 # The "full" profile stage (RFC-0001 D12, PR-4): everything e2e.yml
-# covers plus the `synthetic` profile (blackbox + canary), which the
-# PR-scoped e2e gate omits to stay fast. `reports` (the JVM profile,
-# Phase 6) does not exist in this repo yet -- when it lands, this is
-# where it is exercised instead of per-PR, per the RFC-0001 D12 CI
-# resource constraint (standard 7 GB runners do not comfortably fit
-# `full`). Until then "full" here means every profile the repo currently
-# ships: core + analytics + synthetic + load.
+# covers plus the `synthetic` profile (blackbox + canary) AND the
+# `reports` JVM profile, both of which the PR-scoped e2e gate omits to
+# stay within the standard 7 GB runner. As of Phase 6 PR-3 `reports` has
+# landed and IS exercised here -- the JVM comes up under `--profile
+# reports` and the k6 `report` scenario drives it (POST /reports -> poll
+# -> download), enabled by LOADGEN_REPORTS_URL in the smoke-full target --
+# never per-PR, per the RFC-0001 D12 CI resource constraint. "full" here
+# means every profile the repo ships: core + analytics + synthetic +
+# reports + load.
 #
-# This IS `make smoke-full` -- same make-ci-parity principle as e2e.yml.
+# This IS `make smoke-full` -- same make-ci-parity principle as e2e.yml;
+# all the profile/env wiring lives in that target, so this workflow needs
+# no reports-specific step of its own.
 
 on:
   schedule:

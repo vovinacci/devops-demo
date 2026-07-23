@@ -45,7 +45,11 @@ own observed RED p95 latency -- what loadgen asked the system to do,
 beside what the system actually delivered. Also panels for per-scenario
 client-observed latency, error rate, gRPC scenario latency, active VUs,
 and the abuse/gRPC correctness signals (`loadgen/README.md` documents
-every metric name and the exact expressions). `make incident` /
+every metric name and the exact expressions). The `report` scenario's own
+signal (`loadgen_report_job_failed`) is nightly/full-only and gated on
+`LOADGEN_REPORTS_URL` (RFC-0001 D12), so it is absent from this dashboard on
+a normal `load`-profile run -- its outcome shows up on the Reports JVM
+dashboard's job row instead. `make incident` /
 `make heal` (`loadgen/README.md`) spike offered load or error rate on
 demand to exercise this dashboard and the SLO burn-rate alerts live.
 
@@ -67,9 +71,11 @@ custom Micrometer meters: jobs by terminal status
 (`reports_job_duration_seconds`, histogram buckets enabled in
 `application.yml`), in-flight jobs (`reports_jobs_inflight`, a gauge capped at
 `reports.job-concurrency`), and artifact throughput
-(`reports_artifact_bytes`). These are empty until reports are generated (the
-loadgen report scenario lands in PR-3; a manual `POST /reports` fills them
-now). Being an opt-in profile, the panels show "No data" and the scrape target
+(`reports_artifact_bytes`). These are empty until reports are generated; as of
+Phase 6 PR-3 the loadgen `report` scenario fills them in the nightly/full run
+(`make smoke-full` / `make up-full`, gated on `LOADGEN_REPORTS_URL`, RFC-0001
+D12 -- see `loadgen/README.md`), and a manual `POST /reports` fills them any
+time. Being an opt-in profile, the panels show "No data" and the scrape target
 reads "down" when `reports` is not up (RFC-0001 D10).
 
 ## Historical dashboard and the D5 boundary

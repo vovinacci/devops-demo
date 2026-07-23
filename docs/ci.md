@@ -21,7 +21,7 @@ flowchart LR
     pr --> par["parity.yml<br/>load profile parity: JS vs Go goldens<br/>(loadprofile/**, services/analytics/internal/loadshape/**)"]
     pr --> img["images.yml<br/>docker build + Trivy<br/>(services/**, loadgen/**, loadprofile/**)"]
     pr --> e2e["e2e.yml<br/>compose up core+analytics+load, k6 smoke gate, wiring assertions"]
-    night["nightly.yml<br/>schedule + workflow_dispatch<br/>all current profiles, longer k6 run, +canary/blackbox assertions"]
+    night["nightly.yml<br/>schedule + workflow_dispatch<br/>all profiles incl. reports/JVM, longer k6 run, +report/canary/blackbox assertions"]
     merge[Squash-merge to main] --> rp["release-please.yml<br/>maintains release PR"]
     rp -->|release PR merged| rel["release.yml<br/>tag + publish (placeholder)"]
 ```
@@ -38,7 +38,7 @@ flowchart LR
 | parity.yml         | loadprofile/**, services/analytics/internal/loadshape/**                     | JS (shape.js) vs Go (loadshape) parity against checked-in goldens (Hard rule 8)                       |
 | images.yml         | services/**, deploy/compose/**, loadgen/**, loadprofile/**                   | docker build + Trivy scan per service (matrix, includes loadgen)                                      |
 | e2e.yml            | services/**, deploy/compose/**, observability/**, loadgen/**, loadprofile/** | `make smoke`: compose up core+analytics+load (`--wait`), k6 smoke gate, wiring assertions (see below) |
-| nightly.yml        | schedule (daily) + workflow_dispatch                                         | `make smoke-full`: same gate, every current profile, longer run, +canary/blackbox assertions          |
+| nightly.yml        | schedule (daily) + workflow_dispatch                                         | `make smoke-full`: same gate + reports/JVM profile, longer run, +report/canary/blackbox assertions    |
 | release-please.yml | push to main                                                                 | maintain release PR from commit history                                                               |
 | release.yml        | release published                                                            | placeholder (image publishing comes later)                                                            |
 
@@ -128,22 +128,27 @@ compatible).
   asserts the pieces are actually wired together
   (`scripts/e2e-smoke.sh`: backend `/healthz`, analytics `/readyz`,
   `analytics_stream_connected == 1`, Prometheus targets `api`/`analytics`
-  both `up`). The JVM (`reports`, Phase 6) stays out of this stage --
-  standard GitHub-hosted runners (7 GB) do not comfortably fit it
-  alongside everything else (RFC-0001 D12 CI resource constraint).
+  both `up`). The JVM (`reports`, Phase 6) stays out of this per-PR stage
+  -- standard GitHub-hosted runners (7 GB) do not comfortably fit it
+  alongside everything else (RFC-0001 D12 CI resource constraint); it is
+  exercised in `nightly.yml` instead (see below).
   Failures print `compose ps` plus the failing service's own log tail
   (from the assertion script) and, as a coarser net, the full compose
   state (from the workflow's own `if: failure()` step); teardown
   (`--profile "*" down -v`) always runs.
-- **Nightly full-profile workflow (`nightly.yml`, PR-4):** `make
-  smoke-full` runs the identical gate on every profile the repo
-  currently ships (`core + analytics + synthetic + load`), a longer k6
-  run (`SMOKE_DURATION_SECONDS` override), and two extra assertions the
-  `synthetic` profile enables: canary journey success
+- **Nightly full-profile workflow (`nightly.yml`, PR-4, Phase 6):** `make
+  smoke-full` runs the identical gate on every profile the repo ships
+  (`core + analytics + synthetic + reports + load`), a longer k6 run
+  (`SMOKE_DURATION_SECONDS` override), and the extra assertions those
+  profiles enable: canary journey success
   (`sum(canary_journey_total{result="success"}) > 0`) and blackbox
-  `probe_success == 0` returning no targets. Scheduled daily plus
-  `workflow_dispatch`, not per-PR -- this is also where `reports` lands
-  once Phase 6 adds it, per the same RAM constraint above.
+  `probe_success == 0` returning no targets (the `synthetic` profile),
+  plus a reports readiness + async job check -- `POST /reports` polled to
+  `SUCCEEDED` and downloaded (the `reports` JVM profile). As of Phase 6
+  PR-3 this is where the JVM runs: `--profile reports` brings it up and
+  the k6 `report` scenario drives it, gated by `LOADGEN_REPORTS_URL` set
+  only in this target. Scheduled daily plus `workflow_dispatch`, not
+  per-PR, per the same RAM constraint above.
 
 ## Releases
 

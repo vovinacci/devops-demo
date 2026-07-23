@@ -67,6 +67,14 @@ export const env = {
   // `analytics` is a separate opt-in compose profile from `load` --
   // absent entirely is an expected, tolerated state (D10), not an error.
   analyticsUrl: __ENV.LOADGEN_ANALYTICS_URL || "http://analytics:8082",
+  // RFC-0001 Phase 6 PR-3 (D12): the `reports` JVM profile is EXCLUDED from
+  // the per-PR e2e gate and exercised nightly/full instead. Unlike
+  // analyticsUrl this has NO default URL on purpose -- its presence IS the
+  // enable-signal (reportsEnabled) for the heavy `report` scenario in
+  // scenarios/main.js and scenarios/smoke.js; defaulting it to a URL would
+  // schedule the report load unconditionally, including in per-PR smoke.
+  reportsUrl: __ENV.LOADGEN_REPORTS_URL || undefined,
+  reportsEnabled: Boolean(__ENV.LOADGEN_REPORTS_URL),
 };
 
 // loadprofile/profile.json is a sibling of lib/ under the image's

@@ -75,9 +75,39 @@ intentionally differs from the percentages below.
 | `abuse`     | 10%             | Three intentionally invalid requests, rotated by iteration: malformed JSON body, unknown web-vital name, delete of a nonexistent id |
 | `grpc`      | 5%              | Unary `ListItems` + `GetItemStats` against `api:50051`, proto loaded at runtime                                                     |
 | `expensive` | 5% base, bursty | Concurrent fan-out of `GET /items` (via `http.batch`), on a burst/idle cycle -- see "Honest limitations" below                      |
+| `report`    | nightly/full    | `POST /reports` (rotate xlsx/pdf/csv) -> poll to terminal -> download; gated on `LOADGEN_REPORTS_URL` -- see below                  |
 
-Report-trigger (the fifth scenario RFC-0001 D4 originally listed) is
-deferred to Phase 6: the `reports` service does not exist yet.
+### Report scenario (`report`, RFC-0001 Phase 6 PR-3, D12)
+
+The fifth scenario RFC-0001 D4 originally listed (report-trigger), landed
+in Phase 6 once the `reports` JVM service existed. It drives the documented
+async report API (`services/reports/README.md`): `POST /reports` with a
+`{"type":"items-summary","format":...}` body rotating `xlsx`/`pdf`/`csv` by
+iteration, expects `202` and reads the job id from the (case-insensitive)
+`Location` header, polls `GET /reports/{id}` on a bounded ~30s loop until the
+job is `SUCCEEDED` or `FAILED`, then `GET /reports/{id}/download` on success.
+
+Two properties set it apart from the other five:
+
+- **Gated on an enable-signal, not scheduled by default.**
+  `LOADGEN_REPORTS_URL` (`lib/env.js`, `env.reportsEnabled`) has no default
+  URL -- its *presence* is what adds `report` to `options.scenarios` in both
+  `scenarios/main.js` and `scenarios/smoke.js`. The per-PR `make smoke` gate
+  leaves it unset, so the JVM stays out of that gate entirely (RFC-0001 D12
+  CI resource constraint); the nightly `make smoke-full` and local
+  `make up-full` set it to `http://reports:8083` and enable the scenario.
+- **A low fixed rate, not the shared diurnal profile.** Each iteration
+  triggers a heavy async POI/PDF render on a bounded-concurrency JVM plus a
+  poll loop that can hold its VU for ~30s, so it runs `constant-arrival-rate`
+  at ~0.33 jobs/s (1 per 3s) -- enough to exercise the endpoint and drive the
+  GC sawtooth on the Reports JVM dashboard, not to model report traffic.
+
+`loadgen_report_job_failed` is its correctness signal: `add(true)` on a
+non-202 submit, a `FAILED` job, a poll-timeout, or a non-200 download;
+`add(false)` on a downloadable `SUCCEEDED`. A `loadgen_report_duration` Trend
+records the accepted->succeeded wall-clock (observed, not gated). Both live
+under the `loadgen_` prefix, like the abuse/gRPC signals; the threshold is in
+the Thresholds section below.
 
 Item names created by `crud` are prefixed `loadgen-` (distinct from the
 canary's `canary-` prefix, RFC-0001 D9) so synthetic writes stay
@@ -164,7 +194,20 @@ http_req_failed{scenario:expensive}    rate<1%
 grpc_req_duration{scenario:grpc}       p(95)<300ms
 loadgen_grpc_call_failed               rate<1%   (custom Rate: grpc has no http_req_failed equivalent)
 loadgen_abuse_unexpected_status        rate<1%   (custom Rate: did abuse get the status it was designed to provoke; transport failures excluded)
+loadgen_report_job_failed              rate<5%   (custom Rate: async report job outcome; nightly/full only, see below)
 ```
+
+`loadgen_report_job_failed` is gated at **5%**, looser than the 1%
+pure-correctness signals: a report job *should* succeed, but it is an async
+POI/PDF render on a bounded-concurrency JVM under nightly load with
+best-effort analytics enrichment (RFC-0001 D10) and a bounded client-side
+poll -- eventual-consistency slack that warrants a touch more tolerance than
+the synchronous gates. It lives in the shared `lib/thresholds.js` object
+unconditionally, which is safe even though the per-PR `make smoke` never
+schedules `report`: a threshold whose metric receives zero samples is simply
+not evaluated by k6 (same property that lets `smoke.js` skip `expensive`), so
+the unset-URL per-PR run is unaffected. It is only ever exercised in the
+nightly/full path (RFC-0001 D12).
 
 `abuse` requests are marked EXPECTED via
 `http.expectedStatuses(400, 404, 422)` (a k6 `responseCallback`) -- k6
@@ -230,14 +273,17 @@ Another one-shot script, distinct from both `main.js` and `incident.js`:
 `make smoke` (`.github/workflows/e2e.yml`) and `make smoke-full`
 (`.github/workflows/nightly.yml`, longer `SMOKE_DURATION_SECONDS`) run it
 against a freshly-brought-up stack as the CI/nightly e2e gate (RFC-0001
-D12). It re-exports `browse`, `crud`, `abuse`, and `grpcScenario` straight
-from `main.js` and imports the exact same `THRESHOLDS` from
+D12). It re-exports `browse`, `crud`, `abuse`, `grpcScenario`, and `report`
+straight from `main.js` and imports the exact same `THRESHOLDS` from
 `lib/thresholds.js` -- a short `constant-arrival-rate` run of the same
 code, not a separate approximation of it. `expensive` is not exercised
 here (its burst modulation is stage-index-driven, meaningless in a flat
 single-stage run); its threshold key stays imported anyway since a
 threshold with zero matching samples is simply not evaluated by k6, not
-a failure. See `docs/ci.md` for what the surrounding workflow asserts
+a failure. `report` is scheduled only when `LOADGEN_REPORTS_URL` is set
+(the nightly/full path, RFC-0001 D12) -- per-PR `make smoke` leaves it
+unset so the JVM stays out of that gate; its threshold, likewise
+zero-sampled per-PR, is safe to keep imported unconditionally too. See `docs/ci.md` for what the surrounding workflow asserts
 beyond the k6 thresholds (health endpoints, Prometheus targets, and, on
 the nightly/full run only, canary + blackbox).
 
@@ -256,6 +302,7 @@ the nightly/full run only, canary + blackbox).
 | `LOADGEN_GRPC_ADDR` | `api:50051` | Backend gRPC address |
 | `LOADGEN_PROTO_DIR` | `/home/k6/proto` | gRPC `client.load()` import path |
 | `LOADGEN_ANALYTICS_URL` | `http://analytics:8082` | Analytics base URL for `setup()`'s scale guard (Phase 5 PR-2), see Scale guard above |
+| `LOADGEN_REPORTS_URL` | (unset) | Reports service base URL; **its presence is the enable-signal** for the `report` scenario (Phase 6 PR-3, D12). No default on purpose -- set only in nightly/full (`http://reports:8083`), unset per-PR so the JVM stays out of that gate. See Report scenario above |
 | `INCIDENT_MODE` | `spike` | `spike` or `errors` (`incident.js` only) |
 | `INCIDENT_MINUTES` | `5` | Incident duration (`incident.js` only) |
 | `INCIDENT_SPIKE_MULTIPLIER` | `10` | Spike-mode rate multiplier (`incident.js` only) |
