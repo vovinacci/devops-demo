@@ -163,7 +163,7 @@ http_req_failed{scenario:crud}         rate<1%
 http_req_failed{scenario:expensive}    rate<1%
 grpc_req_duration{scenario:grpc}       p(95)<300ms
 loadgen_grpc_call_failed               rate<1%   (custom Rate: grpc has no http_req_failed equivalent)
-loadgen_abuse_unexpected_status        rate<1%   (custom Rate: did abuse get the status it was designed to provoke)
+loadgen_abuse_unexpected_status        rate<1%   (custom Rate: did abuse get the status it was designed to provoke; transport failures excluded)
 ```
 
 `abuse` requests are marked EXPECTED via
@@ -171,7 +171,12 @@ loadgen_abuse_unexpected_status        rate<1%   (custom Rate: did abuse get the
 does not count an expected 4xx in `http_req_failed` at all, so there is
 deliberately no `http_req_failed{scenario:abuse}` threshold;
 `loadgen_abuse_unexpected_status` is the scenario's real correctness
-signal instead. These live in `lib/thresholds.js` (PR-4), imported by
+signal instead. It measures abuse-status correctness only -- a
+transport-level failure under load (connection reset/timeout, where k6
+reports `res.status === 0` because no HTTP response arrived) is not an
+abuse-status divergence and is excluded from the rate; a genuine backend
+outage is caught by the gated `http_req_failed{scenario:browse|crud}`
+thresholds instead. These live in `lib/thresholds.js` (PR-4), imported by
 both `scenarios/main.js` and `scenarios/smoke.js` so the CI/nightly gate
 cannot drift from what the long-running service enforces on itself.
 

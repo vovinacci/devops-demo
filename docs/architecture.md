@@ -42,6 +42,8 @@ flowchart LR
     can -->|"journey: create -> verify -> delete"| be
     can -.->|"pipeline-lag poll (skipped when analytics profile absent)"| an
     rep -->|JDBC| pgR
+    rep -->|"HTTP: GET /items (report source of truth)"| be
+    rep -.->|"HTTP: GET /api/v1/stats (best-effort, D10)"| an
     lg -->|"HTTP: browse, crud, abuse, expensive"| be
     lg -->|"HTTP: browse"| fe
     lg -.->|"gRPC unary: ListItems, GetItemStats"| be
@@ -124,16 +126,28 @@ motivating exhibit for the NATS capstone (RFC-0001 Section 10).
   Spring Boot 3 service, the JVM showcase (RFC-0001 D2), own Postgres
   instance (`postgres-reports`) and a named artifact volume. `reports`
   compose profile (opt-in via `make up-full` or `--profile reports`); the
-  largest RAM increment of any profile. As of RFC-0001 Phase 6 PR-1 this is
-  the skeleton and the D6 uniform contract only: HTTP surface (`/healthz`,
-  `/readyz` reflecting Postgres via the Actuator `db` indicator, `/metrics`
-  from Micrometer), structured JSON logs, OpenTelemetry (no exporter yet), a
-  provisioned `Reports JVM` Grafana dashboard, and a Prometheus scrape job
-  (the `prom -.-> rep` edge above). The report API (`POST /reports` ->
-  `GET /reports/{id}`, XLSX/PDF/CSV) and the loadgen -> reports ->
-  backend/analytics traffic edges are PR-2, so they are deliberately absent
-  from the diagram above (a diagram that shows what the code does not do is a
-  bug, engineering-principles.md Section 1).
+  largest RAM increment of any profile. As of RFC-0001 Phase 6 PR-2 the
+  report engine is real: `POST /reports` accepts an async job (report type +
+  `xlsx`/`pdf`/`csv`), returns `202` with a `Location`, and the job runs
+  off-thread on a bounded coroutine dispatcher; `GET /reports/{id}` reports
+  status (`PENDING`/`RUNNING`/`SUCCEEDED`/`FAILED`) and
+  `GET /reports/{id}/download` streams the artifact. The one concrete report
+  ("items summary") pulls items from the backend REST `/items` (source of
+  truth, the `rep -> be` edge above) and enriches them with analytics
+  aggregates from the analytics read API (best-effort, the dashed
+  `rep -.-> an` edge); if analytics is absent the report still succeeds on
+  backend data with a distinct "unavailable" marker (RFC-0001 D10, Hard rule
+  9). Job metadata lives in `postgres-reports` (Flyway migrations); generated
+  artifacts land on the named volume, never as BLOBs in the DB (RFC-0001 D2).
+  The bursty Apache POI / OpenPDF allocation is the deliberate workload that
+  makes the GC sawtooth visible on the `Reports JVM` dashboard -- the reason
+  this service exists. Also ships the D6 uniform contract (`/healthz`,
+  `/readyz` reflecting Postgres, `/metrics` including custom report-job
+  meters), structured JSON logs with `trace_id`/`span_id` (D11), and
+  OpenTelemetry (no exporter yet). The `loadgen -> reports` report-trigger
+  edge and the canary v3 report step are PR-3, so they are deliberately
+  absent from the diagram above (a diagram that shows what the code does not
+  do is a bug, engineering-principles.md Section 1).
 - **Loadgen** ([readme](../loadgen/README.md)) -- k6, shaped continuous
   load (RFC-0001 D4, ADR-0006). `load` compose profile (opt-in via
   `make up-full` or `--profile load`); depends only on `api` being

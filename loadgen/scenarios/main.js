@@ -199,6 +199,21 @@ export function crud() {
 
 const ABUSE_EXPECTED = http.expectedStatuses(400, 404, 422);
 
+// loadgen_abuse_unexpected_status measures abuse-status CORRECTNESS -- "did the
+// backend return the DESIGNED 4xx for this bad input" -- NOT availability. A
+// transport-level failure under load (connection reset/timeout yields
+// res.status === 0, i.e. no HTTP response ever arrived) is not an abuse-status
+// divergence, so it must not tick this rate; count it only when a real HTTP
+// status came back and diverged from expected. A genuine backend outage is
+// already caught by the gated http_req_failed{scenario:browse|crud} thresholds.
+// The check() call is kept for its (cosmetic, ungated) mark in checks output.
+function recordAbuseStatus(res, expected, checkLabel) {
+  const matched = check(res, { [checkLabel]: (r) => r.status === expected });
+  if (res.status !== 0) {
+    abuseUnexpectedStatus.add(!matched);
+  }
+}
+
 export function abuse() {
   const which = __ITER % 3;
 
@@ -215,7 +230,7 @@ export function abuse() {
       tags: { name: "abuse_invalid_json" },
       responseCallback: ABUSE_EXPECTED,
     });
-    abuseUnexpectedStatus.add(!check(res, { "abuse: invalid json -> 422": (r) => r.status === 422 }));
+    recordAbuseStatus(res, 422, "abuse: invalid json -> 422");
   } else if (which === 1) {
     // Unknown web-vital name -- rejected by ALLOWED_WEB_VITALS
     // (services/backend/app/main.py).
@@ -228,14 +243,14 @@ export function abuse() {
         responseCallback: ABUSE_EXPECTED,
       }
     );
-    abuseUnexpectedStatus.add(!check(res, { "abuse: unknown vital -> 400": (r) => r.status === 400 }));
+    recordAbuseStatus(res, 400, "abuse: unknown vital -> 400");
   } else {
     // Delete an id that (almost certainly) never existed.
     const res = http.del(`${env.backendUrl}/items/999999999`, null, {
       tags: { name: "abuse_delete_missing" },
       responseCallback: ABUSE_EXPECTED,
     });
-    abuseUnexpectedStatus.add(!check(res, { "abuse: delete missing -> 404": (r) => r.status === 404 }));
+    recordAbuseStatus(res, 404, "abuse: delete missing -> 404");
   }
 }
 

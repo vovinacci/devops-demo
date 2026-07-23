@@ -377,7 +377,12 @@ services:
   # for generated XLSX/PDF/CSV (never BLOBs in the DB, RFC-0001 D2). No
   # depends_on on api/analytics: reports tolerates absent optional
   # dependencies (RFC-0001 D10 graceful degradation) -- it only hard-depends
-  # on its own database being reachable to become ready.
+  # on its own database being reachable to become ready. It reads the backend
+  # REST /items (source of truth for report content) and, best-effort, the
+  # analytics read API (:8082); an absent analytics degrades the report's
+  # analytics section instead of failing the job (Hard rule 9). Both are in
+  # other profiles, so `--profile reports` alone reaches neither: run
+  # `make up-full` (or add `--profile analytics`) for real report content.
   reports:
     build:
       context: ./services/reports
@@ -388,6 +393,11 @@ services:
       - REPORTS_DATABASE_USER=${REPORTS_POSTGRES_USER:-reports}
       - REPORTS_DATABASE_PASSWORD=${REPORTS_POSTGRES_PASSWORD:-reports}
       - REPORTS_ARTIFACT_DIR=/var/lib/reports/artifacts
+      # In-network upstreams (same host:port naming as the canary/loadgen
+      # analytics targets). backend is the source of truth; analytics is
+      # best-effort enrichment (D10).
+      - REPORTS_BACKEND_URL=http://api:8000
+      - REPORTS_ANALYTICS_URL=http://analytics:8082
     depends_on:
       postgres-reports:
         condition: service_healthy

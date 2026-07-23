@@ -20,19 +20,53 @@ spring:
       # Fail readiness fast when Postgres is down instead of blocking a
       # /readyz probe for the JDBC default (30s).
       connection-timeout: 3000
-      # Skip the eager startup connection attempt: the pool starts immediately
-      # and opens connections lazily on first use. postgres-reports is the
-      # service's OWN store (a hard dependency for readiness, not liveness), so
-      # a cold boot with the DB down must still bring the context up -- /healthz
-      # stays 200 and /readyz reports 503 until the DB returns. Verified
-      # empirically; -1 pins that behavior explicitly rather than relying on a
-      # version-dependent Boot/Hikari default. (Distinct from D10 graceful
-      # degradation, which is about the *optional* analytics upstream.)
+      # Keep the Hikari pool lazy: it starts immediately and opens connections
+      # on first use, so a *running* app that later loses Postgres keeps
+      # /healthz at 200 (liveness never depends on the DB) while /readyz reports
+      # 503 via the Actuator `db` indicator (D6). The readiness/liveness split
+      # still holds exactly as in PR-1.
+      #
+      # What changed in PR-2: Flyway (below) runs migrations at startup and
+      # needs Postgres reachable *then*, so the app no longer boots with the DB
+      # absent -- Flyway makes Postgres a startup dependency. That is fine and
+      # deliberate: compose gates `reports` on `postgres-reports:
+      # service_healthy`, and the Testcontainers tests start Postgres first, so
+      # the DB is always up at migration time. spring.flyway.connect-retries
+      # covers a DB that is merely slow to accept connections at boot.
+      # (Distinct from D10 graceful degradation, which is about the *optional*
+      # analytics upstream, not this own-store hard dependency.)
       initialization-fail-timeout: -1
+  # Flyway migrations for report_jobs (PR-2, RFC-0001 D2). connect-retries lets
+  # a Postgres that is up-but-not-yet-accepting-connections at startup settle
+  # before the migration gives up (compose orders postgres-reports first, but a
+  # cold boot can still race the first connection).
+  flyway:
+    enabled: true
+    connect-retries: 10
+    connect-retries-interval: 3s
 
 server:
   port: ${REPORTS_HTTP_PORT:8083}
   shutdown: graceful
+
+# Report engine settings (PR-2, RFC-0001 D2/D10). backend-url is the source of
+# truth reports pulls items from; analytics-url is best-effort enrichment (D10
+# graceful degradation, Hard rule 9) -- an unreachable analytics degrades the
+# report's analytics section, it never fails the job. Defaults target locally-
+# run services; the compose `reports` profile points them at the in-network
+# hostnames.
+reports:
+  artifact-dir: ${REPORTS_ARTIFACT_DIR:./artifacts}
+  backend-url: ${REPORTS_BACKEND_URL:http://localhost:8000}
+  analytics-url: ${REPORTS_ANALYTICS_URL:http://localhost:8082}
+  # Per-upstream HTTP timeouts (connect + request). Kept short so a hung or
+  # absent analytics fails fast into the degraded path rather than stalling a
+  # job (D10). Backend uses the same budget; a backend failure fails the job.
+  http-timeout: ${REPORTS_HTTP_TIMEOUT:5s}
+  # Bounded job concurrency (RFC-0001 D2): report jobs run on a fixed-size
+  # dispatcher so bursty POI/PDF allocation is a controlled GC exhibit, not an
+  # OOM. Small by design -- the point is to make GC visible, not to scale out.
+  job-concurrency: ${REPORTS_JOB_CONCURRENCY:2}
 
 # D6 uniform contract via Actuator: liveness/readiness health groups are
 # surfaced at the exact /healthz and /readyz paths on the main server port
@@ -73,14 +107,12 @@ management:
       # count/sum and histogram_quantile would return no data.
       percentiles-histogram:
         http.server.requests: true
+        # Publish histogram buckets for the report-job duration timer so the
+        # dashboard's job-duration p95 panel has real quantiles (PR-2).
+        reports.job.duration: true
   # OpenTelemetry from day one (D11): every trace sampled so trace_id/span_id
   # reach the JSON logs. No exporter is configured -- spans are dropped, Loki
   # correlates on trace_id until Tempo lands (RFC-0001 Section 10).
   tracing:
     sampling:
       probability: 1.0
-
-# Artifact volume mount target (RFC-0001 D2): generated XLSX/PDF/CSV land
-# here in PR-2, never in the DB. Defined now so the volume wiring is in place.
-reports:
-  artifact-dir: ${REPORTS_ARTIFACT_DIR:./artifacts}

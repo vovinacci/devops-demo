@@ -81,6 +81,9 @@ target/
 # Build outputs are covered by the generic build/ rule above; the wrapper
 # (gradlew, gradle/wrapper/*) is committed on purpose and must NOT be ignored.
 .gradle/
+# Kotlin 2.x build-daemon cache (session files, build history) -- a local
+# artifact, never committed.
+.kotlin/
 
 # ============================================================================
 # Go (Analytics)

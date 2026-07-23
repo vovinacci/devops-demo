@@ -56,13 +56,21 @@ The **Reports JVM** dashboard (`observability/grafana/dashboards/reports.json`,
 whitebox view: heap used vs committed and non-heap, GC pause rate and time
 by action, live threads, uptime, HTTP request rate and p95 latency, and a
 scrape-health stat (`up{job="reports"}`). Prometheus scrapes it via the
-`reports` job (`observability/prometheus.yml`). As of Phase 6 PR-1 the
-panels read the metrics the skeleton already exposes; the **GC sawtooth**
-exhibit -- bursty heap allocation from POI/PDF report generation making
-garbage collection visible on the heap and GC panels, the reason a
-heavyweight JVM framework earns its place here (RFC-0001 D2) -- arrives with
-PR-2's report workload. Being an opt-in profile, the panels show "No data"
-and the scrape target reads "down" when `reports` is not up (RFC-0001 D10).
+`reports` job (`observability/prometheus.yml`). As of Phase 6 PR-2 the **GC
+sawtooth** exhibit is live: the report engine's bursty Apache POI / OpenPDF
+allocation during generation drives the heap used-line up between collections
+and down on each GC, and pushes the GC pause-rate/time panels -- garbage
+collection made visible, the reason a heavyweight JVM framework earns its
+place here (RFC-0001 D2). A dedicated **report-job row** reads the service's
+custom Micrometer meters: jobs by terminal status
+(`reports_jobs_completed_total{status,type,format}`), job-duration p95
+(`reports_job_duration_seconds`, histogram buckets enabled in
+`application.yml`), in-flight jobs (`reports_jobs_inflight`, a gauge capped at
+`reports.job-concurrency`), and artifact throughput
+(`reports_artifact_bytes`). These are empty until reports are generated (the
+loadgen report scenario lands in PR-3; a manual `POST /reports` fills them
+now). Being an opt-in profile, the panels show "No data" and the scrape target
+reads "down" when `reports` is not up (RFC-0001 D10).
 
 ## Historical dashboard and the D5 boundary
 
