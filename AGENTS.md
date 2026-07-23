@@ -125,6 +125,15 @@ producing review output; do not re-raise these.
   -- rejected: the stream deliberately carries the domain event message
   (ItemEvent); a wrapper adds noise. Recorded as a scoped `except:` in
   `proto/buf.yaml`.
+- `services/analytics/internal/store/migrations/0004_grafana_readonly.sql`:
+  "grafana_ro password must come from deployment secrets, not the
+  migration" -- rejected: every credential in this repo is a checked-in
+  demo default (compose Postgres users, Grafana admin/admin, the
+  datasource provisioning file's own static password), migrations are
+  static embedded SQL, and the paired Grafana provisioning file cannot
+  env-expand -- a secrets-layer password on one side only breaks the
+  pair without improving posture. Real secret management belongs to the
+  deferred security capstone (RFC-0001 Section 10).
 
 ## When unsure
 
