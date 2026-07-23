@@ -43,12 +43,12 @@ up: ## Start all services
 .PHONY: up-full
 up-full: ## Start all services incl. optional profiles
 	$(PRINT_TARGET)
-	$(COMPOSE) --profile synthetic --profile analytics --profile load up -d --build
+	$(COMPOSE) --profile synthetic --profile analytics --profile reports --profile load up -d --build
 
 .PHONY: up-workshop
 up-workshop: ## Start all profiles at DEMO_TIME_SCALE=24 (RFC-0001 D5 workshop mode: one profile-day compresses to 1 wall-clock hour). Seed at the SAME scale afterward -- `DEMO_TIME_SCALE=24 make seed-history` -- or loadgen's scale guard refuses to start against the mismatched seed marker (no marker / analytics absent: it continues; docs/exercises/05-find-the-seeded-anomalies.md)
 	$(PRINT_TARGET)
-	DEMO_TIME_SCALE=24 $(COMPOSE) --profile synthetic --profile analytics --profile load up -d --build
+	DEMO_TIME_SCALE=24 $(COMPOSE) --profile synthetic --profile analytics --profile reports --profile load up -d --build
 
 .PHONY: down
 down: ## Stop all services (all profiles; plain "compose down" skips profile-scoped ones)
@@ -178,7 +178,7 @@ smoke-full: ## nightly CI stage, runnable locally: all current profiles (core+an
 ##@ Testing
 
 .PHONY: test
-test: test-backend test-frontend test-canary test-analytics ## Run all tests (backend + frontend + canary + analytics)
+test: test-backend test-frontend test-canary test-analytics test-reports ## Run all tests (backend + frontend + canary + analytics + reports)
 
 .PHONY: test-backend
 test-backend: generate ## Run backend tests locally via virtualenv
@@ -253,10 +253,15 @@ test-analytics: generate ## Run analytics tests (Go toolchain from mise -- see .
 	$(PRINT_TARGET)
 	$(MAKE) -C services/analytics test
 
+.PHONY: test-reports
+test-reports: ## Run reports tests (JDK/Gradle from mise -- see .mise.toml; Testcontainers needs Docker)
+	$(PRINT_TARGET)
+	$(MAKE) -C services/reports test
+
 ##@ Code Quality
 
 .PHONY: lint
-lint: lint-infra lint-backend type-check lint-frontend lint-canary lint-analytics lint-proto parity ## Code quality check for entire project (backend + frontend + canary + analytics + proto + infra + load profile parity)
+lint: lint-infra lint-backend type-check lint-frontend lint-canary lint-analytics lint-reports lint-proto parity ## Code quality check for entire project (backend + frontend + canary + analytics + reports + proto + infra + load profile parity)
 
 .PHONY: lint-backend
 lint-backend: ## Backend code quality check via ruff
@@ -278,6 +283,11 @@ lint-canary: ## Canary code quality check via cargo fmt + clippy (Rust toolchain
 lint-analytics: generate ## Analytics code quality check via gofmt + go vet + golangci-lint (Go toolchain from mise)
 	$(PRINT_TARGET)
 	$(MAKE) -C services/analytics lint
+
+.PHONY: lint-reports
+lint-reports: ## Reports code quality check via ktlint (JDK/Gradle from mise)
+	$(PRINT_TARGET)
+	$(MAKE) -C services/reports lint
 
 .PHONY: lint-proto
 lint-proto: ## proto/ code quality check via buf lint + buf format --diff
@@ -351,6 +361,7 @@ build-images: ## Build Docker images
 	docker build -t devops-demo-frontend:latest ./services/frontend
 	docker build -t devops-demo-canary:latest ./services/canary
 	docker build --build-context proto=proto -t devops-demo-analytics:latest ./services/analytics
+	docker build -t devops-demo-reports:latest ./services/reports
 
 .PHONY: image-sizes
 image-sizes: build-images ## Display Docker image sizes (the canary/analytics vs the rest is the D9 "costs less" exhibit)
@@ -359,6 +370,7 @@ image-sizes: build-images ## Display Docker image sizes (the canary/analytics vs
 	docker images devops-demo-frontend:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
 	docker images devops-demo-canary:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
 	docker images devops-demo-analytics:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
+	docker images devops-demo-reports:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
 
 ##@ Frontend
 

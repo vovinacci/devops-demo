@@ -13,9 +13,15 @@ canon_node="$(sed -n 's/^node = "\(.*\)"/\1/p' .mise.toml)"
 canon_rust="$(sed -n 's/^rust = "\(.*\)"/\1/p' .mise.toml)"
 canon_go="$(sed -n 's/^go = "\(.*\)"/\1/p' .mise.toml)"
 canon_k6="$(sed -n 's/^k6 = "\(.*\)"/\1/p' .mise.toml)"
+canon_java="$(sed -n 's/^java = "\(.*\)"/\1/p' .mise.toml)"
+canon_gradle="$(sed -n 's/^gradle = "\(.*\)"/\1/p' .mise.toml)"
+# .mise.toml pins the JDK by Temurin vendor + LTS major (temurin-21); the
+# Dockerfile FROM tags and the Gradle toolchain carry only the major, so the
+# drift comparison is on that major.
+java_major="${canon_java#temurin-}"
 
-if [ -z "$canon_python" ] || [ -z "$canon_node" ] || [ -z "$canon_rust" ] || [ -z "$canon_go" ] || [ -z "$canon_k6" ]; then
-  echo "cannot read python/node/rust/go/k6 pins from .mise.toml" >&2
+if [ -z "$canon_python" ] || [ -z "$canon_node" ] || [ -z "$canon_rust" ] || [ -z "$canon_go" ] || [ -z "$canon_k6" ] || [ -z "$canon_java" ] || [ -z "$canon_gradle" ]; then
+  echo "cannot read python/node/rust/go/k6/java/gradle pins from .mise.toml" >&2
   exit 1
 fi
 
@@ -74,6 +80,18 @@ expect "pyproject requires-python floor" \
 expect "loadgen Dockerfile FROM" \
   "$(sed -n 's/^FROM grafana\/k6:\([0-9][0-9.]*\).*/\1/p' loadgen/Dockerfile | head -n1)" \
   "$canon_k6"
+
+expect "reports Dockerfile builder FROM (JDK)" \
+  "$(sed -n 's/^FROM eclipse-temurin:\([0-9][0-9.]*\)-jdk.*/\1/p' services/reports/Dockerfile | head -n1)" \
+  "$java_major"
+
+expect "reports Dockerfile runtime FROM (JRE)" \
+  "$(sed -n 's/^FROM eclipse-temurin:\([0-9][0-9.]*\)-jre.*/\1/p' services/reports/Dockerfile | head -n1)" \
+  "$java_major"
+
+expect "reports Gradle wrapper" \
+  "$(sed -n 's/.*gradle-\([0-9][0-9.]*\)-bin\.zip.*/\1/p' services/reports/gradle/wrapper/gradle-wrapper.properties)" \
+  "$canon_gradle"
 
 if [ "$drift" -gt 0 ]; then
   echo

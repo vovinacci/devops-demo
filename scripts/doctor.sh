@@ -12,6 +12,9 @@ RUST_MINOR="$(sed -n 's/^rust = "\(.*\)"/\1/p' .mise.toml)"
 GO_MINOR="$(sed -n 's/^go = "\(.*\)"/\1/p' .mise.toml)"
 BUF_MINOR="$(sed -n 's/^buf = "\(.*\)"/\1/p' .mise.toml)"
 K6_MINOR="$(sed -n 's/^k6 = "\(.*\)"/\1/p' .mise.toml)"
+# JDK pinned as temurin-<major>; only the major is user-visible in `java -version`
+JAVA_MAJOR="$(sed -n 's/^java = "temurin-\(.*\)"/\1/p' .mise.toml)"
+GRADLE_MINOR="$(sed -n 's/^gradle = "\(.*\)"/\1/p' .mise.toml)"
 MIN_RAM_GB=4
 MIN_DISK_GB=5
 
@@ -51,6 +54,8 @@ require_cmd cargo "run 'mise install' (see .mise.toml) or install Rust ${RUST_MI
 require_cmd go "run 'mise install' (see .mise.toml) or install Go ${GO_MINOR}"
 require_cmd buf "run 'mise install' (see .mise.toml) or install buf ${BUF_MINOR} (https://buf.build/docs/installation)"
 require_cmd k6 "run 'mise install' (see .mise.toml) or install k6 ${K6_MINOR} (https://grafana.com/docs/k6/latest/set-up/install-k6/)"
+require_cmd java "run 'mise install' (see .mise.toml) or install Temurin JDK ${JAVA_MAJOR}"
+require_cmd gradle "run 'mise install' (see .mise.toml) or install Gradle ${GRADLE_MINOR} (the reports service also ships a committed wrapper)"
 
 # --- docker daemon and compose v2 --------------------------------------
 if command -v docker >/dev/null 2>&1; then
@@ -118,6 +123,24 @@ if command -v k6 >/dev/null 2>&1; then
     pass "k6 ${kv}"
   else
     warn "k6 ${kv}, expected ${K6_MINOR}" "mise install, then activate mise in your shell: eval \"\$(mise activate zsh)\" in ~/.zshrc"
+  fi
+fi
+
+if command -v java >/dev/null 2>&1; then
+  jv="$(java -version 2>&1 | sed -n 's/.*version "\([0-9]*\).*/\1/p' | head -n1)"
+  if [ "$jv" = "$JAVA_MAJOR" ]; then
+    pass "java ${jv}"
+  else
+    warn "java ${jv}, expected ${JAVA_MAJOR}" "mise install, then activate mise in your shell: eval \"\$(mise activate zsh)\" in ~/.zshrc"
+  fi
+fi
+
+if command -v gradle >/dev/null 2>&1; then
+  grv="$(gradle --version 2>/dev/null | sed -n 's/^Gradle \([0-9]*\.[0-9]*\).*/\1/p')"
+  if [ "$grv" = "$GRADLE_MINOR" ]; then
+    pass "gradle ${grv}"
+  else
+    warn "gradle ${grv}, expected ${GRADLE_MINOR}" "mise install, then activate mise in your shell: eval \"\$(mise activate zsh)\" in ~/.zshrc"
   fi
 fi
 

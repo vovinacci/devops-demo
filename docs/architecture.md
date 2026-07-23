@@ -1,6 +1,6 @@
 # Architecture overview
 
-Two application services plus a full observability stack, wired by Docker
+Application services plus a full observability stack, wired by Docker
 Compose. Design rationale and history live in the RFCs:
 [RFC-0000](rfc/0000-baseline-retrospective.md) documents this baseline;
 [RFC-0001](rfc/0001-polyglot-platform.md) is the plan it evolves under.
@@ -18,6 +18,8 @@ flowchart LR
         an["analytics (Go)<br/>:8082, analytics profile"]
         pgA[("postgres-analytics (PostgreSQL)<br/>:5433, analytics profile")]
         can["canary (Rust)<br/>:8085, synthetic profile"]
+        rep["reports (Kotlin/Spring Boot)<br/>:8083, reports profile"]
+        pgR[("postgres-reports (PostgreSQL)<br/>:5434, reports profile")]
     end
 
     subgraph obs [Observability]
@@ -39,6 +41,7 @@ flowchart LR
     be -.->|"WatchItemEvents pushes events (data direction, opposite the dial)"| an
     can -->|"journey: create -> verify -> delete"| be
     can -.->|"pipeline-lag poll (skipped when analytics profile absent)"| an
+    rep -->|JDBC| pgR
     lg -->|"HTTP: browse, crud, abuse, expensive"| be
     lg -->|"HTTP: browse"| fe
     lg -.->|"gRPC unary: ListItems, GetItemStats"| be
@@ -47,6 +50,7 @@ flowchart LR
     prom -->|scrape| pgx
     prom -->|scrape| cad
     prom -.->|"scrape (analytics profile)"| an
+    prom -.->|"scrape (reports profile)"| rep
     alloy -->|container logs| loki
     graf --> prom
     graf --> loki
@@ -116,6 +120,20 @@ motivating exhibit for the NATS capstone (RFC-0001 Section 10).
   layer (RFC-0001 D9, ADR-0007); v2 adds a pipeline-lag step polling
   analytics, tolerating it being absent (ADR-0008 D10 graceful
   degradation). `synthetic` compose profile.
+- **Reports** ([readme](../services/reports/README.md)) -- Kotlin /
+  Spring Boot 3 service, the JVM showcase (RFC-0001 D2), own Postgres
+  instance (`postgres-reports`) and a named artifact volume. `reports`
+  compose profile (opt-in via `make up-full` or `--profile reports`); the
+  largest RAM increment of any profile. As of RFC-0001 Phase 6 PR-1 this is
+  the skeleton and the D6 uniform contract only: HTTP surface (`/healthz`,
+  `/readyz` reflecting Postgres via the Actuator `db` indicator, `/metrics`
+  from Micrometer), structured JSON logs, OpenTelemetry (no exporter yet), a
+  provisioned `Reports JVM` Grafana dashboard, and a Prometheus scrape job
+  (the `prom -.-> rep` edge above). The report API (`POST /reports` ->
+  `GET /reports/{id}`, XLSX/PDF/CSV) and the loadgen -> reports ->
+  backend/analytics traffic edges are PR-2, so they are deliberately absent
+  from the diagram above (a diagram that shows what the code does not do is a
+  bug, engineering-principles.md Section 1).
 - **Loadgen** ([readme](../loadgen/README.md)) -- k6, shaped continuous
   load (RFC-0001 D4, ADR-0006). `load` compose profile (opt-in via
   `make up-full` or `--profile load`); depends only on `api` being
@@ -153,6 +171,9 @@ motivating exhibit for the NATS capstone (RFC-0001 Section 10).
 | Build tool         | Vite          |
 | Analytics runtime  | Go            |
 | Analytics DB driver| pgx           |
+| Reports runtime    | Kotlin / JVM  |
+| Reports framework  | Spring Boot 3 |
+| Reports build tool | Gradle        |
 | Metrics            | Prometheus    |
 | Visualization      | Grafana       |
 | Logs               | Loki          |

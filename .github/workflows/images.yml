@@ -50,6 +50,11 @@ jobs:
           - service: analytics
             context: services/analytics
             extra_build_args: "--build-context proto=proto --build-context loadprofile=loadprofile"
+          # reports builds from its own self-contained context (the committed
+          # Gradle wrapper drives the build) -- no additional build contexts
+          - service: reports
+            context: services/reports
+            extra_build_args: ""
           # loadgen lives at the repo root, not under services/ (RFC-0001
           # D8): its build context needs two named additional contexts,
           # same pattern as backend/analytics for proto/ above --

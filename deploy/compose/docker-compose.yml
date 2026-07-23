@@ -345,6 +345,72 @@ services:
       retries: 3
       start_period: 10s
 
+  # reports profile (RFC-0001 D2, Phase 6): opt-in via `make up-full` or
+  # `--profile reports`; core stack is profile-less. Own Postgres instance
+  # (Postgres C) -- service-owns-its-store must be visible in the compose
+  # topology, the same rule analytics follows, not a schema on `db`.
+  postgres-reports:
+    image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    profiles:
+      - reports
+    environment:
+      POSTGRES_DB: ${REPORTS_POSTGRES_DB:-reports}
+      POSTGRES_USER: ${REPORTS_POSTGRES_USER:-reports}
+      POSTGRES_PASSWORD: ${REPORTS_POSTGRES_PASSWORD:-reports}
+    volumes:
+      - pgdata-reports:/var/lib/postgresql/data
+    ports:
+      # host 5434: next after db's 5432 and postgres-analytics' 5433 (all
+      # map to container 5432)
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${REPORTS_POSTGRES_USER:-reports} -d ${REPORTS_POSTGRES_DB:-reports}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - devnet
+    restart: unless-stopped
+
+  # reports profile (RFC-0001 D2): the Kotlin/Spring Boot JVM showcase. Own
+  # Postgres (postgres-reports) for job metadata + a named artifact volume
+  # for generated XLSX/PDF/CSV (never BLOBs in the DB, RFC-0001 D2). No
+  # depends_on on api/analytics: reports tolerates absent optional
+  # dependencies (RFC-0001 D10 graceful degradation) -- it only hard-depends
+  # on its own database being reachable to become ready.
+  reports:
+    build:
+      context: ./services/reports
+    profiles:
+      - reports
+    environment:
+      - REPORTS_DATABASE_URL=jdbc:postgresql://postgres-reports:5432/${REPORTS_POSTGRES_DB:-reports}
+      - REPORTS_DATABASE_USER=${REPORTS_POSTGRES_USER:-reports}
+      - REPORTS_DATABASE_PASSWORD=${REPORTS_POSTGRES_PASSWORD:-reports}
+      - REPORTS_ARTIFACT_DIR=/var/lib/reports/artifacts
+    depends_on:
+      postgres-reports:
+        condition: service_healthy
+    volumes:
+      # Named volume for generated report artifacts (RFC-0001 D2). Defined
+      # now, written by PR-2; the Dockerfile creates/chowns the mount point.
+      - reports-artifacts:/var/lib/reports/artifacts
+    ports:
+      - "8083:8083"
+    networks:
+      - devnet
+    restart: unless-stopped
+    healthcheck:
+      # eclipse-temurin JRE runtime ships wget (installed in the Dockerfile),
+      # same shell-exec probe pattern as the canary against /healthz.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8083/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      # JVM startup is the slowest of any service here (RFC-0001 D2) -- give
+      # it a longer grace period before healthcheck failures count.
+      start_period: 40s
+
   # synthetic profile (ADR-0007 D9 blackbox layer, ADR-0008 D10): opt-in via
   # `make up-full` or `--profile synthetic`; core stack is profile-less.
   blackbox:
@@ -450,6 +516,8 @@ services:
 volumes:
   dbdata: {}
   pgdata-analytics: {}
+  pgdata-reports: {}
+  reports-artifacts: {}
   loki-data: {}
   alloy-data: {}
   grafana-data: {}

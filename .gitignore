@@ -76,6 +76,13 @@ coverage/
 target/
 
 # ============================================================================
+# JVM / Gradle (Reports)
+# ============================================================================
+# Build outputs are covered by the generic build/ rule above; the wrapper
+# (gradlew, gradle/wrapper/*) is committed on purpose and must NOT be ignored.
+.gradle/
+
+# ============================================================================
 # Go (Analytics)
 # ============================================================================
 # Generated gRPC/protobuf Go stubs (RFC-0001 D8, ADR-0002):

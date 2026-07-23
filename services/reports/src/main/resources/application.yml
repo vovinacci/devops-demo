@@ -1,0 +1,86 @@
+# Reports service configuration (RFC-0001 D2, D6, D10, D11).
+# Env vars follow the repo's per-service prefix convention (REPORTS_*),
+# mirroring analytics' ANALYTICS_* and the backend's own vars; the compose
+# `reports` profile sets them, the defaults here target a locally-run
+# `./gradlew bootRun` against `postgres-reports` on host port 5434.
+spring:
+  application:
+    name: reports
+  # Report generation (PR-2) is blocking (Apache POI / PDF); JDK 21 virtual
+  # threads carry that work without a reactive rewrite -- the D2 "heavyweight
+  # framework is the lesson" stack (Spring MVC + JDBC), not WebFlux.
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${REPORTS_DATABASE_URL:jdbc:postgresql://localhost:5434/reports}
+    username: ${REPORTS_DATABASE_USER:reports}
+    password: ${REPORTS_DATABASE_PASSWORD:reports}
+    hikari:
+      # Fail readiness fast when Postgres is down instead of blocking a
+      # /readyz probe for the JDBC default (30s).
+      connection-timeout: 3000
+      # Skip the eager startup connection attempt: the pool starts immediately
+      # and opens connections lazily on first use. postgres-reports is the
+      # service's OWN store (a hard dependency for readiness, not liveness), so
+      # a cold boot with the DB down must still bring the context up -- /healthz
+      # stays 200 and /readyz reports 503 until the DB returns. Verified
+      # empirically; -1 pins that behavior explicitly rather than relying on a
+      # version-dependent Boot/Hikari default. (Distinct from D10 graceful
+      # degradation, which is about the *optional* analytics upstream.)
+      initialization-fail-timeout: -1
+
+server:
+  port: ${REPORTS_HTTP_PORT:8083}
+  shutdown: graceful
+
+# D6 uniform contract via Actuator: liveness/readiness health groups are
+# surfaced at the exact /healthz and /readyz paths on the main server port
+# (additional-path), and the Micrometer Prometheus endpoint is remapped to
+# /metrics. Readiness includes the `db` indicator so it reflects Postgres
+# connectivity (D6); liveness never depends on the DB.
+management:
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health,prometheus
+      path-mapping:
+        prometheus: metrics
+      # No actuator discovery/links page at `/`.
+      discovery:
+        enabled: false
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+          additional-path: server:/healthz
+        readiness:
+          include: readinessState,db
+          additional-path: server:/readyz
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    distribution:
+      # Publish latency histogram buckets for HTTP server requests so the
+      # reports Grafana dashboard's p95 panel has real quantiles to read
+      # (the JVM showcase, RFC-0001 D2); without this Micrometer emits only
+      # count/sum and histogram_quantile would return no data.
+      percentiles-histogram:
+        http.server.requests: true
+  # OpenTelemetry from day one (D11): every trace sampled so trace_id/span_id
+  # reach the JSON logs. No exporter is configured -- spans are dropped, Loki
+  # correlates on trace_id until Tempo lands (RFC-0001 Section 10).
+  tracing:
+    sampling:
+      probability: 1.0
+
+# Artifact volume mount target (RFC-0001 D2): generated XLSX/PDF/CSV land
+# here in PR-2, never in the DB. Defined now so the volume wiring is in place.
+reports:
+  artifact-dir: ${REPORTS_ARTIFACT_DIR:./artifacts}

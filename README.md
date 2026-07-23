@@ -51,7 +51,9 @@ devops-demo/
 ├── services/                    # Self-contained services (own Dockerfile,
 │   ├── backend/                 #   Makefile, tests, README each)
 │   ├── frontend/
-│   └── canary/                  # Rust synthetic-journey canary (synthetic profile)
+│   ├── analytics/               # Go analytics service (analytics profile)
+│   ├── canary/                  # Rust synthetic-journey canary (synthetic profile)
+│   └── reports/                 # Kotlin/Spring Boot reports service (reports profile)
 │
 ├── .devcontainer/               # Devcontainer / GitHub Codespaces setup
 ├── .env.example                 # Compose overrides template (see local-setup)
@@ -132,6 +134,7 @@ After successful startup, all services will be available at the following URLs:
 | **Mailpit**           | http://localhost:8025       | -           | Visible alert receiver: SMTP sink + web UI for notifications                              |
 | **Canary**            | http://localhost:8085       | -           | Synthetic-journey canary (`synthetic` profile)                                            |
 | **Analytics API**     | http://localhost:8082       | -           | Event ingestion + read API (items, stats, seed-marker) (`analytics` profile)              |
+| **Reports API**       | http://localhost:8083       | -           | Kotlin/Spring Boot reports service, skeleton so far (`reports` profile)                   |
 
 For the full command list run `make help`.
 
