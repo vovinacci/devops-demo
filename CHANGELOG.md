@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.0](https://github.com/vovinacci/devops-demo/compare/v1.3.0...v1.4.0) (2026-07-23)
+
+
+### Features
+
+* **analytics:** historical seeder through the live ingestion path ([#173](https://github.com/vovinacci/devops-demo/issues/173)) ([9bbde0e](https://github.com/vovinacci/devops-demo/commit/9bbde0e8b0467e37ddc780e23d029ca753c3a69c))
+* **loadgen:** k6 shaped load behind the load profile ([#171](https://github.com/vovinacci/devops-demo/issues/171)) ([14bdeab](https://github.com/vovinacci/devops-demo/commit/14bdeab5e5932ca33029473bbe607bcafca8a697))
+* **loadgen:** workshop mode and the seeded-anomaly hunt ([#175](https://github.com/vovinacci/devops-demo/issues/175)) ([9cb1b1f](https://github.com/vovinacci/devops-demo/commit/9cb1b1fe3d0860f83076e0c90c019bce82aa7500))
+* **loadprofile:** shared load-shape contract with parity gate ([#168](https://github.com/vovinacci/devops-demo/issues/168)) ([cefb5ab](https://github.com/vovinacci/devops-demo/commit/cefb5abdba40714fbee85e62140a53e4eb18fefd))
+* **observability:** Alertmanager routes alerts to a visible inbox ([#170](https://github.com/vovinacci/devops-demo/issues/170)) ([693171d](https://github.com/vovinacci/devops-demo/commit/693171d72dce67f6c94375507f9a63f28de2cfbb))
+* **observability:** historical dashboards, seed annotations, scale guard ([#174](https://github.com/vovinacci/devops-demo/issues/174)) ([e32e711](https://github.com/vovinacci/devops-demo/commit/e32e711f28e44b11fc63ba334b399006934a1e3e))
+
 ## [1.3.0](https://github.com/vovinacci/devops-demo/compare/v1.2.0...v1.3.0) (2026-07-22)
 
 
