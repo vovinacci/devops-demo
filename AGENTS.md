@@ -84,7 +84,9 @@ first, the diff second. Applies to human authors equally.
 - `make ci` -- exactly what CI runs (includes `prek run --all-files`).
   Local/CI divergence is a bug (engineering-principles.md Section 6).
 - Full stack when relevant: `make up` (core), `make up-full` (all
-  profiles), `make seed`, `make test`.
+  profiles), `make up-workshop` (all profiles at `DEMO_TIME_SCALE=24`,
+  RFC-0001 D5 workshop mode -- seed at the same scale afterward or
+  loadgen's scale guard refuses to start), `make seed`, `make test`.
 - `make seed-history` -- historical seeder (RFC-0001 Phase 5 D5): needs
   the `analytics` profile already up -- run `make up-full` first (or
   `docker compose -f deploy/compose/docker-compose.yml

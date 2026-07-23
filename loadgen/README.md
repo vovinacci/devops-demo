@@ -125,6 +125,22 @@ The HTTP call is bounded to 2 seconds (`SEED_MARKER_TIMEOUT` in
 it returns, so an unreachable analytics must not meaningfully delay
 loadgen's own startup.
 
+**Operational note, live-verified:** the guard only runs once, at `setup()`
+time -- a long-running `loadgen` container that already passed the check
+keeps running unaffected if `analytics` is later re-seeded at a
+*different* scale (the seed-marker row changes underneath it, but nothing
+re-triggers `setup()` on an already-running process). The mismatch only
+surfaces the next time `loadgen` starts, e.g. after
+`docker compose ... restart loadgen` -- and because the compose service
+is `restart: unless-stopped`, a restart against a genuinely mismatched
+marker crash-loops (`setup()` throws every time) until the scales are
+reconciled. So: after re-seeding at a scale different from what `loadgen`
+is currently running with, either restart `loadgen` only once you have
+also re-seeded it to match, or leave `loadgen` running unrestarted until
+the next matching reseed. `make up-workshop` avoids this by construction
+-- it starts `loadgen` and `analytics` at the same `DEMO_TIME_SCALE=24`
+together, so the very first seed after it already matches.
+
 `scenarios/smoke.js` re-exports the same `setup` from `main.js` (not a
 separate copy) -- this is what makes the CI/nightly e2e gate exercise the
 guard's absent/never-seeded paths too, not just the long-running service.
