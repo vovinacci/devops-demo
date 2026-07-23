@@ -134,10 +134,13 @@ surfaces the next time `loadgen` starts, e.g. after
 `docker compose ... restart loadgen` -- and because the compose service
 is `restart: unless-stopped`, a restart against a genuinely mismatched
 marker crash-loops (`setup()` throws every time) until the scales are
-reconciled. So: after re-seeding at a scale different from what `loadgen`
-is currently running with, either restart `loadgen` only once you have
-also re-seeded it to match, or leave `loadgen` running unrestarted until
-the next matching reseed. `make up-workshop` avoids this by construction
+reconciled. Do NOT leave a running `loadgen` straddling a
+differently-scaled reseed: its live traffic keeps the OLD scale's shape
+against the NEW seed's history, which is exactly the seam discontinuity
+the guard exists to prevent (Hard rule 8). The procedure is: stop
+`loadgen` first (`docker compose ... stop loadgen`), re-seed at the new
+scale, then start it again only once the fresh seed marker matches the
+`DEMO_TIME_SCALE` it will run with. `make up-workshop` avoids this by construction
 -- it starts `loadgen` and `analytics` at the same `DEMO_TIME_SCALE=24`
 together, so the very first seed after it already matches.
 

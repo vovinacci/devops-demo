@@ -86,7 +86,9 @@ first, the diff second. Applies to human authors equally.
 - Full stack when relevant: `make up` (core), `make up-full` (all
   profiles), `make up-workshop` (all profiles at `DEMO_TIME_SCALE=24`,
   RFC-0001 D5 workshop mode -- seed at the same scale afterward or
-  loadgen's scale guard refuses to start), `make seed`, `make test`.
+  loadgen's scale guard refuses to start against the mismatched seed
+  marker; with no marker or analytics absent it continues),
+  `make seed`, `make test`.
 - `make seed-history` -- historical seeder (RFC-0001 Phase 5 D5): needs
   the `analytics` profile already up -- run `make up-full` first (or
   `docker compose -f deploy/compose/docker-compose.yml

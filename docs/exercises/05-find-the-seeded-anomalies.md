@@ -100,7 +100,7 @@ DEMO_TIME_SCALE=24 SEED_DAYS=3 make seed-history
    truth, independent of any dashboard rendering):
 
    ```shell
-   curl -sS -u admin:admin "http://localhost:3000/api/annotations?tags=seed-anomaly" | jq '.[] | {text, time, timeEnd}'  # gitleaks:allow -- checked-in demo credential (Grafana admin/admin)
+   curl -sS -u "${GRAFANA_USER:-admin}:${GRAFANA_PASSWORD:-admin}" "http://localhost:3000/api/annotations?tags=seed-anomaly" | jq '.[] | {text, time, timeEnd}'  # gitleaks:allow -- rule fires on the -u flag shape; no literal secret here, creds come from env with demo defaults
    ```
 
 6. For each annotation, compute where its window *should* fall using
@@ -113,9 +113,13 @@ DEMO_TIME_SCALE=24 SEED_DAYS=3 make seed-history
    hand):
 
    ```text
-   real_start    = ref_unix - offset_days * 86400 / scale
+   real_start    = ref_unix + offset_days * 86400 / scale
    real_duration = duration_hours * 3600 / scale
    ```
+
+   (`offset_days` values are negative, so the addition lands each
+   window *before* the reference time -- `-10` days becomes
+   `ref - 10h` at scale 24.)
 
    Check your three computed windows against the annotation timestamps
    from step 5. They should match exactly (to the second).
@@ -169,12 +173,23 @@ This table is not a guess -- it is what three separate live seed runs
   anomalies fall below its resolution.
 
 If you want to see `traffic-spike` and `ingestion-outage` reliably
-change the shape of the bars, re-run this exercise's prerequisites with
-`DEMO_TIME_SCALE=1` (or unset) instead of `24` -- at real time, both
-anomalies' real windows equal their full profile-time duration (6h and
-4h), several times longer than the hourly sampling interval, and both
-produce a clean, visible signature (the outage as zero-count hours, the
-spike as a multi-hour surge).
+change the shape of the bars, redo the setup at real time -- note this
+is NOT `make up-workshop` (that target hardcodes `DEMO_TIME_SCALE=24`),
+the old scale-24 seed marker must go first (a scale-1 `loadgen` would
+refuse to start against it), and the seed needs at least 11 days so the
+`-10`-day anomaly falls inside the window:
+
+```shell
+make down
+docker compose -f deploy/compose/docker-compose.yml --project-directory . --profile analytics down -v
+make up-full
+SEED_DAYS=11 make seed-history
+```
+
+At real time both anomalies' windows equal their full profile-time
+duration (6h and 4h), several times longer than the hourly sampling
+interval, and both produce a clean, visible signature (the outage as
+zero-count hours, the spike as a multi-hour surge).
 
 ## Cleanup
 

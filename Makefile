@@ -46,7 +46,7 @@ up-full: ## Start all services incl. optional profiles
 	$(COMPOSE) --profile synthetic --profile analytics --profile load up -d --build
 
 .PHONY: up-workshop
-up-workshop: ## Start all profiles at DEMO_TIME_SCALE=24 (RFC-0001 D5 workshop mode: one profile-day compresses to 1 wall-clock hour). Seed at the SAME scale afterward -- `DEMO_TIME_SCALE=24 make seed-history` -- or loadgen's scale guard refuses to start (docs/exercises/05-find-the-seeded-anomalies.md)
+up-workshop: ## Start all profiles at DEMO_TIME_SCALE=24 (RFC-0001 D5 workshop mode: one profile-day compresses to 1 wall-clock hour). Seed at the SAME scale afterward -- `DEMO_TIME_SCALE=24 make seed-history` -- or loadgen's scale guard refuses to start against the mismatched seed marker (no marker / analytics absent: it continues; docs/exercises/05-find-the-seeded-anomalies.md)
 	$(PRINT_TARGET)
 	DEMO_TIME_SCALE=24 $(COMPOSE) --profile synthetic --profile analytics --profile load up -d --build
 
@@ -107,7 +107,7 @@ seed-dry: ## Dry run seed (show what will be created)
 	$(COMPOSE) run --rm api sh -c "python -m app.seed --dry-run --count 10"
 
 .PHONY: seed-history
-seed-history: seed ## Seed analytics historical data (RFC-0001 Phase 5 D5): run AFTER `make up`/`make up-full`/`make up-workshop` with the analytics profile already up (postgres-analytics + api reachable) -- --no-deps below means this does NOT start them for you. SEED_DAYS/SEED_SEED override the defaults (90/42); SEED_DAYS=3 for a quick local check. After `make up-workshop`, run as `DEMO_TIME_SCALE=24 make seed-history` -- the compose `run` below reads DEMO_TIME_SCALE from this shell's environment same as any other `docker compose` invocation, so it must match the stack's scale or loadgen's scale guard refuses to start (D5 coherence).
+seed-history: seed ## Seed analytics historical data (RFC-0001 Phase 5 D5): run AFTER `make up`/`make up-full`/`make up-workshop` with the analytics profile already up (postgres-analytics + api reachable) -- --no-deps below means this does NOT start them for you. SEED_DAYS/SEED_SEED override the defaults (90/42); SEED_DAYS=3 for a quick local check. After `make up-workshop`, run as `DEMO_TIME_SCALE=24 make seed-history` -- the compose `run` below reads DEMO_TIME_SCALE from this shell's environment same as any other `docker compose` invocation, so it must match the stack's scale or loadgen's scale guard refuses to start against the mismatched marker (D5 coherence; missing marker or absent analytics: loadgen continues).
 	$(PRINT_TARGET)
 	$(COMPOSE) --profile analytics run --rm --no-deps analytics \
 		seed --days $${SEED_DAYS:-90} --seed $${SEED_SEED:-42}
