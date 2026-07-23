@@ -8,6 +8,7 @@
 import http from "k6/http";
 import grpc from "k6/net/grpc";
 import { check, sleep } from "k6";
+import exec from "k6/execution";
 import { Rate, Trend } from "k6/metrics";
 
 import { env, profile } from "../lib/env.js";
@@ -378,7 +379,10 @@ function locationHeader(res) {
 }
 
 export function report() {
-  const format = REPORT_FORMATS[__ITER % REPORT_FORMATS.length];
+  // Test-wide iteration counter, not __ITER (which resets per VU, so
+  // concurrent VUs would correlate on the same format): rotate formats
+  // evenly across the whole run.
+  const format = REPORT_FORMATS[exec.scenario.iterationInTest % REPORT_FORMATS.length];
   const submitRes = http.post(
     `${env.reportsUrl}/reports`,
     JSON.stringify({ type: "items-summary", format }),
@@ -418,10 +422,14 @@ export function report() {
     return;
   }
 
+  // Job's accepted->succeeded wall-clock, captured before the download so the
+  // Trend measures report completion latency, not the download transfer.
+  const completedMs = Date.now();
+
   const downloadRes = http.get(`${env.reportsUrl}${location}/download`, {
     tags: { name: "report_download" },
   });
   const downloaded = check(downloadRes, { "report: download 200": (r) => r.status === 200 });
   reportJobFailed.add(!downloaded);
-  if (downloaded) reportJobDuration.add(Date.now() - startedMs);
+  if (downloaded) reportJobDuration.add(completedMs - startedMs);
 }
