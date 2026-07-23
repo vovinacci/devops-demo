@@ -53,7 +53,7 @@ Submit a report and poll it to completion:
 id=$(curl -s -D - -o /dev/null -X POST http://localhost:8083/reports \
   -H 'content-type: application/json' \
   -d '{"type":"items-summary","format":"xlsx"}' \
-  | awk -F'/' '/^location:/ {print $3}' | tr -d '\r')
+  | awk -F'/' 'tolower($0) ~ /^location:/ {print $3}' | tr -d '\r')
 echo "job: $id"
 
 # Poll until SUCCEEDED.
@@ -103,7 +103,7 @@ docker compose -f deploy/compose/docker-compose.yml --project-directory . \
 id=$(curl -s -D - -o /dev/null -X POST http://localhost:8083/reports \
   -H 'content-type: application/json' \
   -d '{"type":"items-summary","format":"csv"}' \
-  | awk -F'/' '/^location:/ {print $3}' | tr -d '\r')
+  | awk -F'/' 'tolower($0) ~ /^location:/ {print $3}' | tr -d '\r')
 sleep 2
 curl -s http://localhost:8083/reports/$id | jq .status   # SUCCEEDED
 curl -s http://localhost:8083/reports/$id/download        # CSV with an

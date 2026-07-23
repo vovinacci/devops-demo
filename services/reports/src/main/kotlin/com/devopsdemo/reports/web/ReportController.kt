@@ -5,17 +5,20 @@ import com.devopsdemo.reports.domain.ReportFormat
 import com.devopsdemo.reports.domain.ReportType
 import com.devopsdemo.reports.jobs.ArtifactStore
 import com.devopsdemo.reports.jobs.ReportService
+import com.devopsdemo.reports.jobs.ReportServiceUnavailableException
 import org.springframework.core.io.FileSystemResource
 import org.springframework.core.io.Resource
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
 import java.net.URI
@@ -89,4 +92,12 @@ class ReportController(
     }
 
     private fun notFound(id: String) = ResponseStatusException(HttpStatus.NOT_FOUND, "report $id not found")
+
+    // A submit rejected because the service is draining for shutdown: the job
+    // was never persisted, so the client should retry later, not treat it as
+    // accepted. 503 (with the retryable semantics that carries) is the right
+    // signal, distinct from the 4xx client errors above.
+    @ExceptionHandler(ReportServiceUnavailableException::class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    fun handleShuttingDown(e: ReportServiceUnavailableException): Map<String, String> = mapOf("error" to (e.message ?: "service unavailable"))
 }

@@ -285,6 +285,27 @@ class ReportJobApiTests {
 
     @Test
     @Order(9)
+    fun analyticsExplicitNullCountDegradesButStillSucceeds() {
+        // D10 (Hard rule 9): analytics returns HTTP 200 with a well-formed array
+        // whose 'count' is an explicit JSON null. JsonNode.get returns a NullNode
+        // (not Kotlin null) here, so the guard must treat it as absent -> the
+        // parse fails inside the AnalyticsUnavailableException contract and the
+        // job still SUCCEEDS degraded, never failing on a coerced-0 count.
+        analyticsBody = """[{"event_type":"created","count":null}]"""
+        try {
+            val id = submit("csv")
+            awaitStatus(id, "SUCCEEDED")
+            val text = downloadText(id)
+            assertThat(text).contains("widget")
+            assertThat(text).contains("analytics_status")
+            assertThat(text).contains("unavailable")
+        } finally {
+            analyticsBody = DEFAULT_ANALYTICS_STATS
+        }
+    }
+
+    @Test
+    @Order(10)
     fun analyticsDownStillSucceedsWithMarker() {
         // D10: stop analytics entirely (connection refused), the job must still
         // SUCCEED on backend data with a distinct unavailable marker.
@@ -299,7 +320,26 @@ class ReportJobApiTests {
     }
 
     @Test
-    @Order(10)
+    @Order(11)
+    fun backendExplicitNullIdFailsJob() {
+        // Backend is the source of truth: a well-formed array whose item 'id' is
+        // an explicit JSON null must FAIL the job (BackendUnavailableException),
+        // never a silently-0 id. JsonNode.get returns a NullNode (not Kotlin
+        // null), so a plain `?: throw` would miss it -- this asserts the
+        // null/isNull guard. Backend is still up; the body itself is the fault.
+        backendBody = """[{"id":null,"name":"widget"}]"""
+        try {
+            val id = submit("csv")
+            val status = awaitStatus(id, "FAILED")
+            assertThat(status["error"] as String).contains("id")
+            assertThat(status["download"]).isNull()
+        } finally {
+            backendBody = DEFAULT_BACKEND_ITEMS
+        }
+    }
+
+    @Test
+    @Order(12)
     fun backendDownFailsJobAndDownloadConflicts() {
         // Backend is the source of truth: with it down the job FAILS, surfaces
         // the error, and download is 409 (no artifact to serve).
@@ -315,7 +355,7 @@ class ReportJobApiTests {
     }
 
     @Test
-    @Order(11)
+    @Order(13)
     fun startupReconciliationFailsOrphanedRunningJob() {
         // A job left RUNNING by a crash/interrupted shutdown must be reconciled
         // to FAILED on startup. Simulate the orphan (insert + markRunning) and

@@ -14,7 +14,7 @@
 -- artifact_path is the path on that volume; artifact_bytes is its size, also
 -- surfaced as a metric. params is the request payload (report-type inputs)
 -- kept as jsonb for auditability and for the dashboard to slice on.
-CREATE TABLE IF NOT EXISTS report_jobs (
+CREATE TABLE report_jobs (
     id             text PRIMARY KEY,
     type           text NOT NULL,
     format         text NOT NULL CHECK (format IN ('xlsx', 'pdf', 'csv')),
@@ -30,5 +30,5 @@ CREATE TABLE IF NOT EXISTS report_jobs (
 
 -- Dashboard / operational queries slice by status and scan recent jobs in
 -- creation order (e.g. "jobs by status", "most recent failures").
-CREATE INDEX IF NOT EXISTS report_jobs_status_idx ON report_jobs (status);
-CREATE INDEX IF NOT EXISTS report_jobs_created_at_idx ON report_jobs (created_at DESC);
+CREATE INDEX report_jobs_status_idx ON report_jobs (status);
+CREATE INDEX report_jobs_created_at_idx ON report_jobs (created_at DESC);

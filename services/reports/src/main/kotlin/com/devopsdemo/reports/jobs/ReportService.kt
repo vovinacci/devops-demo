@@ -21,6 +21,8 @@ import org.springframework.beans.factory.DisposableBean
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
+import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
@@ -28,6 +30,14 @@ import java.util.concurrent.CancellationException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+
+// Thrown by submit() when the service is shutting down: the executor is being
+// drained, so a new job must not be admitted (no PENDING row is persisted).
+// The controller maps this to HTTP 503 so the client sees "try again later"
+// rather than a 202 for a job that would never run on this instance.
+class ReportServiceUnavailableException(
+    message: String,
+) : RuntimeException(message)
 
 // Async report job runner (RFC-0001 D2 coroutines). POST /reports calls
 // submit(), which persists a PENDING job and returns immediately; the render
@@ -55,11 +65,20 @@ class ReportService(
     private val scope =
         CoroutineScope(SupervisorJob() + executor.asCoroutineDispatcher() + CoroutineName("report-jobs"))
 
+    // Flipped false FIRST in destroy(), before the executor is shut down, so
+    // job admission is atomic with shutdown: submit() rejects with a 503 rather
+    // than persisting a PENDING row whose launch the draining executor would
+    // reject, leaving an un-runnable job only the next-startup sweep reconciles.
+    @Volatile private var acceptingJobs = true
+
     fun submit(
         type: ReportType,
         format: ReportFormat,
         params: Map<String, Any?>,
     ): String {
+        if (!acceptingJobs) {
+            throw ReportServiceUnavailableException("reports service is shutting down, not accepting new jobs")
+        }
         val id = UUID.randomUUID().toString()
         repository.insertPending(id, type, format, params)
         metrics.jobSubmitted()
@@ -82,6 +101,12 @@ class ReportService(
         metrics.inflightIncrement()
         val startNanos = System.nanoTime()
         var status = JobStatus.FAILED
+        // Non-null once the artifact is on the volume. If a later step (e.g.
+        // markSucceeded) then fails, the job ends FAILED but the file is
+        // orphaned -- the download endpoint never serves a FAILED job, so it is
+        // pure waste that leaks storage on repeated transient failures. Delete
+        // it best-effort in both failure branches.
+        var writtenPath: Path? = null
         try {
             repository.markRunning(id, Instant.now())
             log.info("report job started id={}", id)
@@ -89,6 +114,7 @@ class ReportService(
             val model = modelBuilder.build(type)
             val bytes = renderers.forFormat(format).render(model)
             val path = artifactStore.write(id, format, bytes)
+            writtenPath = path
 
             repository.markSucceeded(id, path.toString(), bytes.size.toLong(), Instant.now())
             metrics.artifactWritten(bytes.size.toLong())
@@ -99,12 +125,14 @@ class ReportService(
             // observed at a suspension point, and the blocking POI/PDF render
             // has none. It is NOT the guarantee -- reconcileOrphanedJobs() on the
             // next startup is what guarantees no job stays non-terminal.
+            deleteOrphanedArtifact(id, writtenPath)
             withContext(NonCancellable) {
                 repository.markFailed(id, "interrupted by shutdown", Instant.now())
             }
             log.warn("report job interrupted by shutdown id={}", id)
             throw e
         } catch (e: Exception) {
+            deleteOrphanedArtifact(id, writtenPath)
             val message = e.message ?: e.javaClass.simpleName
             repository.markFailed(id, message, Instant.now())
             log.error("report job failed id={}: {}", id, message, e)
@@ -122,12 +150,32 @@ class ReportService(
     // here -- it is reconciled to FAILED on the next startup
     // (reconcileOrphanedJobs). This method promises only the best-effort drain.
     override fun destroy() {
+        // Stop admitting jobs BEFORE shutting the executor down, so no PENDING
+        // row is persisted for a launch the draining executor would reject.
+        acceptingJobs = false
         log.info("shutting down report job scope, draining in-flight jobs")
         executor.shutdown()
         if (!executor.awaitTermination(DRAIN_SECONDS, TimeUnit.SECONDS)) {
             log.warn("in-flight report jobs did not drain in {}s, interrupting", DRAIN_SECONDS)
             scope.cancel()
             executor.shutdownNow()
+        }
+    }
+
+    // Best-effort cleanup of an artifact written just before the job failed.
+    // Logs on failure and never throws, so it cannot mask the original error
+    // that put the job on the failure path.
+    private fun deleteOrphanedArtifact(
+        id: String,
+        path: Path?,
+    ) {
+        if (path == null) return
+        try {
+            if (Files.deleteIfExists(path)) {
+                log.info("deleted orphaned artifact for failed job id={} path={}", id, path)
+            }
+        } catch (e: Exception) {
+            log.warn("failed to delete orphaned artifact for job id={} path={}: {}", id, path, e.message)
         }
     }
 

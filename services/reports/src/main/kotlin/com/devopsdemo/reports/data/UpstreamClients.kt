@@ -1,6 +1,7 @@
 package com.devopsdemo.reports.data
 
 import com.devopsdemo.reports.config.ReportsProperties
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.stereotype.Component
 import java.net.URI
@@ -16,6 +17,13 @@ object SyntheticTraffic {
 
     fun isSynthetic(name: String): Boolean = prefixes.any { name.startsWith(it) }
 }
+
+// JsonNode.get(field) returns a NullNode (not Kotlin null) for an explicit
+// {"field": null}, and Kotlin null only for a missing field -- so a plain
+// `?: throw` catches the missing case but silently lets an explicit null
+// through to asLong()/asText() (which coerce it to 0/""). A required field is
+// absent in either case, so both upstream parsers guard with this.
+private fun JsonNode?.isAbsentOrNull(): Boolean = this == null || this.isNull || this.isMissingNode
 
 // Thrown when the backend (the source of truth) cannot be read. Unlike an
 // analytics failure this is fatal to the job: without items there is no report
@@ -66,11 +74,13 @@ class BackendClient(
             throw BackendUnavailableException("backend /items did not return a JSON array")
         }
         return root.map { node ->
-            val idNode = node.get("id") ?: throw BackendUnavailableException("backend item missing 'id'")
-            val nameNode = node.get("name") ?: throw BackendUnavailableException("backend item missing 'name'")
-            val name = nameNode.asText()
+            val idNode = node.get("id")
+            if (idNode.isAbsentOrNull()) throw BackendUnavailableException("backend item missing 'id'")
+            val nameNode = node.get("name")
+            if (nameNode.isAbsentOrNull()) throw BackendUnavailableException("backend item missing 'name'")
+            val name = nameNode!!.asText()
             ItemRow(
-                id = idNode.asLong(),
+                id = idNode!!.asLong(),
                 name = name,
                 synthetic = SyntheticTraffic.isSynthetic(name),
             )
@@ -122,9 +132,11 @@ class AnalyticsClient(
             val root = mapper.readTree(response.body())
             require(root.isArray) { "analytics /api/v1/stats did not return a JSON array" }
             root.map { node ->
-                val typeNode = requireNotNull(node.get("event_type")) { "analytics stat missing 'event_type'" }
-                val countNode = requireNotNull(node.get("count")) { "analytics stat missing 'count'" }
-                AnalyticsStat(eventType = typeNode.asText(), count = countNode.asLong())
+                val typeNode = node.get("event_type")
+                require(!typeNode.isAbsentOrNull()) { "analytics stat missing 'event_type'" }
+                val countNode = node.get("count")
+                require(!countNode.isAbsentOrNull()) { "analytics stat missing 'count'" }
+                AnalyticsStat(eventType = typeNode!!.asText(), count = countNode!!.asLong())
             }
         } catch (e: Exception) {
             throw AnalyticsUnavailableException("analytics response was not the expected shape", e)
