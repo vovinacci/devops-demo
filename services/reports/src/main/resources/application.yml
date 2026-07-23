@@ -18,10 +18,17 @@ spring:
     password: ${REPORTS_DATABASE_PASSWORD:reports}
     hikari:
       # Fail readiness fast when Postgres is down instead of blocking a
-      # /readyz probe for the JDBC default (30s); the pool still initializes
-      # lazily, so the app starts even with the DB absent (D10 spirit) and
-      # flips ready once it returns.
+      # /readyz probe for the JDBC default (30s).
       connection-timeout: 3000
+      # Skip the eager startup connection attempt: the pool starts immediately
+      # and opens connections lazily on first use. postgres-reports is the
+      # service's OWN store (a hard dependency for readiness, not liveness), so
+      # a cold boot with the DB down must still bring the context up -- /healthz
+      # stays 200 and /readyz reports 503 until the DB returns. Verified
+      # empirically; -1 pins that behavior explicitly rather than relying on a
+      # version-dependent Boot/Hikari default. (Distinct from D10 graceful
+      # degradation, which is about the *optional* analytics upstream.)
+      initialization-fail-timeout: -1
 
 server:
   port: ${REPORTS_HTTP_PORT:8083}

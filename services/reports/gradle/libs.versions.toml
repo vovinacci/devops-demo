@@ -11,9 +11,15 @@ ktlintPlugin = "12.1.2"
 ktlint = "1.5.0"
 # Spring Boot's BOM does not manage the Logstash encoder, so it is pinned here.
 logstashLogbackEncoder = "8.1"
+# Override the Boot BOM's postgresql (42.7.11): that version is affected by
+# CVE-2026-54291 (GHSA-j92g-9f8w-j867), a silent SCRAM channel-binding
+# downgrade, fixed in 42.7.12. An explicit version on the dependency wins over
+# the BOM (io.spring.dependency-management overriddenByDependencies default).
+postgresql = "42.7.12"
 
 [libraries]
 logstash-logback-encoder = { module = "net.logstash.logback:logstash-logback-encoder", version.ref = "logstashLogbackEncoder" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }

@@ -1,6 +1,6 @@
 # Architecture overview
 
-Two application services plus a full observability stack, wired by Docker
+Application services plus a full observability stack, wired by Docker
 Compose. Design rationale and history live in the RFCs:
 [RFC-0000](rfc/0000-baseline-retrospective.md) documents this baseline;
 [RFC-0001](rfc/0001-polyglot-platform.md) is the plan it evolves under.

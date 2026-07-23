@@ -19,12 +19,20 @@ on:
 env:
   JAVA_VERSION: "21"
 
+# Read-only token for the whole workflow: lint, test, audit and image build
+# only need to read the checkout. Individual checkouts also drop the token
+# from the local git config (persist-credentials: false) since nothing pushes.
+permissions:
+  contents: read
+
 jobs:
   lint-reports:
     name: Lint Reports
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up JDK
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
@@ -44,6 +52,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up JDK
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
@@ -63,10 +73,10 @@ jobs:
   audit-reports:
     name: Audit Reports (Trivy lockfile scan)
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       # No govulncheck/cargo-deny analog is reliable offline for the JVM
       # (OWASP dependency-check needs a slow, flaky NVD feed). This repo
@@ -92,6 +102,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Build image (no push)
         run: |

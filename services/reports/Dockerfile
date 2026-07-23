@@ -14,7 +14,7 @@ WORKDIR /build
 # dependency download instead of re-fetching the JVM ecosystem every build.
 COPY gradlew ./
 COPY gradle ./gradle
-COPY settings.gradle.kts build.gradle.kts gradle.lockfile ./
+COPY settings.gradle.kts build.gradle.kts gradle.lockfile settings-gradle.lockfile ./
 RUN ./gradlew --no-daemon dependencies >/dev/null 2>&1 || true
 
 COPY src ./src

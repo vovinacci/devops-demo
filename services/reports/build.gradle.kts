@@ -50,7 +50,10 @@ dependencies {
     // report jobs land in PR-2, the dependency is wired now.
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
     implementation(libs.logstash.logback.encoder)
-    runtimeOnly("org.postgresql:postgresql")
+    // Pinned via the version catalog to override the Boot BOM (42.7.11 ->
+    // 42.7.12, CVE-2026-54291): an explicit dependency version wins over the
+    // BOM-managed one.
+    runtimeOnly(libs.postgresql)
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
