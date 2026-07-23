@@ -73,7 +73,11 @@ anomalies (spike/outage/degradation), written by `analytics seed` at
 seed time via the Grafana HTTP annotation API
 (`services/analytics/README.md`'s Grafana annotations section) and
 tagged `seed-anomaly` so this dashboard's annotation query finds them
-regardless of which dashboard they were written from.
+regardless of which dashboard they were written from. `make up-workshop`
+(`DEMO_TIME_SCALE=24`) is the fastest way to see all three at once;
+`docs/exercises/05-find-the-seeded-anomalies.md` walks through finding
+them and a live-verified caveat where two of the three leave no trace in
+the hourly aggregate at that scale even though their annotation stays exact.
 
 ## SLOs
 

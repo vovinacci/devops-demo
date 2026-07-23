@@ -318,6 +318,24 @@ is a profile-independent process a seed run must not depend on).
   events across real/wall-clock hours, so the annotation must mark the
   window those events actually landed in, computed by inverting that same
   scaling.
+- **The annotation is always exact; the hourly aggregate is not,** at
+  high scale, for short anomalies -- live-verified (RFC-0001 Phase 5
+  PR-3, `docs/exercises/05-find-the-seeded-anomalies.md`): the seeder
+  samples `loadshape.Rate` once per real hour
+  (`bucketMid = hourStart + 30m`), so an anomaly whose *real* window
+  (`duration_hours / scale`) is shorter than that hourly sampling
+  interval may fall between samples and leave no trace in
+  `event_buckets` at all, even though its annotation is exact regardless.
+  At `DEMO_TIME_SCALE=24` this is the normal case for `traffic-spike`
+  (15 real minutes) and `ingestion-outage` (10 real minutes) -- three
+  separate live seed runs at scale 24 produced zero visible signature
+  for either in the hourly bars. `gradual-degradation` (2 real hours at
+  scale 24) is long enough relative to the hourly sample to stay
+  reliably visible as a real, measured decline. At `scale=1` (see
+  Runtime below) `ingestion-outage`'s 4-hour window is itself an exact
+  multiple of the sampling interval, which is why it shows as 4 clean
+  zero-count hours there but not at scale 24 -- same profile, same code,
+  different outcome, purely a function of duration-vs-sample-rate.
 - **Tags:** every annotation carries `seed-anomaly` plus the anomaly's
   own type (`spike`/`outage`/`degradation`), e.g.
   `["seed-anomaly", "spike"]`.

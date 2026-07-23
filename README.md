@@ -101,6 +101,19 @@ free RAM, 3 GB free disk.
   make seed-history
   ```
 
+- Workshop mode: all profiles at `DEMO_TIME_SCALE=24` (one profile-day
+  compresses to 1 wall-clock hour, RFC-0001 D5) -- seed at the same scale
+  or loadgen's scale guard refuses to start against the mismatched seed
+  marker (no marker yet or analytics absent: it continues)
+
+  ```shell
+  make up-workshop
+  DEMO_TIME_SCALE=24 SEED_DAYS=3 make seed-history
+  ```
+
+  See [Exercise 05](docs/exercises/05-find-the-seeded-anomalies.md) for
+  what to do with it.
+
 After successful startup, all services will be available at the following URLs:
 
 | Service               | URL                         | Credentials | Description                                                                               |
