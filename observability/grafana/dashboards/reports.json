@@ -26,7 +26,7 @@
    "gridPos": { "x": 0, "y": 0, "w": 24, "h": 3 },
    "options": {
     "mode": "markdown",
-    "content": "JVM whitebox for the Kotlin reports service (RFC-0001 D2 JVM showcase). Phase 6 PR-1 ships the skeleton panels below from metrics the service already exposes at `/metrics`. The **GC sawtooth** exhibit -- bursty heap allocation from Apache POI / PDF generation making garbage collection visible -- lands with **PR-2**'s report workload, which enriches the Heap and GC panels here. All panels read the Prometheus datasource; `reports` is an opt-in compose profile, so panels show *No data* when it is not up (expected, RFC-0001 D10)."
+    "content": "JVM whitebox for the Kotlin reports service (RFC-0001 D2 JVM showcase). The **GC sawtooth** exhibit is live as of Phase 6 PR-2: the report engine's bursty Apache POI / PDF allocation drives the Heap and GC panels below -- watch `Heap Used` climb between collections and drop on each GC while a report generates. The report-job row (jobs by status, duration p95, in-flight, artifact throughput) reads the service's custom Micrometer meters. All panels read the Prometheus datasource; `reports` is an opt-in compose profile, so panels show *No data* when it is not up (expected, RFC-0001 D10)."
    }
   },
   {
@@ -83,7 +83,7 @@
   {
    "type": "stat",
    "title": "Live Threads",
-   "description": "jvm_threads_live_threads -- current live thread count (daemon + non-daemon). Virtual threads are enabled (spring.threads.virtual), so platform-thread growth under load stays modest -- a thing to watch once PR-2 adds the blocking report workload.",
+   "description": "jvm_threads_live_threads -- current live thread count (daemon + non-daemon). Virtual threads are enabled (spring.threads.virtual) and report jobs run on a small bounded dispatcher, so platform-thread growth under the report workload stays modest.",
    "gridPos": { "x": 12, "y": 3, "w": 6, "h": 6 },
    "targets": [
     {
@@ -102,7 +102,7 @@
   {
    "type": "stat",
    "title": "Heap Used",
-   "description": "sum(jvm_memory_used_bytes{area=\"heap\"}) -- current heap occupancy across all pools. The sawtooth between GC cycles becomes pronounced with PR-2's bursty allocation.",
+   "description": "sum(jvm_memory_used_bytes{area=\"heap\"}) -- current heap occupancy across all pools. The sawtooth between GC cycles is the report engine's bursty POI/PDF allocation made visible (RFC-0001 D2).",
    "gridPos": { "x": 18, "y": 3, "w": 6, "h": 6 },
    "targets": [
     {
@@ -121,7 +121,7 @@
   {
    "type": "timeseries",
    "title": "JVM Heap: Used vs Committed",
-   "description": "sum by state of jvm_memory_used_bytes / jvm_memory_committed_bytes for area=\"heap\". Used tracks live objects; committed is what the OS has handed the heap. The gap and the used-line sawtooth are the GC-visibility exhibit (RFC-0001 D2), most pronounced once PR-2's report generation allocates in bursts.",
+   "description": "sum by state of jvm_memory_used_bytes / jvm_memory_committed_bytes for area=\"heap\". Used tracks live objects; committed is what the OS has handed the heap. The gap and the used-line sawtooth are the GC-visibility exhibit (RFC-0001 D2), driven by the report engine's bursty allocation during generation.",
    "gridPos": { "x": 0, "y": 9, "w": 12, "h": 8 },
    "targets": [
     {
@@ -169,7 +169,7 @@
   {
    "type": "timeseries",
    "title": "GC Pause Rate by Action",
-   "description": "sum(rate(jvm_gc_pause_seconds_count[5m])) by (action) -- how often GC pauses happen, split by action (end of minor/major GC). Near-flat on the idle skeleton; PR-2's allocation bursts drive it up -- the counterpart to the heap sawtooth.",
+   "description": "sum(rate(jvm_gc_pause_seconds_count[5m])) by (action) -- how often GC pauses happen, split by action (end of minor/major GC). Near-flat when idle; the report engine's allocation bursts drive it up -- the counterpart to the heap sawtooth.",
    "gridPos": { "x": 0, "y": 17, "w": 12, "h": 8 },
    "targets": [
     {
@@ -211,7 +211,7 @@
   {
    "type": "timeseries",
    "title": "HTTP Request Rate by Status",
-   "description": "sum(rate(http_server_requests_seconds_count[5m])) by (status) -- Micrometer's server-side request rate. On the skeleton this is mostly the /healthz, /readyz, /metrics probe traffic; PR-2 adds the /reports API.",
+   "description": "sum(rate(http_server_requests_seconds_count[5m])) by (status) -- Micrometer's server-side request rate. Mostly /healthz, /readyz, /metrics probe traffic plus the /reports job API (POST create, GET status, GET download).",
    "gridPos": { "x": 0, "y": 25, "w": 12, "h": 8 },
    "targets": [
     {
@@ -245,6 +245,99 @@
    "fieldConfig": {
     "defaults": {
      "unit": "s",
+     "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "text",
+   "title": "Report jobs (RFC-0001 Phase 6 PR-2)",
+   "gridPos": { "x": 0, "y": 33, "w": 24, "h": 2 },
+   "options": {
+    "mode": "markdown",
+    "content": "The report engine's custom Micrometer meters. Each job POSTed to `/reports` runs on a bounded dispatcher; the bursty POI/PDF allocation it does is what drives the Heap/GC panels above into the sawtooth. Empty until reports are generated (e.g. the loadgen report scenario in PR-3, or a manual `POST /reports`)."
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Report Jobs by Status",
+   "description": "sum(rate(reports_jobs_completed_total[5m])) by (status) -- completed report jobs per second, split by terminal status (succeeded/failed). The failed line rising is the signal a report upstream (backend) or renderer is broken.",
+   "gridPos": { "x": 0, "y": 35, "w": 12, "h": 8 },
+   "targets": [
+    {
+     "expr": "sum(rate(reports_jobs_completed_total{job=\"reports\"}[5m])) by (status)",
+     "legendFormat": "{{ status }}",
+     "refId": "A",
+     "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ops",
+     "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Report Job Duration p95",
+   "description": "histogram_quantile(0.95, sum(rate(reports_job_duration_seconds_bucket[5m])) by (le)) -- 95th-percentile end-to-end job duration (upstream fetch + render + artifact write). Buckets published via management.metrics.distribution.percentiles-histogram (application.yml).",
+   "gridPos": { "x": 12, "y": 35, "w": 12, "h": 8 },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.95, sum(rate(reports_job_duration_seconds_bucket{job=\"reports\"}[5m])) by (le))",
+     "legendFormat": "p95",
+     "refId": "A",
+     "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "In-flight Report Jobs",
+   "description": "reports_jobs_inflight -- jobs currently rendering on the bounded dispatcher. Capped at reports.job-concurrency (application.yml); sustained saturation at the cap means jobs are queueing, the deliberate bounded-concurrency exhibit (RFC-0001 D2).",
+   "gridPos": { "x": 0, "y": 43, "w": 12, "h": 8 },
+   "targets": [
+    {
+     "expr": "reports_jobs_inflight{job=\"reports\"}",
+     "legendFormat": "in-flight",
+     "refId": "A",
+     "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 10, "pointSize": 5 }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Artifact Throughput",
+   "description": "sum(rate(reports_artifact_bytes_sum[5m])) -- bytes of report artifact written per second to the artifact volume. reports_artifact_bytes_count tracks the number of artifacts; artifacts live on the named volume, never in the DB (RFC-0001 D2).",
+   "gridPos": { "x": 12, "y": 43, "w": 12, "h": 8 },
+   "targets": [
+    {
+     "expr": "sum(rate(reports_artifact_bytes_sum{job=\"reports\"}[5m]))",
+     "legendFormat": "bytes/s",
+     "refId": "A",
+     "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "Bps",
      "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
     },
     "overrides": []

@@ -16,10 +16,21 @@ logstashLogbackEncoder = "8.1"
 # downgrade, fixed in 42.7.12. An explicit version on the dependency wins over
 # the BOM (io.spring.dependency-management overriddenByDependencies default).
 postgresql = "42.7.12"
+# Apache POI (PR-2, RFC-0001 D2): the XLSX generator and the deliberate
+# bursty-allocation workload that makes the GC sawtooth visible. Not managed
+# by the Boot BOM, pinned here; Renovate updates it like every other manifest.
+poi = "5.4.1"
+# OpenPDF (LibrePDF) is the PDF generator (PR-2): a maintained MPL/LGPL fork
+# of iText 4, chosen over lower-level PDFBox for a concise document model and
+# over modern iText 7+ (AGPL) for licence cleanliness. Boot does not manage
+# it, pinned here.
+openpdf = "2.0.3"
 
 [libraries]
 logstash-logback-encoder = { module = "net.logstash.logback:logstash-logback-encoder", version.ref = "logstashLogbackEncoder" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+poi-ooxml = { module = "org.apache.poi:poi-ooxml", version.ref = "poi" }
+openpdf = { module = "com.github.librepdf:openpdf", version.ref = "openpdf" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }

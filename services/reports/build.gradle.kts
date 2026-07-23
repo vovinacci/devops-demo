@@ -38,6 +38,12 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
+    // Flyway schema migrations for report_jobs (PR-2, RFC-0001 D2: "the
+    // heavyweight framework is the lesson"). flyway-database-postgresql is a
+    // required companion since Flyway 10 -- the Postgres dialect moved out of
+    // flyway-core. Both versions are Boot-BOM-managed.
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-database-postgresql")
     // Prometheus exposition at /metrics (D6) and W3C trace context in logs
     // (D11): Micrometer meter registry + the OpenTelemetry tracing bridge.
     // No OTLP exporter is on the classpath, so spans are created and dropped
@@ -46,9 +52,17 @@ dependencies {
     implementation("io.micrometer:micrometer-tracing-bridge-otel")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    // Coroutine handler + Reactor context bridge (RFC-0001 D2 coroutines):
-    // report jobs land in PR-2, the dependency is wired now.
+    // Structured concurrency for the async job runner (RFC-0001 D2
+    // coroutines): the POST returns immediately, the job runs off-thread on a
+    // bounded dispatcher. Version is Boot-BOM-managed (kotlinx-coroutines-bom).
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
+    // Coroutine handler + Reactor context bridge (RFC-0001 D2 coroutines).
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
+    // Report generators (PR-2): XLSX via Apache POI -- also the deliberate
+    // bursty-allocation workload behind the GC-sawtooth exhibit -- and PDF via
+    // OpenPDF. CSV needs no library. Both pinned in the version catalog.
+    implementation(libs.poi.ooxml)
+    implementation(libs.openpdf)
     implementation(libs.logstash.logback.encoder)
     // Pinned via the version catalog to override the Boot BOM (42.7.11 ->
     // 42.7.12, CVE-2026-54291): an explicit dependency version wins over the
