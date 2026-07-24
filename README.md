@@ -6,11 +6,17 @@ operated system -- tested, containerized, monitored, documented. "Done" means
 
 The *process* is part of the product: decisions live in RFCs and ADRs,
 conventions in the engineering principles, and every change follows them.
-The platform is evolving from the current two-service baseline into a
-polyglot system (Python, JS, Go, Rust, Kotlin) with contract-first gRPC,
-shaped load generation, and three-layer monitoring -- see
-[RFC-0001](docs/rfc/0001-polyglot-platform.md) for the plan and
-[RFC-0000](docs/rfc/0000-baseline-retrospective.md) for the baseline.
+The polyglot platform is **built**: five runtimes (Python, JS, Go, Rust,
+Kotlin) with contract-first gRPC, shaped load generation, three-layer
+monitoring, and a static reports UI -- delivered through
+[RFC-0001](docs/rfc/0001-polyglot-platform.md) and
+[RFC-0002](docs/rfc/0002-reports-ui.md) (with
+[RFC-0000](docs/rfc/0000-baseline-retrospective.md) as the baseline). The
+next arc is the deployment and operability platform --
+[RFC-0003](docs/rfc/0003-kubernetes-kind-platform.md): the same system on
+Kubernetes (Kind) with Helm and the Gateway API, beside the compose stack --
+and after it an authentication capstone (a future RFC-0004) that rides on
+that platform.
 
 ## Structure
 
@@ -158,7 +164,9 @@ For the full command list run `make help`.
   build this way; RFC/ADR lifecycle, change workflow, testing philosophy
 - [RFCs](docs/rfc/) -- design documents; start with
   [RFC-0001](docs/rfc/0001-polyglot-platform.md) (the polyglot platform), then
-  [RFC-0002](docs/rfc/0002-reports-ui.md) (the reports UI, a sibling RFC)
+  [RFC-0002](docs/rfc/0002-reports-ui.md) (the reports UI, a sibling RFC) and
+  [RFC-0003](docs/rfc/0003-kubernetes-kind-platform.md) (Kubernetes on Kind, a
+  second deployment target)
 - [ADRs](docs/adr/) -- one durable decision per file, extracted from the
   RFCs; immutable once accepted
 - [CI/CD architecture](docs/ci.md) -- pipeline topology, gates, releases,
