@@ -187,7 +187,7 @@ curl -sS "http://localhost:8082/api/v1/items/$ID" | jq
 ```shell
 docker network connect devops-demo_devnet analytics 2>/dev/null || true
 docker compose -f deploy/compose/docker-compose.yml --project-directory . start api
-make down   # or: docker compose ... --profile "*" down
+make down   # or: docker compose -f deploy/compose/docker-compose.yml --project-directory . --profile "*" down
 ```
 
 Confirm no exercise items were left behind:

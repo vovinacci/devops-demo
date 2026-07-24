@@ -211,7 +211,7 @@ docker compose -f deploy/compose/docker-compose.yml --project-directory . \
   exec alertmanager amtool silence query --alertmanager.url=http://localhost:9093
 # expire any silence still listed from step 5:
 # amtool silence expire <id> --alertmanager.url=http://localhost:9093
-make down   # or: docker compose ... --profile "*" down
+make down   # or: docker compose -f deploy/compose/docker-compose.yml --project-directory . --profile "*" down
 ```
 
 ## Discussion questions

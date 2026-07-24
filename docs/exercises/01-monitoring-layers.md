@@ -109,7 +109,7 @@ Then tear the stack down (this stops the backend, so it must come after the
 check above):
 
 ```shell
-make down   # or: docker compose ... --profile "*" down
+make down   # or: docker compose -f deploy/compose/docker-compose.yml --project-directory . --profile "*" down
 ```
 
 ## Discussion questions
