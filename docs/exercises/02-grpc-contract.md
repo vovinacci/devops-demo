@@ -1,4 +1,4 @@
-# Exercise: The gRPC contract, live and broken (Phase 2)
+# Exercise: Call, then break, the gRPC contract (Phase 2)
 
 RFC-0001 Phase 2 adds a contract-first gRPC surface between the backend
 and (eventually) analytics: `devopsdemo.items.v1.ItemService` (ADR-0002).
@@ -27,7 +27,8 @@ shown as a fallback for every step below. Check what you have:
 command -v grpcurl && echo "grpcurl available" || echo "using the Python fallback"
 ```
 
-If you are using the Python fallback, generate the stubs first:
+If you are using the Python fallback, generate the stubs first (they are
+never committed -- RFC-0001 D8, ADR-0002):
 
 ```shell
 make generate
@@ -104,36 +105,45 @@ make generate
 ## Part 2: break the contract on purpose
 
 1. Make an incompatible edit to `proto/devopsdemo/items/v1/items.proto` --
-   for example, rename `total_items` to `count` in
-   `GetItemStatsResponse`, or change `Item.id` from `int64` to `int32`.
+   for example, rename `total_items` to `count` in `GetItemStatsResponse`,
+   or change `Item.id` from `int64` to `int32`.
 
-2. Run the same check CI runs:
+2. Run the same checks CI runs:
 
    ```shell
    make lint-proto
    cd proto && buf breaking --against '../.git#branch=main,subdir=proto'
    ```
 
-   `buf breaking` should fail, naming the exact incompatible change
-   (field number/type/name change on the wire).
+   `buf breaking` should fail, naming the exact incompatible change.
+   `proto/buf.yaml` sets `breaking.use: [FILE]`, so buf enforces
+   *source/generated-code* compatibility, which is stricter than raw wire
+   compatibility: a field rename (`total_items` -> `count`) keeps the same
+   field number and is wire-compatible, and `int32` -> `int64` is a
+   varint-compatible wire change -- but both break the generated API the
+   consumer compiled against, so the FILE policy rejects them. That is the
+   point: consumers depend on names and types, not just wire tags.
 
-3. Revert the edit (`git checkout -- proto/devopsdemo/items/v1/items.proto`)
-   and confirm `buf breaking` passes again.
+3. Revert the edit and confirm `buf breaking` passes again:
+
+   ```shell
+   git checkout -- proto/devopsdemo/items/v1/items.proto
+   ```
 
 ## Expected observations
 
 - `ListItems`/`GetItemStats` are unary pulls; nothing changes between
-  calls unless the backend's data changes underneath them (matches
-  ADR-0002's snapshot semantics -- this is exactly what an analytics
-  client calls on reconnect to reconcile state).
+  calls unless the backend's data changes underneath them (ADR-0002's
+  snapshot semantics -- exactly what an analytics client calls on
+  reconnect to reconcile state).
 - `WatchItemEvents` only shows events emitted **after** you opened the
   stream (emit-after-commit, at-most-once, RFC-0001 D3) -- items that
   already existed before you connected only appear via `ListItems`, never
   as a backfilled stream of historical events.
 - `buf breaking` fails on wire-incompatible changes (renumbering,
   retyping, renaming a field that changes its wire tag) but would *not*
-  fail on purely additive changes (a new field, a new RPC) -- try adding
-  a harmless new field to confirm the gate is precise, not just strict.
+  fail on purely additive changes (a new field, a new RPC) -- try adding a
+  harmless new field to confirm the gate is precise, not just strict.
 
 ## Cleanup
 
@@ -155,10 +165,10 @@ curl -sS http://localhost:8000/items | jq '[.[] | select(.name == "grpc-exercise
    analytics ingestion pipeline, given that limitation?
 2. The backend runs a single uvicorn worker specifically because of the
    in-process event broadcaster (see `services/backend/README.md`). What
-   would have to change (architecturally, not just configuration) to run
-   the backend with multiple workers or multiple replicas without losing
+   would have to change -- architecturally, not just configuration -- to
+   run the backend with multiple workers or replicas without losing
    events?
 3. `buf breaking` compares against the `main` branch, not against the
    previous commit on your branch. Construct a sequence of two commits on
-   the same branch where the *first* commit is a breaking change but
+   the same branch where the *first* is a breaking change but
    `buf breaking` (as configured here) would not catch it until later.
