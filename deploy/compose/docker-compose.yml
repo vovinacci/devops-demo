@@ -456,6 +456,7 @@ services:
     environment:
       - CANARY_BACKEND_URL=http://api:8000
       - CANARY_ANALYTICS_URL=http://analytics:8082
+      - CANARY_REPORTS_URL=http://reports:8083
     depends_on:
       api:
         condition: service_started

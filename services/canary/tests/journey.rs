@@ -6,7 +6,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use canary::journey::{self, Outcome, PipelineConfig};
+use canary::journey::{self, Outcome, PipelineConfig, ReportConfig};
 use canary::metrics::Metrics;
 use reqwest::Client;
 use serde_json::{Value, json};
@@ -33,6 +33,17 @@ fn unreachable_url() -> String {
 fn skipped_pipeline_config(analytics_url: &str) -> PipelineConfig<'_> {
     PipelineConfig {
         analytics_url,
+        timeout: Duration::from_secs(1),
+        poll_interval: Duration::from_millis(50),
+    }
+}
+
+/// Companion to `skipped_pipeline_config` for the v3 report step: tests
+/// not exercising the report step point it at a closed port so it
+/// resolves to `skipped` on the first POST and adds no meaningful delay.
+fn skipped_report_config(reports_url: &str) -> ReportConfig<'_> {
+    ReportConfig {
+        reports_url,
         timeout: Duration::from_secs(1),
         poll_interval: Duration::from_millis(50),
     }
@@ -100,12 +111,14 @@ async fn success_path_records_success_and_cleans_up() {
     let metrics = Metrics::new();
     let client = Client::new();
     let analytics_url = unreachable_url();
+    let reports_url = unreachable_url();
     let outcome = journey::run(
         &client,
         &server.uri(),
         TIMEOUT,
         &metrics,
         &skipped_pipeline_config(&analytics_url),
+        &skipped_report_config(&reports_url),
     )
     .await;
 
@@ -174,12 +187,14 @@ async fn verify_miss_is_a_failure_but_still_cleans_up() {
     let metrics = Metrics::new();
     let client = Client::new();
     let analytics_url = unreachable_url();
+    let reports_url = unreachable_url();
     let outcome = journey::run(
         &client,
         &server.uri(),
         TIMEOUT,
         &metrics,
         &skipped_pipeline_config(&analytics_url),
+        &skipped_report_config(&reports_url),
     )
     .await;
 
@@ -209,6 +224,7 @@ async fn backend_down_is_a_failure_with_no_cleanup_attempt() {
     // URL is never dialed; kept unreachable anyway so the test would
     // still be fast if that assumption ever changes.
     let analytics_url = unreachable_url();
+    let reports_url = unreachable_url();
 
     let metrics = Metrics::new();
     let client = Client::new();
@@ -218,6 +234,7 @@ async fn backend_down_is_a_failure_with_no_cleanup_attempt() {
         TIMEOUT,
         &metrics,
         &skipped_pipeline_config(&analytics_url),
+        &skipped_report_config(&reports_url),
     )
     .await;
 
@@ -322,7 +339,16 @@ async fn pipeline_lag_ok_records_lag_and_result() {
         timeout: Duration::from_secs(2),
         poll_interval: Duration::from_millis(20),
     };
-    let outcome = journey::run(&client, &backend.uri(), TIMEOUT, &metrics, &pipeline).await;
+    let reports_url = unreachable_url();
+    let outcome = journey::run(
+        &client,
+        &backend.uri(),
+        TIMEOUT,
+        &metrics,
+        &pipeline,
+        &skipped_report_config(&reports_url),
+    )
+    .await;
 
     assert_eq!(
         outcome,
@@ -376,7 +402,16 @@ async fn pipeline_lag_timeout_never_fails_the_journey() {
         timeout: Duration::from_millis(200),
         poll_interval: Duration::from_millis(50),
     };
-    let outcome = journey::run(&client, &backend.uri(), TIMEOUT, &metrics, &pipeline).await;
+    let reports_url = unreachable_url();
+    let outcome = journey::run(
+        &client,
+        &backend.uri(),
+        TIMEOUT,
+        &metrics,
+        &pipeline,
+        &skipped_report_config(&reports_url),
+    )
+    .await;
 
     assert_eq!(
         outcome,
@@ -428,7 +463,16 @@ async fn pipeline_lag_skipped_when_analytics_is_unreachable() {
     };
 
     let start = std::time::Instant::now();
-    let outcome = journey::run(&client, &backend.uri(), TIMEOUT, &metrics, &pipeline).await;
+    let reports_url = unreachable_url();
+    let outcome = journey::run(
+        &client,
+        &backend.uri(),
+        TIMEOUT,
+        &metrics,
+        &pipeline,
+        &skipped_report_config(&reports_url),
+    )
+    .await;
     let elapsed = start.elapsed();
 
     assert_eq!(outcome, Outcome::Success);
@@ -455,5 +499,254 @@ async fn pipeline_lag_skipped_when_analytics_is_unreachable() {
         delete_count(&backend).await,
         1,
         "cleanup still runs after a skipped pipeline check"
+    );
+}
+
+// -- Report step (RFC-0001 D9 v3, ADR-0008 D10) --
+//
+// A third `MockServer` stands in for reports, separate from the backend
+// and analytics servers. The core invariant every case proves: the report
+// step's outcome (ok / failed / timeout / skipped) NEVER flips the
+// journey's own Success/Failure verdict (Hard rule 9, ADR-0008 D10). The
+// backend is healthy in all four, so the journey is Success throughout;
+// only the report metric label and the report-latency histogram change.
+
+const REPORT_ID: &str = "rep-1";
+
+/// A `ReportConfig` pointed at a reachable reports mock, short poll
+/// interval, caller-chosen timeout.
+fn report_config(reports_url: &str, timeout: Duration) -> ReportConfig<'_> {
+    ReportConfig {
+        reports_url,
+        timeout,
+        poll_interval: Duration::from_millis(20),
+    }
+}
+
+/// Mounts the reports `POST /reports` -> `202` + `Location` submit mock
+/// (the reports async job API). Each test mounts the status `GET`
+/// separately so it controls the terminal state.
+async fn reports_submit_mock(server: &MockServer) {
+    Mock::given(method("POST"))
+        .and(path("/reports"))
+        .respond_with(
+            ResponseTemplate::new(202)
+                .insert_header("Location", format!("/reports/{REPORT_ID}"))
+                .set_body_json(json!({"id": REPORT_ID, "status": "PENDING"})),
+        )
+        .mount(server)
+        .await;
+}
+
+#[tokio::test]
+async fn report_ok_records_result_and_never_fails_the_journey() {
+    let backend = MockServer::start().await;
+    let reports = MockServer::start().await;
+    let created: CreatedName = Arc::new(Mutex::new(None));
+    backend_mocks(&backend, created.clone()).await;
+    reports_submit_mock(&reports).await;
+    // Job reaches SUCCEEDED on the first status poll.
+    Mock::given(method("GET"))
+        .and(path(format!("/reports/{REPORT_ID}")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"status": "SUCCEEDED"})))
+        .mount(&reports)
+        .await;
+
+    let metrics = Metrics::new();
+    let client = Client::new();
+    let analytics_url = unreachable_url();
+    let outcome = journey::run(
+        &client,
+        &backend.uri(),
+        TIMEOUT,
+        &metrics,
+        &skipped_pipeline_config(&analytics_url),
+        &report_config(&reports.uri(), Duration::from_secs(2)),
+    )
+    .await;
+
+    assert_eq!(
+        outcome,
+        Outcome::Success,
+        "report outcome never fails the journey"
+    );
+    assert_eq!(
+        metrics.report_check_total.with_label_values(&["ok"]).get(),
+        1.0
+    );
+    assert_eq!(
+        metrics
+            .report_check_total
+            .with_label_values(&["failed"])
+            .get(),
+        0.0
+    );
+    // Only "ok" feeds the generation-latency histogram.
+    assert_eq!(metrics.report_generation_seconds.get_sample_count(), 1);
+    assert_eq!(
+        delete_count(&backend).await,
+        1,
+        "cleanup still runs after an ok report"
+    );
+}
+
+#[tokio::test]
+async fn report_failed_never_fails_the_journey() {
+    let backend = MockServer::start().await;
+    let reports = MockServer::start().await;
+    let created: CreatedName = Arc::new(Mutex::new(None));
+    backend_mocks(&backend, created.clone()).await;
+    reports_submit_mock(&reports).await;
+    // The render itself failed -- reports is up and answered, the job is
+    // terminal FAILED. This must NOT change the journey verdict: the same
+    // healthy-backend setup yields Success whether the report failed or not.
+    Mock::given(method("GET"))
+        .and(path(format!("/reports/{REPORT_ID}")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"status": "FAILED"})))
+        .mount(&reports)
+        .await;
+
+    let metrics = Metrics::new();
+    let client = Client::new();
+    let analytics_url = unreachable_url();
+    let outcome = journey::run(
+        &client,
+        &backend.uri(),
+        TIMEOUT,
+        &metrics,
+        &skipped_pipeline_config(&analytics_url),
+        &report_config(&reports.uri(), Duration::from_secs(2)),
+    )
+    .await;
+
+    assert_eq!(
+        outcome,
+        Outcome::Success,
+        "Hard rule 9: a failed report must not fail the journey"
+    );
+    assert_eq!(
+        metrics
+            .report_check_total
+            .with_label_values(&["failed"])
+            .get(),
+        1.0
+    );
+    assert_eq!(
+        metrics.report_check_total.with_label_values(&["ok"]).get(),
+        0.0
+    );
+    assert_eq!(metrics.report_generation_seconds.get_sample_count(), 0);
+    assert_eq!(
+        delete_count(&backend).await,
+        1,
+        "cleanup still runs after a failed report"
+    );
+}
+
+#[tokio::test]
+async fn report_timeout_never_fails_the_journey() {
+    let backend = MockServer::start().await;
+    let reports = MockServer::start().await;
+    let created: CreatedName = Arc::new(Mutex::new(None));
+    backend_mocks(&backend, created.clone()).await;
+    reports_submit_mock(&reports).await;
+    // Reports is reachable but the job stays RUNNING forever -- the
+    // report-lag signal this step exists to catch. A short report timeout
+    // keeps the test fast.
+    Mock::given(method("GET"))
+        .and(path(format!("/reports/{REPORT_ID}")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"status": "RUNNING"})))
+        .mount(&reports)
+        .await;
+
+    let metrics = Metrics::new();
+    let client = Client::new();
+    let analytics_url = unreachable_url();
+    let outcome = journey::run(
+        &client,
+        &backend.uri(),
+        TIMEOUT,
+        &metrics,
+        &skipped_pipeline_config(&analytics_url),
+        &report_config(&reports.uri(), Duration::from_millis(200)),
+    )
+    .await;
+
+    assert_eq!(
+        outcome,
+        Outcome::Success,
+        "Hard rule 9: a stuck report step must not fail the journey"
+    );
+    assert_eq!(
+        metrics
+            .report_check_total
+            .with_label_values(&["timeout"])
+            .get(),
+        1.0
+    );
+    assert_eq!(
+        metrics.report_check_total.with_label_values(&["ok"]).get(),
+        0.0
+    );
+    assert_eq!(metrics.report_generation_seconds.get_sample_count(), 0);
+    assert_eq!(
+        delete_count(&backend).await,
+        1,
+        "cleanup still runs after a report timeout"
+    );
+}
+
+#[tokio::test]
+async fn report_skipped_when_reports_is_unreachable() {
+    let backend = MockServer::start().await;
+    let created: CreatedName = Arc::new(Mutex::new(None));
+    backend_mocks(&backend, created.clone()).await;
+
+    // Reports profile not up (ADR-0008 D10): closed port, connection
+    // refused on the very first POST.
+    let analytics_url = unreachable_url();
+    let reports_url = unreachable_url();
+
+    let metrics = Metrics::new();
+    let client = Client::new();
+    let start = std::time::Instant::now();
+    let outcome = journey::run(
+        &client,
+        &backend.uri(),
+        TIMEOUT,
+        &metrics,
+        &skipped_pipeline_config(&analytics_url),
+        // Deliberately long: if the skip path degraded into
+        // polling-until-timeout, this would take 30s and blow the "fast"
+        // assertion below.
+        &report_config(&reports_url, Duration::from_secs(30)),
+    )
+    .await;
+    let elapsed = start.elapsed();
+
+    assert_eq!(outcome, Outcome::Success);
+    assert_eq!(
+        metrics
+            .report_check_total
+            .with_label_values(&["skipped"])
+            .get(),
+        1.0
+    );
+    assert_eq!(
+        metrics
+            .report_check_total
+            .with_label_values(&["timeout"])
+            .get(),
+        0.0
+    );
+    assert_eq!(metrics.report_generation_seconds.get_sample_count(), 0);
+    assert!(
+        elapsed < Duration::from_secs(5),
+        "skip must be detected fast, not by waiting out the 30s timeout: took {elapsed:?}"
+    );
+    assert_eq!(
+        delete_count(&backend).await,
+        1,
+        "cleanup still runs after a skipped report check"
     );
 }

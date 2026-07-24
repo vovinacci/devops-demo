@@ -41,6 +41,7 @@ flowchart LR
     be -.->|"WatchItemEvents pushes events (data direction, opposite the dial)"| an
     can -->|"journey: create -> verify -> delete"| be
     can -.->|"pipeline-lag poll (skipped when analytics profile absent)"| an
+    can -.->|"report step (skipped when reports profile absent)"| rep
     rep -->|JDBC| pgR
     rep -->|"HTTP: GET /items (report source of truth)"| be
     rep -.->|"HTTP: GET /api/v1/stats (best-effort, D10)"| an
@@ -119,9 +120,12 @@ motivating exhibit for the NATS capstone (RFC-0001 Section 10).
   PR-2, see `services/analytics/README.md`) -- best-effort, does not fail
   the seed run if Grafana is unreachable.
 - **Canary** ([readme](../services/canary/README.md)) -- Rust synthetic
-  layer (RFC-0001 D9, ADR-0007); v2 adds a pipeline-lag step polling
-  analytics, tolerating it being absent (ADR-0008 D10 graceful
-  degradation). `synthetic` compose profile.
+  layer (RFC-0001 D9, ADR-0007); v2 added a pipeline-lag step polling
+  analytics, v3 adds a report step submitting a lightweight CSV job to
+  reports and polling it to a terminal state (the dashed `can -.-> rep`
+  edge above). Both tolerate their target profile being absent (ADR-0008
+  D10 graceful degradation): a skipped or timed-out step never fails the
+  journey verdict. `synthetic` compose profile.
 - **Reports** ([readme](../services/reports/README.md)) -- Kotlin /
   Spring Boot 3 service, the JVM showcase (RFC-0001 D2), own Postgres
   instance (`postgres-reports`) and a named artifact volume. `reports`
@@ -144,10 +148,12 @@ motivating exhibit for the NATS capstone (RFC-0001 Section 10).
   this service exists. Also ships the D6 uniform contract (`/healthz`,
   `/readyz` reflecting Postgres, `/metrics` including custom report-job
   meters), structured JSON logs with `trace_id`/`span_id` (D11), and
-  OpenTelemetry (no exporter yet). The `loadgen -> reports` report-trigger
-  edge and the canary v3 report step are PR-3, so they are deliberately
-  absent from the diagram above (a diagram that shows what the code does not
-  do is a bug, engineering-principles.md Section 1).
+  OpenTelemetry (no exporter yet). The canary v3 report step drives the
+  `can -.-> rep` edge above; the `loadgen -> reports` report-trigger edge
+  is exercised only by the nightly/full loadgen `report` scenario and is
+  left off this always-on topology deliberately (a diagram that shows what
+  the always-on code does not do is a bug, engineering-principles.md
+  Section 1).
 - **Loadgen** ([readme](../loadgen/README.md)) -- k6, shaped continuous
   load (RFC-0001 D4, ADR-0006). `load` compose profile (opt-in via
   `make up-full` or `--profile load`); depends only on `api` being

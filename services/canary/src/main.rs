@@ -3,7 +3,7 @@ use std::sync::atomic::Ordering;
 
 use canary::config::Config;
 use canary::http::{self, AppState};
-use canary::journey::PipelineConfig;
+use canary::journey::{PipelineConfig, ReportConfig};
 use canary::{journey, metrics, otel};
 use tokio::signal;
 
@@ -44,6 +44,11 @@ async fn run_journey_loop(state: Arc<AppState>, config: Config) {
         timeout: config.pipeline_timeout,
         poll_interval: config.pipeline_poll_interval,
     };
+    let report = ReportConfig {
+        reports_url: &config.reports_url,
+        timeout: config.report_timeout,
+        poll_interval: config.report_poll_interval,
+    };
 
     let mut ticker = tokio::time::interval(config.interval);
     loop {
@@ -54,6 +59,7 @@ async fn run_journey_loop(state: Arc<AppState>, config: Config) {
             config.timeout,
             &state.metrics,
             &pipeline,
+            &report,
         )
         .await;
     }

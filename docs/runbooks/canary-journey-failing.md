@@ -58,7 +58,11 @@ start).
 - `canary_journey_step_duration_seconds` by `step` (`create`, `verify`,
   `delete`) -- per-step latency, recorded even for failed steps. A step
   whose duration climbs toward `CANARY_TIMEOUT_SECONDS` right before the
-  failure rate rises tells you which step is degrading.
+  failure rate rises tells you which step is degrading. The `pipeline`
+  and `report` steps also appear here but are best-effort and never fail
+  the journey verdict (Hard rule 9, ADR-0008 D10) -- do not chase them
+  for *this* alert; their own signals are `canary_pipeline_check_total`
+  and `canary_report_check_total` on the Monitoring Layers dashboard.
 - `canary_journey_last_success_timestamp_seconds` -- age since the last
   success; `time() - canary_journey_last_success_timestamp_seconds` is
   the staleness in seconds.
