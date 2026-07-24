@@ -206,6 +206,48 @@
         },
         "overrides": []
       }
+    },
+    {
+      "type": "timeseries",
+      "title": "Canary: Report Generation Latency (p95)",
+      "description": "Synthetic layer, v3 (RFC-0001 D9): p95 report generation latency (submit -> SUCCEEDED) against the reports service. Only \"ok\" outcomes feed this histogram -- see the result panel for timeout/failed/skipped shares.",
+      "gridPos": { "x": 0, "y": 30, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(canary_report_generation_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95 generation",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Canary: Report Check Results",
+      "description": "Synthetic layer, v3 (RFC-0001 D9): report-step outcomes by result. \"skipped\" (reports unreachable, ADR-0008 D10 graceful degradation), \"timeout\" (reports up but the job never reached a terminal state), and \"failed\" (the render itself failed) never fail the canary journey itself (Hard rule 9) -- this panel is where those signals are visible.",
+      "gridPos": { "x": 12, "y": 30, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(canary_report_check_total[5m])) by (result)",
+          "legendFormat": "{{ result }}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+        },
+        "overrides": []
+      }
     }
   ],
   "refresh": "10s",

@@ -78,6 +78,30 @@ D12 -- see `loadgen/README.md`), and a manual `POST /reports` fills them any
 time. Being an opt-in profile, the panels show "No data" and the scrape target
 reads "down" when `reports` is not up (RFC-0001 D10).
 
+## Monitoring Layers dashboard
+
+The **Monitoring Layers** dashboard
+(`observability/grafana/dashboards/monitoring-layers.json`, RFC-0001 D9,
+ADR-0007) puts the three monitoring layers side by side: whitebox (the
+backend's own RED metrics), blackbox (probe results), and synthetic (the
+Rust canary's journey). The synthetic row reads the canary-exclusive
+meters: journey success rate, per-step latency
+(`canary_journey_step_duration_seconds` by `step`), the v2 pipeline-lag
+panels, and -- as of Phase 6 -- the v3 report step:
+
+- `canary_report_generation_seconds` -- report generation latency (submit
+  -> `SUCCEEDED`), histogram; only `ok` outcomes are observed, so the p95
+  panel reads real generation latency undiluted by timeouts/failures/skips.
+- `canary_report_check_total{result}` -- report-step outcomes by result
+  (`ok` / `timeout` / `failed` / `skipped`). Like the pipeline check,
+  none of the four fails the canary journey itself (Hard rule 9, ADR-0008
+  D10): a `skipped` (reports profile absent) or `timeout`/`failed` is a
+  reports signal, and this panel is where it is visible.
+
+The canary is the `synthetic` compose profile, so these panels show "No
+data" when it is not up -- the same documented degradation as the other
+additive profiles (RFC-0001 D10).
+
 ## Historical dashboard and the D5 boundary
 
 The **Analytics History** dashboard (`analytics` compose profile,

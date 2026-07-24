@@ -5,7 +5,7 @@ monitoring (RFC-0001 D9, ADR-0007). Runs a full user journey against the
 backend on a schedule and reports whether it actually works end to end,
 which is the failure mode whitebox and blackbox checks cannot see.
 
-## Journey (v2: backend CRUD + pipeline lag)
+## Journey (v3: backend CRUD + pipeline lag + report)
 
 On every tick of `CANARY_INTERVAL_SECONDS`:
 
@@ -16,16 +16,24 @@ On every tick of `CANARY_INTERVAL_SECONDS`:
 3. Poll analytics's `GET /api/v1/items/{id}` until it returns any 2xx, or
    `CANARY_PIPELINE_TIMEOUT_SECONDS` elapses (see "Pipeline-lag step"
    below).
-4. `DELETE /items/{id}` -- cleanup.
+4. `POST /reports` on the reports service and poll `GET /reports/{id}`
+   until the job reaches a terminal state, or `CANARY_REPORT_TIMEOUT_SECONDS`
+   elapses (see "Report step" below).
+5. `DELETE /items/{id}` -- cleanup.
 
 Cleanup is best-effort and unconditional: the item is deleted even if
-step 2 does not find it or step 3 times out or is skipped, so a failing
-journey never leaves synthetic data behind. Every step's duration is
-recorded regardless of outcome, so the runbook can localize *which* step
-is slow or failing before it fails outright.
+step 2 does not find it, step 3 times out or is skipped, or step 4 times
+out / fails / is skipped, so a journey that runs to completion never
+leaves synthetic data behind. The one exception is a SIGTERM that lands
+mid-journey, before the delete step (see "Known limitation: shutdown
+mid-journey" below): that item is left for the operator, by design,
+rather than blocking shutdown on a cleanup call. Every step's duration is
+recorded regardless of
+outcome, so the runbook can localize *which* step is slow or failing
+before it fails outright.
 
-v1 was REST-only (backend CRUD). v2 (this version) adds the pipeline-lag
-step once analytics exists (Phase 3); v3 adds a report-trigger step once
+v1 was REST-only (backend CRUD). v2 added the pipeline-lag step once
+analytics exists (Phase 3); v3 (this version) adds the report step once
 reports exists (Phase 6) -- see RFC-0001 D9.
 
 ### Pipeline-lag step (v2)
@@ -53,15 +61,46 @@ profile must tolerate `analytics` being absent):
 | `timeout` | The item never appeared within the timeout -- the pipeline-lag signal this step exists to catch. Analytics answered the first poll; a connection failure on a *later* poll also ends up here (see `skipped`). |
 | `skipped` | Analytics was unreachable (connection refused / DNS failure) on the *first* poll -- read as "the `analytics` profile is not up", not a failure. A connect error on a later poll (analytics was reachable moments ago) is treated as transient instead and polled through to `timeout`. |
 
+### Report step (v3)
+
+Placed after `pipeline` and before `delete`: it submits a report job to
+the reports service and waits for it to reach a terminal state, exercising
+the async job API (`POST /reports` -> `202` + `Location` -> poll
+`GET /reports/{id}`) end to end (RFC-0001 D9 v3, D2). It runs regardless of
+the verify/pipeline outcome and before `delete` so the item it summarizes
+still exists on the backend side.
+
+The request asks for `format: "csv"`, deliberately the **lightest**
+artifact: CSV needs no Apache POI / OpenPDF render, so the canary costs
+less than the reports workload it exercises (RFC-0001 D9: a monitor must
+cost less than what it monitors). The generated file is **never
+downloaded** -- a `SUCCEEDED` status already proves the submit -> render
+-> terminal path worked end to end, so a download would only move bytes
+for no extra signal.
+
+The step has four outcomes, all recorded in `canary_report_check_total`,
+**none of which changes the journey's own success/failure verdict**
+(Hard rule 9, ADR-0008 D10 graceful degradation -- the `synthetic`
+profile must tolerate `reports` being absent):
+
+| Result | Meaning |
+| ------ | ------- |
+| `ok` | A submitted job reached `SUCCEEDED` within `CANARY_REPORT_TIMEOUT_SECONDS`. Generation latency (submit -> `SUCCEEDED`) is recorded in `canary_report_generation_seconds`. |
+| `timeout` | Reports was reachable but the job never reached a terminal state within the timeout -- the report-lag signal this step exists to catch. |
+| `failed` | The job reached the terminal `FAILED` state -- reports was up and answered, the render itself failed. |
+| `skipped` | Reports was unreachable (connection refused / DNS failure) on the *first* POST or *first* status poll -- read as "the `reports` profile is not up", not a failure. A connect error on a later poll (reports was reachable moments ago) is treated as transient instead and polled through to `timeout`. |
+
 ## Metrics
 
 | Metric | Type | Labels | Meaning |
 | ------ | ---- | ------ | ------- |
 | `canary_journey_total` | counter | `result=success\|failure` | Journeys run, by outcome |
-| `canary_journey_step_duration_seconds` | histogram | `step=create\|verify\|pipeline\|delete` | Per-step latency, recorded even on failure |
+| `canary_journey_step_duration_seconds` | histogram | `step=create\|verify\|pipeline\|report\|delete` | Per-step latency, recorded even on failure |
 | `canary_journey_last_success_timestamp_seconds` | gauge | -- | Unix timestamp of the last fully successful journey |
 | `canary_pipeline_lag_seconds` | histogram | -- | Create -> analytics-visible lag; only `ok` outcomes are observed |
 | `canary_pipeline_check_total` | counter | `result=ok\|timeout\|skipped` | Pipeline-lag checks, one outcome per journey (not per HTTP poll), by result (Hard rule 9: none fails the journey) |
+| `canary_report_generation_seconds` | histogram | -- | Report generation latency (submit -> `SUCCEEDED`); only `ok` outcomes are observed |
+| `canary_report_check_total` | counter | `result=ok\|timeout\|failed\|skipped` | Report-step checks, one outcome per journey, by result (Hard rule 9: none fails the journey) |
 
 ## Endpoints (`:8080`)
 
@@ -94,6 +133,9 @@ dropped, so this is log-based correlation only until Tempo lands.
 | `CANARY_ANALYTICS_URL` | `http://analytics:8082` | Base URL of analytics for the pipeline-lag step. Never depended on at the compose level (ADR-0008 D10) -- unreachable is a normal, `skipped` outcome, not a startup failure |
 | `CANARY_PIPELINE_TIMEOUT_SECONDS` | `10` | Overall budget for the pipeline-lag poll loop before it reports `timeout` |
 | `CANARY_PIPELINE_POLL_INTERVAL_MS` | `250` | Delay between poll attempts within the pipeline-lag budget |
+| `CANARY_REPORTS_URL` | `http://reports:8083` | Base URL of reports for the report step. Never depended on at the compose level (ADR-0008 D10) -- unreachable is a normal, `skipped` outcome, not a startup failure |
+| `CANARY_REPORT_TIMEOUT_SECONDS` | `15` | Overall budget for the report submit + poll loop before it reports `timeout` (larger than the pipeline budget -- a report is a slower async render than an analytics read) |
+| `CANARY_REPORT_POLL_INTERVAL_MS` | `500` | Delay between report status polls within the report budget |
 
 ## Known limitation: shutdown mid-journey
 

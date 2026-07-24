@@ -18,6 +18,18 @@ pub struct Config {
     pub pipeline_timeout: Duration,
     /// Delay between poll attempts within `pipeline_timeout`.
     pub pipeline_poll_interval: Duration,
+    /// Base URL of reports for the v3 report step (RFC-0001 D9). Reports is
+    /// an additive compose profile (ADR-0008 D10), exactly like analytics:
+    /// the `synthetic` profile must run with it absent, so this URL is only
+    /// ever *attempted*, never depended on -- unreachable is a normal
+    /// `skipped` outcome, not a startup failure.
+    pub reports_url: String,
+    /// Overall budget for the report step -- larger than the pipeline
+    /// timeout because a report is an async POI/PDF render, slower than an
+    /// analytics read (RFC-0001 D2).
+    pub report_timeout: Duration,
+    /// Delay between report status polls within `report_timeout`.
+    pub report_poll_interval: Duration,
 }
 
 impl Config {
@@ -31,6 +43,12 @@ impl Config {
             pipeline_poll_interval: Duration::from_millis(env_u64(
                 "CANARY_PIPELINE_POLL_INTERVAL_MS",
                 250,
+            )),
+            reports_url: env_string("CANARY_REPORTS_URL", "http://reports:8083"),
+            report_timeout: Duration::from_secs(env_u64("CANARY_REPORT_TIMEOUT_SECONDS", 15)),
+            report_poll_interval: Duration::from_millis(env_u64(
+                "CANARY_REPORT_POLL_INTERVAL_MS",
+                500,
             )),
         }
     }
