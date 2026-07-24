@@ -84,24 +84,32 @@ curl -sS http://localhost:8085/readyz          # canary readyz: 200 regardless o
   construction, but the canary is the only layer that would also catch a
   backend that is *up* and *reachable* but returning wrong data (a
   correctness bug that whitebox/blackbox liveness checks cannot see).
-- `CanaryJourneyFailing` has a `for: 5m` window on top of its
-  `... and rate(...) == 0` condition, so it fires noticeably later than
+- `CanaryJourneyFailing` fires on a compound condition -- at least one
+  failure in the last 10 minutes (`increase(canary_journey_total{result="failure"}[10m]) > 0`)
+  *and* more than 60s elapsed since the last success
+  (`time() - max(canary_journey_last_success_timestamp_seconds) > 60`) --
+  then a `for: 5m` window on top. It is a gauge-of-staleness check, not a
+  rate threshold. Combined with the `for: 5m`, it fires noticeably later than
   `ProbeDown` (`for: 2m`) even though the underlying cause is identical --
   deliberate anti-flap tuning, not a slower detector.
 
 ## Cleanup
 
+First restart the backend and, while the stack is still up, confirm no
+`canary-` prefixed items were left behind (the canary's best-effort cleanup
+runs even when the journey fails, but it is worth checking after an exercise
+that intentionally broke things):
+
 ```shell
 docker compose -f deploy/compose/docker-compose.yml --project-directory . start api
-make down   # or: docker compose ... --profile "*" down
+curl -sS http://localhost:8000/items | jq '[.[] | select(.name | startswith("canary-"))]'
 ```
 
-Confirm no `canary-` prefixed items were left behind in the backend (the
-canary's best-effort cleanup runs even when the journey fails, but it is
-worth checking after an exercise that intentionally broke things):
+Then tear the stack down (this stops the backend, so it must come after the
+check above):
 
 ```shell
-curl -sS http://localhost:8000/items | jq '[.[] | select(.name | startswith("canary-"))]'
+make down   # or: docker compose ... --profile "*" down
 ```
 
 ## Discussion questions

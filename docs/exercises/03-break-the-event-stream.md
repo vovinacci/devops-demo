@@ -103,7 +103,7 @@ curl -sS "http://localhost:8082/api/v1/items/$ID" | jq
    `analytics_reconnects_total` should be climbing -- the backoff loop is
    actively retrying, not stuck.
 
-5. While the stream is down, create a couple more items against the
+5. While the stream is down, create one more item against the
    backend (Option B only -- Option A has no backend to call):
 
    ```shell

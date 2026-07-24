@@ -173,8 +173,10 @@ carry on incrementing across the restart.
 make down   # stops all profiles; core included
 ```
 
-To also drop the seeded data and the `description` column's data, remove the
-volume:
+To reset from scratch, remove the volumes. This is destructive: `down -v`
+deletes the entire Postgres volume -- every item, the seed data, and the
+`description` column and its data -- not a narrow reset. The next `make up`
+starts from an empty database and re-runs migrations from zero.
 
 ```shell
 docker compose -f deploy/compose/docker-compose.yml --project-directory . \

@@ -115,8 +115,14 @@ make generate
    cd proto && buf breaking --against '../.git#branch=main,subdir=proto'
    ```
 
-   `buf breaking` should fail, naming the exact incompatible change (field
-   number/type/name change on the wire).
+   `buf breaking` should fail, naming the exact incompatible change.
+   `proto/buf.yaml` sets `breaking.use: [FILE]`, so buf enforces
+   *source/generated-code* compatibility, which is stricter than raw wire
+   compatibility: a field rename (`total_items` -> `count`) keeps the same
+   field number and is wire-compatible, and `int32` -> `int64` is a
+   varint-compatible wire change -- but both break the generated API the
+   consumer compiled against, so the FILE policy rejects them. That is the
+   point: consumers depend on names and types, not just wire tags.
 
 3. Revert the edit and confirm `buf breaking` passes again:
 

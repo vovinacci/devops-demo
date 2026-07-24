@@ -113,11 +113,19 @@ because the backend is the source of truth, not optional:
 
 ```shell
 docker compose -f deploy/compose/docker-compose.yml --project-directory . stop api
-id=$(curl -sS -D - -o /dev/null -X POST http://localhost:8083/reports \
+
+# Capture the Location value, then take its last path segment as the id --
+# robust whether the header is relative (/reports/<id>) or absolute.
+loc=$(curl -sS -D - -o /dev/null -X POST http://localhost:8083/reports \
   -H 'content-type: application/json' \
   -d '{"type":"items-summary","format":"csv"}' \
-  | awk -F'/' 'tolower($0) ~ /^location:/ {print $3}' | tr -d '\r')
-# poll until terminal, then read the failure and the download status
+  | awk 'tolower($0) ~ /^location:/ {print $2}' | tr -d '\r')
+id=${loc##*/}
+
+# Poll until the job reaches a terminal state (SUCCEEDED or FAILED).
+until curl -sS "http://localhost:8083/reports/${id}" \
+  | jq -e '.status == "SUCCEEDED" or .status == "FAILED"' >/dev/null; do sleep 1; done
+
 curl -sS "http://localhost:8083/reports/${id}" | jq '{status, error}'   # FAILED + error
 curl -sS -o /dev/null -w '%{http_code}\n' "http://localhost:8083/reports/${id}/download"  # 409
 ```

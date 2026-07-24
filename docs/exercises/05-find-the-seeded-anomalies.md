@@ -196,17 +196,19 @@ docker compose -f deploy/compose/docker-compose.yml --project-directory . --prof
 ## Discussion questions
 
 1. The same `ingestion-outage` anomaly produces "exactly 4 consecutive
-   hours with zero rows" at `scale=1` but no visible effect at `scale=24`,
-   from the identical `profile.json` entry and identical seeder code.
+   hours with zero rows" at `scale=1` but *usually* no visible effect at
+   `scale=24` (it showed none across the three documented runs), from the
+   identical `profile.json` entry and identical seeder code.
    (a) State the general rule for which of `profile.json`'s anomalies stay
    visible at a given scale, as a relationship between
    `duration_hours / scale` and the seeder's one-sample-per-real-hour
    interval. (b) A retroactive alert on gradual decline (a recording rule
    comparing each hour's rate to a trailing baseline) could catch
-   `gradual-degradation`. Explain why the *same* alerting approach is
-   structurally unable to catch `traffic-spike` or `ingestion-outage` at
-   `scale=24`, no matter how the threshold is tuned, as long as the seeder
-   samples once per real hour.
+   `gradual-degradation`. Explain why the *same* alerting approach cannot
+   *reliably* catch `traffic-spike` or `ingestion-outage` at `scale=24`, no
+   matter how the threshold is tuned, as long as the seeder samples once per
+   real hour -- and why "reliably" is the right word (the anomaly can still
+   be caught on the rare hour a sample happens to land inside its window).
 2. `AnomalyRealWindow` inverts the same `profileTime = ref + (real-ref)*scale`
    mapping `loadshape.Rate` uses forward. Given that, why do all three
    anomalies' *wall-clock* positions shrink toward "now" as
