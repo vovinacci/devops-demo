@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reports UI</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap">
+        <h1>Reports</h1>
+        <p class="tagline">
+          Submit an items-summary report and watch it run. Backed by the reports
+          service over the same origin (<code>/api</code>).
+        </p>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <div id="banner" class="banner" hidden></div>
+
+      <section class="card" aria-labelledby="submit-heading">
+        <h2 id="submit-heading">New report</h2>
+        <form id="report-form" class="report-form" autocomplete="off">
+          <div class="field">
+            <label for="type">Type</label>
+            <select id="type" name="type">
+              <option value="items-summary">items-summary</option>
+            </select>
+          </div>
+
+          <fieldset class="field">
+            <legend>Format</legend>
+            <div class="radios">
+              <label><input type="radio" name="format" value="xlsx" checked /> xlsx</label>
+              <label><input type="radio" name="format" value="pdf" /> pdf</label>
+              <label><input type="radio" name="format" value="csv" /> csv</label>
+            </div>
+          </fieldset>
+
+          <button id="submit" type="submit" class="btn">Generate report</button>
+        </form>
+
+        <div id="current" class="current" hidden>
+          <div class="current-row">
+            <span class="current-label">Job</span>
+            <code id="current-id" class="mono"></code>
+            <span id="current-status" class="pill">PENDING</span>
+          </div>
+          <a id="current-download" class="btn btn-secondary" hidden>Download</a>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="recent-heading">
+        <div class="card-head">
+          <h2 id="recent-heading">Recent jobs</h2>
+          <button id="refresh" type="button" class="btn btn-ghost">Refresh</button>
+        </div>
+        <div class="table-scroll">
+          <table class="jobs">
+            <thead>
+              <tr>
+                <th scope="col">Created</th>
+                <th scope="col">Type</th>
+                <th scope="col">Format</th>
+                <th scope="col">Status</th>
+                <th scope="col">Size</th>
+                <th scope="col"></th>
+              </tr>
+            </thead>
+            <tbody id="jobs-body">
+              <tr class="empty-row">
+                <td colspan="6">Loading recent jobs...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer wrap">
+      <p>
+        DevOps Demo -- reports-ui (Caddy static server + reverse proxy, RFC-0002).
+        <a href="/metrics">/metrics</a> - <a href="/healthz">/healthz</a> -
+        <a href="/readyz">/readyz</a>
+      </p>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>

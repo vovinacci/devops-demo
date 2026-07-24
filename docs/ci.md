@@ -17,6 +17,7 @@ flowchart LR
     pr --> ca["canary.yml<br/>lint + test + audit + image build<br/>(services/canary/** only)"]
     pr --> an["analytics.yml<br/>codegen + lint + test + govulncheck + image build<br/>(services/analytics/**, proto/**)"]
     pr --> rep["reports.yml<br/>ktlint + test + Trivy lockfile audit + image build<br/>(services/reports/** only)"]
+    pr --> repui["reports-ui.yml<br/>caddy fmt + validate + ASCII/HTML + image build<br/>(services/reports-ui/** only)"]
     pr --> proto["proto.yml<br/>buf lint + format + breaking<br/>(proto/** only)"]
     pr --> par["parity.yml<br/>load profile parity: JS vs Go goldens<br/>(loadprofile/**, services/analytics/internal/loadshape/**)"]
     pr --> img["images.yml<br/>docker build + Trivy<br/>(services/**, loadgen/**, loadprofile/**)"]
@@ -34,6 +35,7 @@ flowchart LR
 | canary.yml         | services/canary/** changes                                                   | fmt + clippy, cargo test, cargo-deny, image                                                           |
 | analytics.yml      | services/analytics/**, proto/** changes                                      | no-committed-codegen check, buf generate + lint + test (Postgres container), govulncheck, image       |
 | reports.yml        | services/reports/** changes                                                  | ktlint, test (Testcontainers Postgres), Trivy gradle.lockfile audit, image                            |
+| reports-ui.yml     | services/reports-ui/** changes                                               | caddy fmt + validate (via the caddy image), ASCII/HTML sanity, image build (no dependency audit, D3)  |
 | proto.yml          | proto/** changes                                                             | buf lint + format, buf breaking (against main)                                                        |
 | parity.yml         | loadprofile/**, services/analytics/internal/loadshape/**                     | JS (shape.js) vs Go (loadshape) parity against checked-in goldens (Hard rule 8)                       |
 | images.yml         | services/**, deploy/compose/**, loadgen/**, loadprofile/**                   | docker build + Trivy scan per service (matrix, includes loadgen)                                      |
@@ -51,7 +53,8 @@ service -- "has CI" is part of the Definition of Done
 `make ci` runs hooks + lint + tests -- the same make targets the workflows
 call (`lint-backend`, `type-check`, `lint-frontend`, `test-backend`,
 `test-frontend`, `lint-canary`, `test-canary`, `lint-analytics`,
-`test-analytics`, `lint-reports`, `test-reports`, `lint-infra`). CI is the
+`test-analytics`, `lint-reports`, `test-reports`, `lint-reports-ui`,
+`test-reports-ui`, `lint-infra`). CI is the
 same commands with per-job caching and a real Postgres service container.
 
 Git hooks are the first, fastest gate: **prek** (pre-commit-compatible,

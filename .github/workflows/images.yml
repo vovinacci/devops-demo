@@ -55,6 +55,12 @@ jobs:
           - service: reports
             context: services/reports
             extra_build_args: ""
+          # reports-ui (RFC-0002): self-contained Caddy static server + proxy;
+          # the site is copied in verbatim (no build step, RFC-0002 D3), so no
+          # additional build contexts.
+          - service: reports-ui
+            context: services/reports-ui
+            extra_build_args: ""
           # loadgen lives at the repo root, not under services/ (RFC-0001
           # D8): its build context needs two named additional contexts,
           # same pattern as backend/analytics for proto/ above --

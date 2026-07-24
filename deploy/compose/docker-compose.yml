@@ -421,6 +421,36 @@ services:
       # it a longer grace period before healthcheck failures count.
       start_period: 40s
 
+  # reports-ui profile (RFC-0002, ADR-0013): opt-in via `make up-full` or
+  # `--profile reports-ui`; a static SPA over the reports API served by Caddy,
+  # which also reverse-proxies /api/* to reports:8083 (same origin, no CORS).
+  # NO depends_on on reports, deliberately (RFC-0002 D7/D10 graceful
+  # degradation): the UI must serve its static assets and its own D6 endpoints
+  # even when reports is absent -- the proxied /api calls just fail visibly in
+  # the browser (503 once Caddy's active health check marks reports down)
+  # rather than the container refusing to boot. Only host
+  # port 8084 (the site listener) is published; Caddy's admin API (:2019, where
+  # its metrics live by default) stays private -- the Caddyfile's `metrics`
+  # handler re-exposes them on :8084 for Prometheus (RFC-0002 D6).
+  reports-ui:
+    build:
+      context: ./services/reports-ui
+    profiles:
+      - reports-ui
+    ports:
+      - "8084:8084"
+    networks:
+      - devnet
+    restart: unless-stopped
+    healthcheck:
+      # caddy:2-alpine ships wget -- same shell-exec probe pattern as the
+      # canary/reports against /healthz (the static server's liveness).
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8084/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
   # synthetic profile (ADR-0007 D9 blackbox layer, ADR-0008 D10): opt-in via
   # `make up-full` or `--profile synthetic`; core stack is profile-less.
   blackbox:

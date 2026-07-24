@@ -20,6 +20,7 @@ flowchart LR
         can["canary (Rust)<br/>:8085, synthetic profile"]
         rep["reports (Kotlin/Spring Boot)<br/>:8083, reports profile"]
         pgR[("postgres-reports (PostgreSQL)<br/>:5434, reports profile")]
+        ui["reports-ui (Caddy static + proxy)<br/>:8084, reports-ui profile"]
     end
 
     subgraph obs [Observability]
@@ -45,6 +46,7 @@ flowchart LR
     rep -->|JDBC| pgR
     rep -->|"HTTP: GET /items (report source of truth)"| be
     rep -.->|"HTTP: GET /api/v1/stats (best-effort, D10)"| an
+    ui -.->|"reverse proxy /api/* -> reports /reports/... (503 when reports absent, D10)"| rep
     lg -->|"HTTP: browse, crud, abuse, expensive"| be
     lg -->|"HTTP: browse"| fe
     lg -.->|"gRPC unary: ListItems, GetItemStats"| be
@@ -54,6 +56,7 @@ flowchart LR
     prom -->|scrape| cad
     prom -.->|"scrape (analytics profile)"| an
     prom -.->|"scrape (reports profile)"| rep
+    prom -.->|"scrape (reports-ui profile)"| ui
     alloy -->|container logs| loki
     graf --> prom
     graf --> loki
@@ -154,6 +157,23 @@ motivating exhibit for the NATS capstone (RFC-0001 Section 10).
   left off this always-on topology deliberately (a diagram that shows what
   the always-on code does not do is a bug, engineering-principles.md
   Section 1).
+- **Reports UI** ([readme](../services/reports-ui/README.md)) -- a small
+  static single-page app over the reports API (RFC-0002, ADR-0013), served by
+  **Caddy** on `:8084`, which also reverse-proxies `/api/*` to `reports:8083`
+  on the same origin (`handle_path` strips the `/api` prefix, so reports sees
+  `/reports/...` -- no CORS). Vanilla HTML/CSS/JS with no build step
+  (RFC-0002 D3): the deliberate opposite of the React `frontend` in every
+  implementation choice, so the repo carries **two** static-frontend exhibits
+  -- nginx for `frontend`, Caddy for `reports-ui` -- whose contrast is the
+  lesson (ADR-0013). Where the `frontend`'s nginx exposes no `/metrics`,
+  Caddy's native Prometheus metrics let `reports-ui` meet the full D6 uniform
+  contract (`/healthz`, `/readyz`, `/metrics`) with the static server alone;
+  the Caddyfile's `metrics` handler re-exposes them on the `:8084` site
+  listener (they live on Caddy's private admin API by default). `reports-ui`
+  compose profile (opt-in via `make up-full` or `--profile reports-ui`); it
+  does not hard-depend on `reports`, so it serves its assets and D6 endpoints
+  even when reports is absent, and the proxied `/api` calls fail visibly in
+  the browser instead (RFC-0002 D10, the dashed `ui -.-> rep` edge above).
 - **Loadgen** ([readme](../loadgen/README.md)) -- k6, shaped continuous
   load (RFC-0001 D4, ADR-0006). `load` compose profile (opt-in via
   `make up-full` or `--profile load`); depends only on `api` being

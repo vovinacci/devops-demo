@@ -43,12 +43,12 @@ up: ## Start all services
 .PHONY: up-full
 up-full: ## Start all services incl. optional profiles
 	$(PRINT_TARGET)
-	$(COMPOSE) --profile synthetic --profile analytics --profile reports --profile load up -d --build
+	$(COMPOSE) --profile synthetic --profile analytics --profile reports --profile reports-ui --profile load up -d --build
 
 .PHONY: up-workshop
 up-workshop: ## Start all profiles at DEMO_TIME_SCALE=24 (RFC-0001 D5 workshop mode: one profile-day compresses to 1 wall-clock hour). Seed at the SAME scale afterward -- `DEMO_TIME_SCALE=24 make seed-history` -- or loadgen's scale guard refuses to start against the mismatched seed marker (no marker / analytics absent: it continues; docs/exercises/05-find-the-seeded-anomalies.md)
 	$(PRINT_TARGET)
-	DEMO_TIME_SCALE=24 $(COMPOSE) --profile synthetic --profile analytics --profile reports --profile load up -d --build
+	DEMO_TIME_SCALE=24 $(COMPOSE) --profile synthetic --profile analytics --profile reports --profile reports-ui --profile load up -d --build
 
 .PHONY: down
 down: ## Stop all services (all profiles; plain "compose down" skips profile-scoped ones)
@@ -164,13 +164,14 @@ smoke: ## e2e CI stage, runnable locally: bring up core+analytics+load, run the 
 	@echo "Stack left running -- tear down with: make down"
 
 .PHONY: smoke-full
-smoke-full: ## nightly CI stage, runnable locally: all profiles incl. reports/JVM (core+analytics+synthetic+reports+load), a longer k6 smoke run WITH the report scenario, canary/blackbox assertions (RFC-0001 D12; .github/workflows/nightly.yml runs exactly this)
+smoke-full: ## nightly CI stage, runnable locally: all profiles incl. reports/JVM and reports-ui/Caddy (core+analytics+synthetic+reports+reports-ui+load), a longer k6 smoke run WITH the report scenario, canary/blackbox assertions (RFC-0001 D12; .github/workflows/nightly.yml runs exactly this)
 	$(PRINT_TARGET)
-	@# --profile reports (RFC-0001 D12): the JVM stays OUT of the per-PR
-	@# `smoke` target and is exercised here nightly/full instead. Longer
-	@# --wait-timeout than `smoke`: reports has the slowest start of any
-	@# service (JVM boot + Flyway; healthcheck start_period 40s).
-	$(COMPOSE) --profile analytics --profile synthetic --profile reports --profile load up -d --build --wait --wait-timeout 300
+	@# --profile reports (RFC-0001 D12) + --profile reports-ui (RFC-0002): the
+	@# JVM and the Caddy static frontend over it stay OUT of the per-PR `smoke`
+	@# target and are exercised here nightly/full instead. Longer --wait-timeout
+	@# than `smoke`: reports has the slowest start of any service (JVM boot +
+	@# Flyway; healthcheck start_period 40s).
+	$(COMPOSE) --profile analytics --profile synthetic --profile reports --profile reports-ui --profile load up -d --build --wait --wait-timeout 300
 	@# LOADGEN_REPORTS_URL is the enable-signal (loadgen/lib/env.js): setting
 	@# it here -- and ONLY here, never in `smoke` -- is what schedules the
 	@# `report` scenario in smoke.js. Unset in the per-PR gate, absent from
@@ -187,7 +188,7 @@ smoke-full: ## nightly CI stage, runnable locally: all profiles incl. reports/JV
 ##@ Testing
 
 .PHONY: test
-test: test-backend test-frontend test-canary test-analytics test-reports ## Run all tests (backend + frontend + canary + analytics + reports)
+test: test-backend test-frontend test-canary test-analytics test-reports test-reports-ui ## Run all tests (backend + frontend + canary + analytics + reports + reports-ui)
 
 .PHONY: test-backend
 test-backend: generate ## Run backend tests locally via virtualenv
@@ -267,10 +268,15 @@ test-reports: ## Run reports tests (JDK/Gradle from mise -- see .mise.toml; Test
 	$(PRINT_TARGET)
 	$(MAKE) -C services/reports test
 
+.PHONY: test-reports-ui
+test-reports-ui: ## Validate the reports-ui Caddyfile + container smoke (/healthz, /metrics; needs Docker)
+	$(PRINT_TARGET)
+	$(MAKE) -C services/reports-ui test
+
 ##@ Code Quality
 
 .PHONY: lint
-lint: lint-infra lint-backend type-check lint-frontend lint-canary lint-analytics lint-reports lint-proto parity ## Code quality check for entire project (backend + frontend + canary + analytics + reports + proto + infra + load profile parity)
+lint: lint-infra lint-backend type-check lint-frontend lint-canary lint-analytics lint-reports lint-reports-ui lint-proto parity ## Code quality check for entire project (backend + frontend + canary + analytics + reports + reports-ui + proto + infra + load profile parity)
 
 .PHONY: lint-backend
 lint-backend: ## Backend code quality check via ruff
@@ -297,6 +303,11 @@ lint-analytics: generate ## Analytics code quality check via gofmt + go vet + go
 lint-reports: ## Reports code quality check via ktlint (JDK/Gradle from mise)
 	$(PRINT_TARGET)
 	$(MAKE) -C services/reports lint
+
+.PHONY: lint-reports-ui
+lint-reports-ui: ## Reports UI check: caddy fmt + validate (via the caddy image) + ASCII-only assets
+	$(PRINT_TARGET)
+	$(MAKE) -C services/reports-ui lint
 
 .PHONY: lint-proto
 lint-proto: ## proto/ code quality check via buf lint + buf format --diff
@@ -371,6 +382,7 @@ build-images: ## Build Docker images
 	docker build -t devops-demo-canary:latest ./services/canary
 	docker build --build-context proto=proto -t devops-demo-analytics:latest ./services/analytics
 	docker build -t devops-demo-reports:latest ./services/reports
+	docker build -t devops-demo-reports-ui:latest ./services/reports-ui
 
 .PHONY: image-sizes
 image-sizes: build-images ## Display Docker image sizes (the canary/analytics vs the rest is the D9 "costs less" exhibit)
@@ -380,6 +392,7 @@ image-sizes: build-images ## Display Docker image sizes (the canary/analytics vs
 	docker images devops-demo-canary:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
 	docker images devops-demo-analytics:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
 	docker images devops-demo-reports:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
+	docker images devops-demo-reports-ui:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
 
 ##@ Frontend
 
