@@ -107,6 +107,11 @@ class ReportService(
 
     fun find(id: String): ReportJob? = repository.find(id)
 
+    // Recent jobs, newest first (RFC-0002 D5, the reports-ui jobs view). The
+    // caller supplies an already-clamped limit; this is a plain read, no job
+    // machinery involved.
+    fun list(limit: Int): List<ReportJob> = repository.list(limit)
+
     private suspend fun runJob(
         id: String,
         type: ReportType,

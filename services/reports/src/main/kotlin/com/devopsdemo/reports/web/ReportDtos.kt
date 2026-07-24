@@ -20,6 +20,35 @@ data class JobAcceptedResponse(
     val location: String,
 )
 
+// GET /reports (list) element: a lean job summary for the reports-ui recent-
+// jobs view (RFC-0002 D5). Metadata only -- no request params and no error
+// detail; a client wanting the full record fetches GET /reports/{id}, and the
+// file via download (populated only once an artifact exists).
+data class JobSummaryResponse(
+    val id: String,
+    val type: String,
+    val format: String,
+    val status: String,
+    val createdAt: Instant,
+    val finishedAt: Instant?,
+    val artifactBytes: Long?,
+    val download: String?,
+) {
+    companion object {
+        fun from(job: ReportJob): JobSummaryResponse =
+            JobSummaryResponse(
+                id = job.id,
+                type = job.type.wire,
+                format = job.format.wire,
+                status = job.status.name,
+                createdAt = job.createdAt,
+                finishedAt = job.finishedAt,
+                artifactBytes = job.artifactBytes,
+                download = if (job.artifactPath != null) "/reports/${job.id}/download" else null,
+            )
+    }
+}
+
 // GET /reports/{id} body: the job's current state. download is populated only
 // once the job SUCCEEDED and an artifact exists.
 data class JobStatusResponse(

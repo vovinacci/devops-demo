@@ -111,6 +111,17 @@ class ReportJobRepository(
             .query("SELECT * FROM report_jobs WHERE id = ?", rowMapper, id)
             .firstOrNull()
 
+    // Recent jobs, newest first, for the reports-ui jobs view (RFC-0002 D5).
+    // The caller clamps limit to a bounded range (the controller), so this is
+    // never an unbounded scan; created_at DESC is index-backed
+    // (report_jobs_created_at_idx).
+    fun list(limit: Int): List<ReportJob> =
+        jdbc.query(
+            "SELECT * FROM report_jobs ORDER BY created_at DESC LIMIT ?",
+            rowMapper,
+            limit,
+        )
+
     private val rowMapper =
         RowMapper { rs: ResultSet, _: Int ->
             ReportJob(
