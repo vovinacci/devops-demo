@@ -181,6 +181,8 @@ For the full command list run `make help`.
 
 - [Exercises](docs/exercises/00-baseline.md) -- structured assignments with
   difficulty levels; new exercise sets arrive with each platform phase
+- [Course](docs/course.md) -- semester guide for teaching or self-studying the
+  platform phase by phase: run current `main`, read how it grew via the tags
 
 ## License
 
