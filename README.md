@@ -134,7 +134,7 @@ After successful startup, all services will be available at the following URLs:
 | **Mailpit**           | http://localhost:8025       | -           | Visible alert receiver: SMTP sink + web UI for notifications                              |
 | **Canary**            | http://localhost:8085       | -           | Synthetic-journey canary (`synthetic` profile)                                            |
 | **Analytics API**     | http://localhost:8082       | -           | Event ingestion + read API (items, stats, seed-marker) (`analytics` profile)              |
-| **Reports API**       | http://localhost:8083       | -           | Kotlin/Spring Boot reports service, skeleton so far (`reports` profile)                   |
+| **Reports API**       | http://localhost:8083       | -           | Kotlin/Spring Boot reports service: async XLSX/PDF/CSV engine (`reports` profile)         |
 
 For the full command list run `make help`.
 
@@ -155,7 +155,8 @@ For the full command list run `make help`.
 - [Engineering principles](docs/engineering-principles.md) -- how and why we
   build this way; RFC/ADR lifecycle, change workflow, testing philosophy
 - [RFCs](docs/rfc/) -- design documents; start with
-  [RFC-0001](docs/rfc/0001-polyglot-platform.md)
+  [RFC-0001](docs/rfc/0001-polyglot-platform.md) (the polyglot platform), then
+  [RFC-0002](docs/rfc/0002-reports-ui.md) (the reports UI, a sibling RFC)
 - [ADRs](docs/adr/) -- one durable decision per file, extracted from the
   RFCs; immutable once accepted
 - [CI/CD architecture](docs/ci.md) -- pipeline topology, gates, releases,

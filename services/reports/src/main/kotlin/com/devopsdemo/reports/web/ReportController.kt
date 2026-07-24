@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
@@ -56,6 +57,19 @@ class ReportController(
             .accepted()
             .location(URI.create(location))
             .body(JobAcceptedResponse(id = id, status = JobStatus.PENDING.name, location = location))
+    }
+
+    // List recent jobs, newest first, for the reports-ui jobs view (RFC-0002
+    // D5). Metadata only, no artifacts. limit is clamped to [MIN_LIMIT,
+    // MAX_LIMIT] so a client cannot request an unbounded scan; omitted -> the
+    // default. Routes cleanly beside GET /{id}: the bare /reports path matches
+    // here, /reports/{id} matches the status mapping below.
+    @GetMapping
+    fun list(
+        @RequestParam(required = false) limit: Int?,
+    ): List<JobSummaryResponse> {
+        val clamped = (limit ?: DEFAULT_LIMIT).coerceIn(MIN_LIMIT, MAX_LIMIT)
+        return service.list(clamped).map(JobSummaryResponse::from)
     }
 
     @GetMapping("/{id}")
@@ -100,4 +114,12 @@ class ReportController(
     @ExceptionHandler(ReportServiceUnavailableException::class)
     @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
     fun handleShuttingDown(e: ReportServiceUnavailableException): Map<String, String> = mapOf("error" to (e.message ?: "service unavailable"))
+
+    private companion object {
+        // GET /reports?limit=N bounds: a sane default and a hard ceiling so a
+        // client cannot request an unbounded number of rows (RFC-0002 D5).
+        const val DEFAULT_LIMIT = 20
+        const val MIN_LIMIT = 1
+        const val MAX_LIMIT = 100
+    }
 }

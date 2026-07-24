@@ -91,6 +91,8 @@ Loki works now.
 ## Endpoints (`:8083`)
 
 - `POST /reports` -- submit a report job (async). See Report API below.
+- `GET /reports` -- list recent jobs, newest first (metadata only). See
+  Report API below.
 - `GET /reports/{id}` -- job status and, when done, a download link.
 - `GET /reports/{id}/download` -- stream the generated artifact.
 - `/healthz` -- liveness (see D6 uniform contract above).
@@ -123,6 +125,31 @@ Responses:
 - `202 Accepted` with a `Location: /reports/{id}` header and a body
   `{ "id", "status": "PENDING", "location" }`.
 - `400 Bad Request` on an unknown `type` or `format`.
+
+### `GET /reports`
+
+Lists recent jobs, **newest first**, for a jobs view (the `reports-ui`
+recent-jobs list, RFC-0002 D5). Metadata only -- never artifacts, request
+`params`, or `error` detail:
+
+```json
+[
+  {
+    "id": "…", "type": "items-summary", "format": "xlsx",
+    "status": "SUCCEEDED",
+    "createdAt": "…", "finishedAt": "…",
+    "artifactBytes": 12345,
+    "download": "/reports/{id}/download"
+  }
+]
+```
+
+- `limit` (query, optional) -- how many rows to return. Clamped server-side to
+  `[1, 100]`, default `20`, so a client cannot request an unbounded scan.
+  Ordering is index-backed (`report_jobs_created_at_idx`, `created_at DESC`).
+- `download` is present on a row only once its artifact exists; callers fetch
+  the full record via `GET /reports/{id}` and the file via the download
+  sub-resource.
 
 ### `GET /reports/{id}`
 

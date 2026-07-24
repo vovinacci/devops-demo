@@ -354,6 +354,63 @@ class ReportJobApiTests {
         assertThat(download.statusCode).isEqualTo(HttpStatus.CONFLICT)
     }
 
+    @Suppress("UNCHECKED_CAST")
+    private fun getList(path: String): List<Map<String, Any?>> {
+        val response = rest.getForEntity(path, List::class.java)
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        return response.body!! as List<Map<String, Any?>>
+    }
+
+    @Test
+    @Order(14)
+    fun listReturnsRecentJobsNewestFirstWithLeanShape() {
+        // Three jobs with distinct, increasing created_at: each insertPending is
+        // its own autocommit statement so now() advances between them; the sleep
+        // makes the DESC ordering deterministic (no microsecond ties). Inserted
+        // newest-last, these are the most recently created rows in the table, so
+        // they lead the global newest-first list.
+        val ids = (1..3).map { UUID.randomUUID().toString() }
+        ids.forEach { id ->
+            repository.insertPending(id, ReportType.ITEMS_SUMMARY, ReportFormat.CSV, emptyMap())
+            Thread.sleep(10)
+        }
+
+        val top2 = getList("/reports?limit=2")
+        assertThat(top2).hasSize(2)
+        assertThat(top2.map { it["id"] }).containsExactly(ids[2], ids[1])
+
+        // Lean summary shape: metadata only, no request params, no error detail,
+        // no startedAt; download is null while the job is still PENDING.
+        val first = top2[0]
+        assertThat(first.keys)
+            .containsExactlyInAnyOrder("id", "type", "format", "status", "createdAt", "finishedAt", "artifactBytes", "download")
+        assertThat(first["type"]).isEqualTo("items-summary")
+        assertThat(first["status"]).isEqualTo("PENDING")
+        assertThat(first["download"]).isNull()
+
+        // Omitted limit -> the default (20); non-empty here since prior tests ran.
+        val defaulted = getList("/reports")
+        assertThat(defaulted).isNotEmpty()
+        assertThat(defaulted.size).isLessThanOrEqualTo(20)
+
+        // A limit below the floor is clamped up to 1, never down to 0 rows.
+        val floored = getList("/reports?limit=0")
+        assertThat(floored).hasSize(1)
+    }
+
+    @Test
+    @Order(15)
+    fun listClampsLimitToHardCeiling() {
+        // Push the table well past the 100-row ceiling, then ask for far more:
+        // the response is capped at 100, proving a client cannot request an
+        // unbounded scan regardless of the limit it sends.
+        repeat(105) {
+            repository.insertPending(UUID.randomUUID().toString(), ReportType.ITEMS_SUMMARY, ReportFormat.CSV, emptyMap())
+        }
+        val clamped = getList("/reports?limit=99999")
+        assertThat(clamped).hasSize(100)
+    }
+
     @Test
     @Order(13)
     fun startupReconciliationFailsOrphanedRunningJob() {
