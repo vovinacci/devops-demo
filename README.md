@@ -53,7 +53,8 @@ devops-demo/
 │   ├── frontend/
 │   ├── analytics/               # Go analytics service (analytics profile)
 │   ├── canary/                  # Rust synthetic-journey canary (synthetic profile)
-│   └── reports/                 # Kotlin/Spring Boot reports service (reports profile)
+│   ├── reports/                 # Kotlin/Spring Boot reports service (reports profile)
+│   └── reports-ui/              # Caddy static SPA over the reports API (reports-ui profile)
 │
 ├── .devcontainer/               # Devcontainer / GitHub Codespaces setup
 ├── .env.example                 # Compose overrides template (see local-setup)
@@ -135,6 +136,7 @@ After successful startup, all services will be available at the following URLs:
 | **Canary**            | http://localhost:8085       | -           | Synthetic-journey canary (`synthetic` profile)                                            |
 | **Analytics API**     | http://localhost:8082       | -           | Event ingestion + read API (items, stats, seed-marker) (`analytics` profile)              |
 | **Reports API**       | http://localhost:8083       | -           | Kotlin/Spring Boot reports service: async XLSX/PDF/CSV engine (`reports` profile)         |
+| **Reports UI**        | http://localhost:8084       | -           | Static SPA over the reports API, served by Caddy (`reports-ui` profile)                   |
 
 For the full command list run `make help`.
 

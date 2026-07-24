@@ -1,0 +1,71 @@
+{
+	# Admin API stays on loopback (Caddy's default) and is NOT published in
+	# compose -- Caddy serves its native Prometheus metrics on the admin API
+	# by default, so without the `metrics` handler below they would be
+	# unreachable from Prometheus (RFC-0002 D6, ADR-0013).
+	admin localhost:2019
+
+	# Enable metrics collection (caddy_http_requests_total, request duration
+	# histograms). Required for the `metrics` handler below to expose anything
+	# beyond Go-runtime/build-info gauges.
+	metrics
+
+	# Structured JSON access logs to stdout (RFC-0001 D6, D11): Alloy tails the
+	# container stdout into Loki like every other service.
+	log {
+		output stdout
+		format json
+	}
+}
+
+:8084 {
+	# D6 uniform contract. Liveness: the static server process is up.
+	handle /healthz {
+		respond "OK" 200
+	}
+
+	# Readiness for a stateless static server equals liveness -- there is no
+	# backing store to be un-ready against (RFC-0002 D6). The reports API has
+	# its own /readyz reflecting its Postgres.
+	handle /readyz {
+		respond "OK" 200
+	}
+
+	# Caddy's native Prometheus metrics on the :8084 service listener (they
+	# live on the admin API by default, hence this explicit handler -- the
+	# admin API stays private). Prometheus scrapes this under the reports-ui
+	# job (observability/prometheus.yml).
+	handle /metrics {
+		metrics
+	}
+
+	# Same-origin reverse proxy (RFC-0002 D4). handle_path STRIPS the matched
+	# /api prefix, so reports sees /reports/... not /api/reports/... -- a bare
+	# `reverse_proxy /api/*` would preserve the URI and 404. No CORS on the
+	# reports API as a result. reports is an opt-in profile; when it is absent
+	# the active health check below marks the upstream down and these calls fail
+	# visibly in the browser (503 no-healthy-upstream, or a transient 502 before
+	# the first probe) while the page still loads (D10 graceful degradation,
+	# handled client-side in app.js).
+	handle_path /api/* {
+		reverse_proxy reports:8083 {
+			# Active health checks (RFC-0002 D10): without them
+			# caddy_reverse_proxy_upstreams_healthy is pinned at 1 and the
+			# reports-ui dashboard reports a dead upstream as green while every
+			# /api call 502s. health_uri probes the upstream's real liveness
+			# path directly (reports:8083/healthz -- health checks bypass
+			# handle_path's prefix strip), so the gauge drops to 0 when reports
+			# is down and returns to 1 when it recovers. Interval < the
+			# dashboard's 10s refresh so the panel tracks reality promptly.
+			health_uri /healthz
+			health_interval 5s
+			health_timeout 3s
+		}
+	}
+
+	# Static SPA assets (RFC-0002 D3): hand-written HTML/CSS/JS, no build step.
+	handle {
+		root * /srv
+		file_server
+	}
+}

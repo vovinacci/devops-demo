@@ -122,6 +122,20 @@ if [ "${NIGHTLY:-0}" = "1" ]; then
   echo "OK: report job ${location} SUCCEEDED"
 
   check_http_200 "reports download" "http://localhost:8083${location}/download" reports
+
+  # reports-ui (RFC-0002, the Caddy static frontend + reverse proxy) rides the
+  # same nightly/full stack as reports; like reports it stays OUT of the per-PR
+  # gate. Prove its D6 endpoints answer and that it exposes Caddy's native
+  # Prometheus metrics on the site listener (the `metrics` handler re-exposing
+  # the admin-API metrics -- the ADR-0013 win over the React frontend's nginx).
+  echo "== reports-ui /healthz (nightly only) =="
+  check_http_200 "reports-ui /healthz" "http://localhost:8084/healthz" reports-ui
+
+  echo "== reports-ui /metrics exposes caddy_ series (nightly only) =="
+  if ! curl -sS "http://localhost:8084/metrics" 2>/dev/null | grep -q '^caddy_'; then
+    fail reports-ui "GET :8084/metrics returned no caddy_ Prometheus series (metrics handler not exposing Caddy metrics)"
+  fi
+  echo "OK: reports-ui /metrics exposes caddy_ series"
 fi
 
 echo "All e2e smoke assertions passed."

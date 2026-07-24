@@ -78,6 +78,31 @@ D12 -- see `loadgen/README.md`), and a manual `POST /reports` fills them any
 time. Being an opt-in profile, the panels show "No data" and the scrape target
 reads "down" when `reports` is not up (RFC-0001 D10).
 
+## Reports UI (Caddy) dashboard
+
+The **Reports UI (Caddy)** dashboard
+(`observability/grafana/dashboards/reports-ui.json`, `reports-ui` compose
+profile, RFC-0002 D6, ADR-0013) is the Caddy whitebox for the static
+frontend: request rate by response status code
+(`caddy_http_request_duration_seconds_count` by `code`), request latency p95
+(the same histogram's buckets), in-flight requests
+(`caddy_http_requests_in_flight`), reverse-proxy upstream health
+(`caddy_reverse_proxy_upstreams_healthy{upstream="reports:8083"}`), and a
+scrape-health stat (`up{job="reports-ui"}`). Prometheus scrapes it via the
+`reports-ui` job (`observability/prometheus.yml`, target `reports-ui:8084`).
+
+This dashboard is the payoff of ADR-0013's Caddy choice: Caddy exports these
+metrics natively, but on its private admin API by default -- the Caddyfile's
+`metrics` handler re-exposes them on the `:8084` site listener so Prometheus
+can reach them, and the admin API stays unpublished. It is the deliberate
+contrast to the React `frontend`, whose nginx exposes no `/metrics` at all, so
+this second static frontend meets the full D6 uniform contract where the first
+does not. The upstream-health line drops to 0 / "No data" when the `reports`
+profile is down; the UI keeps serving its own assets and D6 endpoints
+regardless (RFC-0002 D10 graceful degradation). Being an opt-in profile, all
+panels show "No data" and the scrape target reads "down" when `reports-ui` is
+not up (RFC-0001 D10).
+
 ## Monitoring Layers dashboard
 
 The **Monitoring Layers** dashboard

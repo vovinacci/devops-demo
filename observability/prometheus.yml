@@ -54,6 +54,15 @@ scrape_configs:
     static_configs: [{ targets: ["reports:8083"] }]
     metrics_path: /metrics
 
+  # reports-ui profile only (RFC-0002 D6, ADR-0013, ADR-0008 D10): Caddy's
+  # native metrics, re-exposed on the :8084 site listener by the Caddyfile's
+  # `metrics` handler (they live on the admin API by default). "down" on the
+  # Prometheus targets page when `reports-ui` is not up -- expected, documented
+  # degradation, same as the reports/analytics/synthetic targets above.
+  - job_name: "reports-ui"
+    static_configs: [{ targets: ["reports-ui:8084"] }]
+    metrics_path: /metrics
+
   - job_name: "blackbox_http"
     metrics_path: /probe
     params:

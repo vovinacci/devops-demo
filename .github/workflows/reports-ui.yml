@@ -1,0 +1,80 @@
+name: Reports UI
+
+on:
+  pull_request:
+    paths:
+      - "services/reports-ui/**"
+      - ".github/workflows/reports-ui.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "services/reports-ui/**"
+      - ".github/workflows/reports-ui.yml"
+
+# Read-only token: lint and image build only read the checkout. No dependency
+# audit (RFC-0002 D6): the site is hand-written HTML/CSS/JS with no build step
+# and no lockfile, so there is no dependency tree to scan.
+permissions:
+  contents: read
+
+# Digest-pinned Caddy image (matches services/reports-ui/Dockerfile FROM and
+# Makefile): fmt/validate run through it, no host caddy install.
+env:
+  CADDY_IMAGE: "caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648"
+
+jobs:
+  lint-reports-ui:
+    name: Lint Reports UI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: caddy fmt (must be a no-op)
+        working-directory: services/reports-ui
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work "$CADDY_IMAGE" caddy fmt Caddyfile > Caddyfile.fmt || true
+          diff Caddyfile Caddyfile.fmt || {
+            echo "Caddyfile is not formatted -- run 'make -C services/reports-ui format'";
+            exit 1;
+          }
+          rm -f Caddyfile.fmt
+
+      - name: caddy validate
+        working-directory: services/reports-ui
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work "$CADDY_IMAGE" caddy validate --config Caddyfile
+
+      - name: ASCII-only site assets + Caddyfile
+        working-directory: services/reports-ui
+        run: |
+          if LC_ALL=C grep -RPln '[^\x00-\x7f]' Caddyfile site/ | grep .; then
+            echo "non-ASCII bytes found in the files listed above";
+            exit 1;
+          fi
+          echo "ASCII OK"
+
+      - name: Static asset sanity (required files present)
+        working-directory: services/reports-ui
+        run: |
+          for f in site/index.html site/styles.css site/app.js; do
+            test -s "$f" || { echo "missing or empty: $f"; exit 1; }
+          done
+          grep -q "<!doctype html>" site/index.html || { echo "index.html missing doctype"; exit 1; }
+          echo "static assets OK"
+
+  build-reports-ui-image:
+    name: Build reports-ui image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      # caddy validate runs inside the build (Dockerfile), so a malformed
+      # config fails here too.
+      - name: Build image (no push)
+        run: |
+          docker build --pull -t devops-demo-reports-ui:ci services/reports-ui

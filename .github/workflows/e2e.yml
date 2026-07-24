@@ -7,10 +7,10 @@ name: E2E
 # wired together, not just "up". This IS `make smoke` -- CI runs exactly
 # the command documented for local reproduction (D12 make-ci-parity).
 #
-# `reports` (the JVM profile, Phase 6) does not exist yet; when it lands
-# it stays out of this stage per the RFC-0001 D12 CI resource constraint
-# (standard 7 GB runners do not comfortably fit `full`) and is exercised
-# in nightly.yml instead.
+# `reports` (the JVM profile, Phase 6) and `reports-ui` (RFC-0002) stay out
+# of this stage per the RFC-0001 D12 CI resource constraint (standard 7 GB
+# runners do not comfortably fit `full`) and are exercised in nightly.yml
+# instead.
 
 on:
   pull_request:
