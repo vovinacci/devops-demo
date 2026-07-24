@@ -12,7 +12,7 @@ watch which layer notices. The *process* -- the RFCs that argued each decision,
 the ADRs that froze it, the runbooks that operate it, and the exercises that
 stress it -- is the material, not a wrapper around it.
 
-The semester is nine modules over roughly fourteen weeks: the seven build
+The semester is ten modules over roughly fourteen weeks: the seven build
 phases of [RFC-0001](rfc/0001-polyglot-platform.md), the sibling
 [RFC-0002](rfc/0002-reports-ui.md) integration exhibit, and two upcoming
 modules (Kubernetes on Kind, then an authentication capstone) that are in
@@ -54,7 +54,7 @@ capture what a phase looked like when it shipped, never patched in place. When
 | 8. Into Kind (UPCOMING)             | RFC-0003    | K8s/Kind, Gateway API, Helm       | RFC-0003 (in design)      | --                               | --    | --                                              | `rfc-0003` |
 | 9. Capstone: authN/authZ (UPCOMING) | RFC-0004    | OIDC across the polyglot mesh     | RFC-0004 (in design)      | --                               | --    | --                                              | `rfc-0004` |
 
-`ex NN` is [`docs/exercises/NN-*.md`](exercises/00-baseline.md); `D`n is the
+`ex NN` is [`docs/exercises/NN-*.md`](exercises/00-baseline.md); `D<n>` is the
 decision record of that number in [RFC-0001 Section 6-12](rfc/0001-polyglot-platform.md);
 `ADR n` is [`docs/adr/000n-*.md`](adr/0001-service-based-monorepo-layout.md).
 
