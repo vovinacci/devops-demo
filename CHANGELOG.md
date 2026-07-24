@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.5.0](https://github.com/vovinacci/devops-demo/compare/v1.4.0...v1.5.0) (2026-07-24)
+
+
+### Features
+
+* **canary:** v3 report step in the synthetic journey (RFC-0001 Phase 6) ([#180](https://github.com/vovinacci/devops-demo/issues/180)) ([393989a](https://github.com/vovinacci/devops-demo/commit/393989a2b806cddd9c60e19ca58a1b1ec6614813))
+* **loadgen:** report k6 scenario and nightly JVM e2e (RFC-0001 Phase 6) ([#179](https://github.com/vovinacci/devops-demo/issues/179)) ([ca71868](https://github.com/vovinacci/devops-demo/commit/ca71868227416d89094eaec9358dd87b7d17c78c))
+* **reports-ui:** Caddy static SPA over the reports API (RFC-0002) ([#182](https://github.com/vovinacci/devops-demo/issues/182)) ([e4bbafc](https://github.com/vovinacci/devops-demo/commit/e4bbafc1f5b5896bebe88f258dae7385ba91c7f8))
+* **reports:** async report engine with XLSX/PDF/CSV generation (RFC-0001 Phase 6) ([#178](https://github.com/vovinacci/devops-demo/issues/178)) ([dcba2c1](https://github.com/vovinacci/devops-demo/commit/dcba2c160eabd54e1aba6f7332f2c569040303b1))
+* **reports:** Kotlin/Spring Boot service skeleton (RFC-0001 Phase 6) ([#176](https://github.com/vovinacci/devops-demo/issues/176)) ([a439a46](https://github.com/vovinacci/devops-demo/commit/a439a466020c7578d56646534f61780083fca844))
+
 ## [1.4.0](https://github.com/vovinacci/devops-demo/compare/v1.3.0...v1.4.0) (2026-07-23)
 
 
