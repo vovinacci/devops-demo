@@ -130,8 +130,12 @@ No npm, no Vite, no bundler, no framework.
 
 ### D4. Same-origin reverse proxy, no CORS
 
-The browser talks only to `reports-ui`'s own origin; Caddy reverse-proxies
-`/api/*` to `reports:8083`, stripping the `/api` prefix.
+The browser talks only to `reports-ui`'s own origin; Caddy uses
+`handle_path /api/*` to reverse-proxy to `reports:8083`. `handle_path`
+(unlike a bare `reverse_proxy /api/*`, which preserves the incoming URI)
+strips the matched `/api` prefix, so the reports service sees `/reports/...`,
+not `/api/reports/...`. Getting this wrong is a silent 404, so the directive
+is named here, not left to "strip the prefix somehow".
 
 - Rationale: same-origin means **no CORS** to configure on the reports service
   and no preflight round-trips -- the reports API stays a clean server-to-
@@ -174,8 +178,12 @@ server alone:
 - `/readyz` -- readiness for a stateless static server is liveness; it answers
   `200` the same way (documented as such -- there is no backing store to be
   un-ready against; the reports API has its own `/readyz`).
-- `/metrics` -- Caddy's **native** Prometheus metrics, exposed on the service
-  and scraped by Prometheus under a `reports-ui` job.
+- `/metrics` -- Caddy's **native** Prometheus metrics. These are NOT on the
+  service listener by default -- Caddy exposes them through its admin API
+  (`localhost:2019/metrics`). So the site config adds an explicit `metrics`
+  handler to serve `/metrics` on the `:8084` service listener, while the admin
+  API stays private (bound to localhost / not published). Prometheus scrapes
+  the public `:8084/metrics` under a `reports-ui` job.
 - Plus the rest of the D6 shape: a multi-stage-free but digest-pinned
   Dockerfile, the standard Make targets, structured logs to stdout (Caddy's
   JSON log), a provisioned Grafana panel/dashboard, and a CI job (lint the
@@ -253,7 +261,10 @@ plus design; PR-2 is pure new-service scaffolding against a settled contract.
   gates are green; this RFC and ADR-0013 lint clean.
 - **PR-2:** `make up-full` brings up `reports-ui` on `:8084`; the UI submits a
   report, shows it reaching `SUCCEEDED`, downloads the artifact, and lists
-  recent jobs; `reports-ui` answers `/healthz`, `/readyz`, and `/metrics`, and
+  recent jobs (proving `handle_path /api/*` strips the prefix so the backend
+  sees `/reports/...`); an HTTP probe against the public `:8084/metrics`
+  returns Prometheus text (the `metrics` handler), while the admin API is not
+  published; `reports-ui` answers `/healthz`, `/readyz`, and `/metrics`, and
   Prometheus scrapes the `reports-ui` job; with `reports` absent the UI still
   serves its assets and its own D6 endpoints.
 

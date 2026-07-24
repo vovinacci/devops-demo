@@ -19,12 +19,16 @@ exhibit rather than an accident.
 
 `reports-ui` is served by **Caddy** (`caddy:2-alpine`, digest-pinned). A tiny
 Caddyfile provides the whole service: a static `file_server`, a
-`reverse_proxy /api/* -> reports:8083` (same-origin, so no CORS on the reports
-API), `respond /healthz 200` (and `/readyz`, which for a stateless static
-server equals liveness), and Caddy's **native** Prometheus `metrics`
-endpoint. Caddy's built-in metrics are the pivot: they let `reports-ui`
-satisfy D6's `/metrics` with no sidecar and no hand-rolled exporter, which
-nginx cannot do natively. The repo consequently runs two static servers --
+`handle_path /api/* -> reverse_proxy reports:8083` (same-origin, so no CORS on
+the reports API; `handle_path` strips the `/api` prefix so the backend sees
+`/reports/...`, where a bare `reverse_proxy /api/*` would forward the prefix
+and 404), `respond /healthz 200` (and `/readyz`, which for a stateless static
+server equals liveness), and an explicit `metrics` handler exposing Caddy's
+**native** Prometheus metrics on the `:8084` service listener (Caddy serves
+them on its admin API by default, not the site listener, so the handler is
+required; the admin API stays private). Caddy's built-in metrics are the
+pivot: they let `reports-ui` satisfy D6's `/metrics` with no sidecar and no
+hand-rolled exporter, which nginx cannot do natively. The repo consequently runs two static servers --
 nginx for `frontend`, Caddy for `reports-ui` -- as an intentional contrast on
 adjacent dashboards, the same pedagogy as the Rust canary beside the JVM.
 
