@@ -23,10 +23,14 @@ On every tick of `CANARY_INTERVAL_SECONDS`:
 
 Cleanup is best-effort and unconditional: the item is deleted even if
 step 2 does not find it, step 3 times out or is skipped, or step 4 times
-out / fails / is skipped, so a failing journey never leaves synthetic
-data behind. Every step's duration is recorded regardless of outcome, so
-the runbook can localize *which* step is slow or failing before it fails
-outright.
+out / fails / is skipped, so a journey that runs to completion never
+leaves synthetic data behind. The one exception is a SIGTERM that lands
+mid-journey, before the delete step (see "Known limitation: shutdown
+mid-journey" below): that item is left for the operator, by design,
+rather than blocking shutdown on a cleanup call. Every step's duration is
+recorded regardless of
+outcome, so the runbook can localize *which* step is slow or failing
+before it fails outright.
 
 v1 was REST-only (backend CRUD). v2 added the pipeline-lag step once
 analytics exists (Phase 3); v3 (this version) adds the report step once

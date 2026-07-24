@@ -93,9 +93,11 @@ pub enum ReportOutcome {
     /// The job reached the terminal `FAILED` state -- reports was up and
     /// answered, the render itself failed.
     Failed,
-    /// Reports was unreachable (connection refused / DNS failure) on the
-    /// first POST or the first status poll -- read as "the `reports`
-    /// profile is not up" (ADR-0008 D10), not a journey failure.
+    /// The submit POST itself could not connect (connection refused / DNS
+    /// failure) -- read as "the `reports` profile is not up" (ADR-0008
+    /// D10), not a journey failure. Once the POST is accepted, reports is
+    /// proven reachable, so a later poll error is transient (-> `Timeout`),
+    /// never `Skipped`.
     Skipped,
 }
 

@@ -56,7 +56,8 @@ start).
 - `canary_journey_total{result="failure"}` vs `{result="success"}` --
   the raw counters the alert expression is built from.
 - `canary_journey_step_duration_seconds` by `step` (`create`, `verify`,
-  `delete`) -- per-step latency, recorded even for failed steps. A step
+  `pipeline`, `report`, `delete`) -- per-step latency, recorded even for
+  failed steps. A step
   whose duration climbs toward `CANARY_TIMEOUT_SECONDS` right before the
   failure rate rises tells you which step is degrading. The `pipeline`
   and `report` steps also appear here but are best-effort and never fail

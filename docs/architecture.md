@@ -124,8 +124,8 @@ motivating exhibit for the NATS capstone (RFC-0001 Section 10).
   analytics, v3 adds a report step submitting a lightweight CSV job to
   reports and polling it to a terminal state (the dashed `can -.-> rep`
   edge above). Both tolerate their target profile being absent (ADR-0008
-  D10 graceful degradation): a skipped or timed-out step never fails the
-  journey verdict. `synthetic` compose profile.
+  D10 graceful degradation): a skipped, timed-out, or failed step never
+  fails the journey verdict. `synthetic` compose profile.
 - **Reports** ([readme](../services/reports/README.md)) -- Kotlin /
   Spring Boot 3 service, the JVM showcase (RFC-0001 D2), own Postgres
   instance (`postgres-reports`) and a named artifact volume. `reports`
