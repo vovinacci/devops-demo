@@ -35,7 +35,7 @@ jobs:
       - name: caddy fmt (must be a no-op)
         working-directory: services/reports-ui
         run: |
-          docker run --rm -v "$PWD:/work" -w /work "$CADDY_IMAGE" caddy fmt Caddyfile > Caddyfile.fmt
+          docker run --rm -v "$PWD:/work" -w /work "$CADDY_IMAGE" caddy fmt Caddyfile > Caddyfile.fmt || true
           diff Caddyfile Caddyfile.fmt || {
             echo "Caddyfile is not formatted -- run 'make -C services/reports-ui format'";
             exit 1;

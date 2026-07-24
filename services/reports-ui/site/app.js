@@ -22,6 +22,10 @@ const refreshBtn = el("refresh");
 
 let pollTimer = null;
 let refreshTimer = null;
+// Bumped on every submit. A poll loop that survives a resubmission (an await
+// in flight when the new job starts) sees a stale generation and bails, so it
+// can never overwrite the current job's status or schedule a rogue timer.
+let pollGeneration = 0;
 
 // --- helpers ---------------------------------------------------------------
 
@@ -92,7 +96,8 @@ async function submitReport(evt) {
     currentId.textContent = job.id;
     currentDownload.hidden = true;
     setStatusPill(currentStatus, job.status || "PENDING");
-    pollJob(job.id, Date.now());
+    const generation = ++pollGeneration;
+    pollJob(job.id, Date.now(), generation);
     loadJobs();
   } catch (err) {
     showBanner(
@@ -104,10 +109,20 @@ async function submitReport(evt) {
   }
 }
 
-async function pollJob(id, startedAt) {
+// A poll failure is recoverable if the service is momentarily unreachable (a
+// network/transport error has no .status) or replies 5xx: the job likely still
+// exists, so we keep polling until the deadline. A 4xx (e.g. 404 job gone) is
+// terminal -- retrying can never succeed.
+function isRecoverable(err) {
+  return err.status == null || err.status >= 500;
+}
+
+async function pollJob(id, startedAt, generation) {
   try {
     const res = await apiFetch(`/reports/${encodeURIComponent(id)}`);
+    if (generation !== pollGeneration) return;
     const job = await res.json();
+    if (generation !== pollGeneration) return;
     setStatusPill(currentStatus, job.status);
 
     if (job.status === "SUCCEEDED" && job.download) {
@@ -120,7 +135,14 @@ async function pollJob(id, startedAt) {
       return;
     }
   } catch (err) {
-    showBanner(`Lost contact with the reports service while polling (${err.message}).`);
+    if (generation !== pollGeneration) return;
+    if (!isRecoverable(err) || Date.now() - startedAt > POLL_TIMEOUT_MS) {
+      showBanner(`Lost contact with the reports service while polling (${err.message}).`);
+      return;
+    }
+    // Transient failure within the deadline: keep trying.
+    showBanner("Reports service hiccup -- retrying...");
+    pollTimer = setTimeout(() => pollJob(id, startedAt, generation), POLL_MS);
     return;
   }
 
@@ -128,7 +150,7 @@ async function pollJob(id, startedAt) {
     showBanner("Still running after 60s -- stopped auto-refresh; use Refresh below.");
     return;
   }
-  pollTimer = setTimeout(() => pollJob(id, startedAt), POLL_MS);
+  pollTimer = setTimeout(() => pollJob(id, startedAt, generation), POLL_MS);
 }
 
 // --- recent jobs -----------------------------------------------------------
