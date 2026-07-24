@@ -1,0 +1,4 @@
+# +reports-ui profile (RFC-0002, ADR-0013): the Caddy static SPA over reports.
+# Layer: `-f values.yaml -f values-reports-ui.yaml`.
+reports-ui:
+  enabled: true

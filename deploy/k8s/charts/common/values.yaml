@@ -1,0 +1,37 @@
+# Library charts render nothing on their own; this file documents the value
+# contract every per-service chart supplies. See deploy/k8s/README.md.
+#
+# image:
+#   repository: devops-demo/backend   # built images: placeholder repo (PR-3 loads into Kind)
+#   tag: dev                          # used when digest is empty
+#   digest: ""                        # infra images pin the compose sha256 here
+#   pullPolicy: IfNotPresent
+# replicaCount: 1
+# containerPort: 8000                 # primary port (named by portName)
+# portName: http
+# extraPorts:                         # e.g. backend gRPC (RFC-0001 D3)
+#   - name: grpc
+#     containerPort: 50051
+# command: []                         # optional container command override
+# args: []
+# env: []                             # list of {name, value}
+# resources: {}                       # requests/limits (RFC-0003 DK5)
+# volumes: []
+# volumeMounts: []
+# service:
+#   enabled: true                     # false for loadgen (no listener)
+#   type: ClusterIP
+#   headless: false                   # true for Postgres StatefulSets
+#   port: 0                           # defaults to containerPort
+# persistence:                        # StatefulSet volumeClaimTemplates
+#   volumeClaims: []                  # [{name, size, accessMode, storageClassName}]
+# extraPVCs: []                       # standalone PVCs (reports artifacts)
+# d6:
+#   liveness:  {type: httpGet, path: /healthz, port: http}
+#   readiness: {type: httpGet, path: /readyz, port: http}
+#   startup:   {type: none}           # backend sets type=grpc, port=50051
+#   serviceMonitor:
+#     enabled: true
+#     path: /metrics
+#     port: http
+#     interval: 30s

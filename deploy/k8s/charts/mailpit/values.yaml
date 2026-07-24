@@ -1,0 +1,31 @@
+# Mailpit: third-party image (digest pinned from compose). Liveness/readiness
+# are its own /livez endpoint on the web port; no D6 /metrics, so no
+# ServiceMonitor. SMTP :1025 is in-cluster only (added in PR-3 as needed).
+image:
+  repository: axllent/mailpit
+  tag: v1.27.5
+  digest: sha256:5921fa3c3f0a34eb000a89ac8279d1f9d711e486a9a8fd094f7db5a1920256ab
+replicaCount: 1
+containerPort: 8025
+portName: http
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 200m
+    memory: 64Mi
+service:
+  enabled: true
+  type: ClusterIP
+d6:
+  liveness:
+    type: httpGet
+    path: /livez
+    port: http
+  readiness:
+    type: httpGet
+    path: /livez
+    port: http
+  serviceMonitor:
+    enabled: false

@@ -1,0 +1,4 @@
+# Helm build artifacts -- rebuilt by `helm dependency build` (see README.md
+# and deploy/k8s/scripts/validate.sh). Never committed: the source charts are.
+charts/*/charts/
+charts/*/Chart.lock

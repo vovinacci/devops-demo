@@ -1,0 +1,32 @@
+# Loki: third-party image (digest pinned from compose). Distroless, so probes
+# are kubelet-side httpGet against Lokis own /ready. NO ServiceMonitor in PR-2
+# (RFC-0003 Section 6 leaves Lokis scrape out); config ConfigMap + Alloy
+# DaemonSet land in PR-4.
+image:
+  repository: grafana/loki
+  tag: 3.7.3
+  digest: sha256:70b9f699fc9bb868b62f1cfd4f787dfa50242f1fd92e6089787d5d7daea75fe8
+replicaCount: 1
+containerPort: 3100
+portName: http
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+service:
+  enabled: true
+  type: ClusterIP
+d6:
+  liveness:
+    type: httpGet
+    path: /ready
+    port: http
+  readiness:
+    type: httpGet
+    path: /ready
+    port: http
+  serviceMonitor:
+    enabled: false

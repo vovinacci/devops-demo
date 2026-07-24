@@ -1,0 +1,10 @@
+apiVersion: v2
+name: postgres
+description: Postgres StatefulSet template (RFC-0003 DK7, ADR-0018). Aliased per instance.
+type: application
+version: 0.1.0
+appVersion: "16-alpine"
+dependencies:
+  - name: common
+    version: 0.1.0
+    repository: file://../common

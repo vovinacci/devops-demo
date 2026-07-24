@@ -1,0 +1,30 @@
+# Frontend: the ONE documented D6 exception (RFC-0003 DK4, ADR-0013). The
+# nginx SPA server exposes no /healthz, /readyz or /metrics; its SPA fallback
+# (try_files ... /index.html) answers ANY path with index.html, so an
+# httpGet /healthz would return 200 with the app shell -- a vacuous probe
+# worse than none. Liveness is an honest tcpSocket :80 ("the static server
+# answers"); there is no readiness httpGet and no ServiceMonitor.
+image:
+  repository: devops-demo/frontend
+  tag: dev
+replicaCount: 1
+containerPort: 80
+portName: http
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 200m
+    memory: 64Mi
+service:
+  enabled: true
+  type: ClusterIP
+d6:
+  liveness:
+    type: tcpSocket
+    port: http
+  readiness:
+    type: none
+  serviceMonitor:
+    enabled: false

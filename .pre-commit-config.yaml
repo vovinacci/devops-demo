@@ -13,6 +13,10 @@ repos:
         exclude: ^(services/frontend/|observability/grafana/dashboards/|CHANGELOG\.md)
       - id: check-yaml
         args: ['--unsafe']  # Allow custom YAML tags (for Grafana dashboards)
+        # Helm chart templates are Go templates, not YAML ({{ ... }} is not
+        # parseable) -- they are validated by `helm template | kubeconform`
+        # (make lint-k8s), not by a YAML parser (RFC-0003 PR-2).
+        exclude: ^deploy/k8s/charts/.*/templates/
       - id: check-json
         exclude: ^(services/frontend/node_modules/|observability/grafana/dashboards/)
       - id: check-toml
@@ -144,4 +148,5 @@ repos:
           - "-c=.yamllint.yml"
           - "-s"
         files: \.(yaml|yml)$
-        exclude: ^(services/frontend/node_modules/|observability/grafana/dashboards/)
+        # Helm chart templates are Go templates, not YAML (see check-yaml above).
+        exclude: ^(services/frontend/node_modules/|observability/grafana/dashboards/|deploy/k8s/charts/.*/templates/)

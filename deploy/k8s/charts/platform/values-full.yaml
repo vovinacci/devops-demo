@@ -1,0 +1,18 @@
+# Convenience overlay = every additive profile on at once (the k8s equivalent
+# of `make up-full`). Layer on top of the base: `-f values.yaml -f values-full.yaml`.
+analytics:
+  enabled: true
+postgres-analytics:
+  enabled: true
+reports:
+  enabled: true
+postgres-reports:
+  enabled: true
+reports-ui:
+  enabled: true
+blackbox:
+  enabled: true
+canary:
+  enabled: true
+loadgen:
+  enabled: true

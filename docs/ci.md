@@ -22,6 +22,7 @@ flowchart LR
     pr --> par["parity.yml<br/>load profile parity: JS vs Go goldens<br/>(loadprofile/**, services/analytics/internal/loadshape/**)"]
     pr --> img["images.yml<br/>docker build + Trivy<br/>(services/**, loadgen/**, loadprofile/**)"]
     pr --> e2e["e2e.yml<br/>compose up core+analytics+load, k6 smoke gate, wiring assertions"]
+    pr --> k8s["k8s-lint.yml<br/>helm lint + helm template through kubeconform -strict<br/>(deploy/k8s/**, offline, no cluster)"]
     night["nightly.yml<br/>schedule + workflow_dispatch<br/>all profiles incl. reports/JVM, longer k6 run, +report/canary/blackbox assertions"]
     merge[Squash-merge to main] --> rp["release-please.yml<br/>maintains release PR"]
     rp -->|release PR merged| rel["release.yml<br/>tag + publish (placeholder)"]
@@ -40,6 +41,7 @@ flowchart LR
 | parity.yml         | loadprofile/**, services/analytics/internal/loadshape/**                     | JS (shape.js) vs Go (loadshape) parity against checked-in goldens (Hard rule 8)                       |
 | images.yml         | services/**, deploy/compose/**, loadgen/**, loadprofile/**                   | docker build + Trivy gate per self-built service; Trivy report-only per pulled image (ADR-0011)       |
 | e2e.yml            | services/**, deploy/compose/**, observability/**, loadgen/**, loadprofile/** | `make smoke`: compose up core+analytics+load (`--wait`), k6 smoke gate, wiring assertions (see below) |
+| k8s-lint.yml       | deploy/k8s/**, .mise.toml                                                    | `make lint-k8s`: helm lint + `helm template \| kubeconform -strict` per profile, CRD-validated        |
 | nightly.yml        | schedule (daily) + workflow_dispatch                                         | `make smoke-full`: same gate + reports/JVM profile, longer run, +report/canary/blackbox assertions    |
 | release-please.yml | push to main                                                                 | maintain release PR from commit history                                                               |
 | release.yml        | release published                                                            | placeholder (image publishing comes later)                                                            |
@@ -54,7 +56,7 @@ service -- "has CI" is part of the Definition of Done
 call (`lint-backend`, `type-check`, `lint-frontend`, `test-backend`,
 `test-frontend`, `lint-canary`, `test-canary`, `lint-analytics`,
 `test-analytics`, `lint-reports`, `test-reports`, `lint-reports-ui`,
-`test-reports-ui`, `lint-infra`). CI is the
+`test-reports-ui`, `lint-k8s`, `lint-infra`). CI is the
 same commands with per-job caching and a real Postgres service container.
 
 Git hooks are the first, fastest gate: **prek** (pre-commit-compatible,
@@ -131,6 +133,18 @@ compatible).
   drift -- the formula's only transcendental). See
   `loadprofile/README.md` for the scale and noise
   determinism contract both implementations must keep identical.
+- **Helm chart lint + render (`k8s-lint.yml`, RFC-0003 PR-2):** `make lint-k8s`
+  -- the same `deploy/k8s/scripts/validate.sh` locally and in CI -- `helm lint`s
+  every chart, then `helm template`s the umbrella for each profile overlay and
+  pipes the rendered manifests through `kubeconform -strict`. It is **offline
+  and needs no cluster** (that is the point of splitting packaging from the
+  cluster, RFC-0003 PR-2 vs PR-3). `kubeconform` is given an explicit
+  `-schema-location` for the vendored Prometheus Operator **ServiceMonitor**
+  CRD schema (`deploy/k8s/schemas/`), so the CR is actually validated;
+  `--ignore-missing-schemas` is deliberately not used -- it would silently skip
+  exactly the CRs worth checking (RFC-0003 DK9). `helm` + `kubeconform` are
+  pinned in `.mise.toml`; `kind`/`kubectl` wait for PR-3. See
+  `deploy/k8s/README.md`.
 - **e2e stage (`e2e.yml`, PR-4):** `make smoke` -- the same command a
   developer runs locally -- brings up `core + analytics + load`
   (`docker compose ... up -d --build --wait`, time-bounded via

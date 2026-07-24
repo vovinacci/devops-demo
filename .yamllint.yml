@@ -19,7 +19,9 @@ rules:
   braces: disable    # Disable checking spaces in braces (not critical for YAML)
   empty-lines: disable  # Disable checking empty lines (not critical)
 
-# Exclusions for Grafana dashboards (they have a specific format)
+# Exclusions for Grafana dashboards (they have a specific format) and Helm
+# chart templates (Go templates, not YAML -- validated by kubeconform instead)
 exclude: |
   services/frontend/node_modules/
   observability/grafana/dashboards/
+  deploy/k8s/charts/*/templates/

@@ -1,0 +1,11 @@
+{{ .Chart.Name }} {{ .Chart.Version }} rendered.
+
+This umbrella aggregates the per-service charts (RFC-0003 DK2). The set that
+rendered is the one enabled by the values overlay(s) you passed:
+
+  core only          helm template platform . -f values.yaml
+  core + analytics   ... -f values.yaml -f values-analytics.yaml
+  everything         ... -f values.yaml -f values-full.yaml
+
+The cluster (Kind, Envoy Gateway) is RFC-0003 PR-3; the Prometheus Operator
+and Grafana/Loki-Alloy observability are PR-4.

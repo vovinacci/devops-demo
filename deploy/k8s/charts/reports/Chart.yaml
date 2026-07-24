@@ -1,0 +1,10 @@
+apiVersion: v2
+name: reports
+description: Kotlin/Spring Boot reports service (RFC-0001 D2). JVM limit exhibit + artifact PVC.
+type: application
+version: 0.1.0
+appVersion: "1.4.0"
+dependencies:
+  - name: common
+    version: 0.1.0
+    repository: file://../common

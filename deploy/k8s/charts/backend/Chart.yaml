@@ -1,0 +1,10 @@
+apiVersion: v2
+name: backend
+description: Python/FastAPI backend (RFC-0001 D1). REST :8000 + gRPC :50051.
+type: application
+version: 0.1.0
+appVersion: "1.4.0"
+dependencies:
+  - name: common
+    version: 0.1.0
+    repository: file://../common

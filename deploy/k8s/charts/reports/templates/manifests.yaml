@@ -1,0 +1,10 @@
+---
+{{ include "common.serviceaccount" . }}
+---
+{{ include "common.pvc" . }}
+---
+{{ include "common.deployment" . }}
+---
+{{ include "common.service" . }}
+---
+{{ include "common.servicemonitor" . }}

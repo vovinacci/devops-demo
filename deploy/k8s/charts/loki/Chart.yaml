@@ -1,0 +1,10 @@
+apiVersion: v2
+name: loki
+description: Grafana Loki log store (RFC-0001 Section 7). Config wiring is PR-4.
+type: application
+version: 0.1.0
+appVersion: "3.7.3"
+dependencies:
+  - name: common
+    version: 0.1.0
+    repository: file://../common

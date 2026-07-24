@@ -1,0 +1,32 @@
+# Blackbox exporter: third-party image (digest pinned from compose). Its own
+# liveness is the exporters /-/healthy endpoint. NO ServiceMonitor here: the
+# blackbox probing model is a Prometheus-Operator Probe CR, which lands in
+# PR-4 (RFC-0003 Section 6) -- not a scrape of the exporters own /metrics.
+image:
+  repository: prom/blackbox-exporter
+  tag: v0.26.0
+  digest: sha256:92e05d5fe0df01d3980518dc42f07b778a8997048b57392ebc7f7391ebd7bb06
+replicaCount: 1
+containerPort: 9115
+portName: http
+resources:
+  requests:
+    cpu: 10m
+    memory: 16Mi
+  limits:
+    cpu: 100m
+    memory: 32Mi
+service:
+  enabled: true
+  type: ClusterIP
+d6:
+  liveness:
+    type: httpGet
+    path: /-/healthy
+    port: http
+  readiness:
+    type: httpGet
+    path: /-/healthy
+    port: http
+  serviceMonitor:
+    enabled: false

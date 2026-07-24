@@ -1,0 +1,83 @@
+apiVersion: v2
+name: platform
+description: >-
+  Umbrella chart for the devops-demo stack (RFC-0003 DK2, ADR-0015). Pulls the
+  per-service charts as dependencies; per-profile values overlays mirror the
+  compose profiles one-to-one (RFC-0001 D10) so the runtime-selection mental
+  model is identical across both deployment targets. The three Postgres
+  instances are one `postgres` chart aliased three times (RFC-0003 DK7).
+type: application
+version: 0.1.0
+appVersion: "1.4.0"
+
+# Dependencies are grouped by the compose profile that owns them (RFC-0003
+# Section 6). Each is gated by a `<name>.enabled` condition; the base
+# values.yaml turns the `core` set on and the additive ones off, and the
+# values-<profile>.yaml overlays flip an additive profile on -- the k8s
+# expression of `--profile <name>` (RFC-0001 D10).
+dependencies:
+  # --- core ---
+  - name: backend
+    version: 0.1.0
+    repository: file://../backend
+    condition: backend.enabled
+  - name: frontend
+    version: 0.1.0
+    repository: file://../frontend
+    condition: frontend.enabled
+  - name: postgres
+    alias: postgres-backend
+    version: 0.1.0
+    repository: file://../postgres
+    condition: postgres-backend.enabled
+  - name: postgres-exporter
+    version: 0.1.0
+    repository: file://../postgres-exporter
+    condition: postgres-exporter.enabled
+  - name: mailpit
+    version: 0.1.0
+    repository: file://../mailpit
+    condition: mailpit.enabled
+  - name: loki
+    version: 0.1.0
+    repository: file://../loki
+    condition: loki.enabled
+  # --- +analytics ---
+  - name: analytics
+    version: 0.1.0
+    repository: file://../analytics
+    condition: analytics.enabled
+  - name: postgres
+    alias: postgres-analytics
+    version: 0.1.0
+    repository: file://../postgres
+    condition: postgres-analytics.enabled
+  # --- +reports ---
+  - name: reports
+    version: 0.1.0
+    repository: file://../reports
+    condition: reports.enabled
+  - name: postgres
+    alias: postgres-reports
+    version: 0.1.0
+    repository: file://../postgres
+    condition: postgres-reports.enabled
+  # --- +reports-ui ---
+  - name: reports-ui
+    version: 0.1.0
+    repository: file://../reports-ui
+    condition: reports-ui.enabled
+  # --- +synthetic ---
+  - name: blackbox
+    version: 0.1.0
+    repository: file://../blackbox
+    condition: blackbox.enabled
+  - name: canary
+    version: 0.1.0
+    repository: file://../canary
+    condition: canary.enabled
+  # --- +load ---
+  - name: loadgen
+    version: 0.1.0
+    repository: file://../loadgen
+    condition: loadgen.enabled

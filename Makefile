@@ -214,7 +214,7 @@ test-reports-ui: ## Validate the reports-ui Caddyfile + container smoke (/health
 ##@ Code Quality
 
 .PHONY: lint
-lint: lint-infra lint-backend type-check lint-frontend lint-canary lint-analytics lint-reports lint-reports-ui lint-proto parity ## Code quality check for entire project (backend + frontend + canary + analytics + reports + reports-ui + proto + infra + load profile parity)
+lint: lint-infra lint-backend type-check lint-frontend lint-canary lint-analytics lint-reports lint-reports-ui lint-proto lint-k8s parity ## Code quality check for entire project (backend + frontend + canary + analytics + reports + reports-ui + proto + k8s + infra + load profile parity)
 
 .PHONY: lint-backend
 lint-backend: ## Backend code quality check via ruff
@@ -252,6 +252,11 @@ lint-proto: ## proto/ code quality check via buf lint + buf format --diff
 	$(PRINT_TARGET)
 	cd proto && buf lint
 	cd proto && buf format --diff --exit-code
+
+.PHONY: lint-k8s
+lint-k8s: ## Helm charts: helm lint + `helm template | kubeconform -strict` per profile, offline, no cluster (RFC-0003 DK2/DK9; helm+kubeconform from mise). CI runs this exact script.
+	$(PRINT_TARGET)
+	bash deploy/k8s/scripts/validate.sh
 
 .PHONY: parity
 parity: ## Load profile parity: JS (loadprofile/shape.js) + Go (loadshape) vs goldens (Hard rule 8)
