@@ -188,7 +188,7 @@ sequenceDiagram
     A->>B: dial :50051 (success)
     A->>B: ListItems (snapshot)
     B-->>A: current items
-    Note over A: state recovered;<br/>missed events unrecoverable -><br/>aggregate dip stays visible
+    Note over A: state recovered<br/>(missed events unrecoverable)<br/>so the aggregate dip stays visible
     A->>B: WatchItemEvents (resume stream)
 ```
 
