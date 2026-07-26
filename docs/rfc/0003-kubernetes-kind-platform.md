@@ -52,9 +52,11 @@ same stop-rules, CI parity, and docs-ship discipline as everything else here.
   operator reconciling desired state. A DevOps teaching platform that stops at
   compose stops one step short of where the work happens.
 - The D6 uniform contract (ADR-0004) was built "for this moment" and has never
-  been cashed in. On Kubernetes its payoff is direct and visible: the same
-  four endpoints every service already exposes become probes and scrape
-  targets with no per-service special-casing. Making that payoff concrete is
+  been cashed in. On Kubernetes its payoff is direct and visible: the three
+  endpoints every D6 service already exposes (`/healthz`, `/readyz`,
+  `/metrics`) plus its structured logs become probes and scrape targets with
+  no per-service special-casing (bar the one documented nginx exception).
+  Making that payoff concrete is
   the single strongest argument this repo can make for why D6 was worth its
   fixed scaffolding cost.
 - The system is the textbook case for the Kubernetes edge: one request path
@@ -313,8 +315,9 @@ admin password) move into **Secrets**.
   defaults, no external secret store, no encryption-at-rest configured on the
   Kind cluster. A Kubernetes `Secret` is not a secret-management solution; it
   is a distribution mechanism. Real secret management (external store, sealed/
-  external secrets, KMS) belongs to the deferred **security capstone**
-  (RFC-0001 Section 10) and is forward-referenced there, not cargo-culted here.
+  external secrets, KMS) belongs to the authentication capstone, **RFC-0004**
+  (originally deferred in RFC-0001 Section 10), and is forward-referenced
+  there, not cargo-culted here.
 - Rejected -- **plaintext env in the Deployment spec**: skips the primitive
   entirely and would put the demo passwords in the Deployment manifest instead
   of a Secret -- worse posture *and* a missed lesson.
@@ -473,7 +476,7 @@ its own docs and CI, and mixes no mechanical with logic changes (Hard rules
 
 | PR | Deliverable |
 | --- | --- |
-| PR-1 (this) | This RFC + ADR-0014..0018 + README intro refresh (the polyglot platform is built; the next arc is this deployment platform, then RFC-0004). No manifests. |
+| PR-1 (this) | This RFC + ADR-0014--0018 + README intro refresh (the polyglot platform is built; the next arc is this deployment platform, then RFC-0004). No manifests. |
 | PR-2 | Helm **library chart** (the D6 shape) + thin per-service charts + umbrella chart + per-profile values overlays; per-PR CI gate: `helm lint` + `helm template \| kubeconform`. No cluster required. |
 | PR-3 | **Kind** cluster (multi-node config, digest-pinned node image, `.mise.toml` pins for kind/kubectl/helm/kubeconform + drift gate) + `make kind-up/kind-deploy/kind-down`; deploy the app services (Deployments, probes from D6, resources from measured footprint, Postgres StatefulSets + PVCs, ConfigMaps/Secrets) + **Envoy Gateway** + Gateway/HTTPRoutes/GRPCRoute; local bring-up green. |
 | PR-4 | **Kubernetes-native observability**: kube-prometheus-stack (Operator) + per-service ServiceMonitors (retire static scrape jobs), Grafana dashboards as ConfigMaps, Loki + Alloy DaemonSet, blackbox Probe. |
@@ -486,7 +489,7 @@ demoable.
 
 ## 8. Acceptance criteria
 
-- **PR-1 (this):** this RFC and ADR-0014..0018 lint clean (markdownlint,
+- **PR-1 (this):** this RFC and ADR-0014--0018 lint clean (markdownlint,
   ASCII gate); every ADR number is new; no edit to RFC-0001/0002 or any
   accepted ADR; the README no longer describes the platform as "evolving from a
   two-service baseline" and points at RFC-0003 for the deployment arc.
@@ -512,7 +515,7 @@ demoable.
 
 | Risk | Mitigation |
 | --- | --- |
-| **RAM.** Kind control-plane + kube-prometheus-stack + the full app stack + Envoy can reach ~6-10 GB, vs the ~1.6 GB compose stack -- past many student laptops | A trimmed **dev values** overlay (reduced replicas/resources, retention, scrape frequency); the `core` overlay as the default small footprint; an **optional-Operator** local path (plain Prometheus when the Operator is too heavy); a documented **requirements bump** for the Kind path with `make doctor` gating available RAM (RFC-0001 D14); k3s noted as a lighter fallback (DK1) |
+| **RAM.** Kind control-plane + kube-prometheus-stack + the full app stack + Envoy can reach ~6-10 GB, vs the ~1.6 GB compose stack -- past many student laptops | A trimmed **dev values** overlay (reduced replicas/resources, retention, scrape frequency); the `core` overlay as the default small footprint; a documented **requirements bump** for the Kind path with `make doctor` gating available RAM (RFC-0001 D14); k3s noted as a lighter fallback (DK1). A plain-Prometheus (no Operator) path is **explicitly out of scope and unsupported** -- it does not satisfy this RFC's observability contract (ServiceMonitor-driven discovery, DK6); the supported RAM relief is the trimmed dev overlay and the `core` overlay, not dropping the Operator |
 | Two deployment models read as duplication / drift | Framed as a deliberate contrast (DK10); the Helm values overlays mirror the compose profiles one-to-one (DK2, Section 6) so the mental model is shared, not forked |
 | Helm chart sprawl (library + per-service + umbrella) | The library chart is the point -- per-service charts are a few values each (DK2); `helm lint` + `kubeconform` gate every PR (DK9) |
 | JVM OOM-killed at the container limit | Made an **explicit exhibit** (DK5): `MaxRAMPercentage`/container-awareness set in the reports chart values, documented in the k8s runbook |

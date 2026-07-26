@@ -22,8 +22,12 @@ select each `/metrics` endpoint, retiring the static `prometheus.yml` scrape
 jobs (discovery is now label-driven). **Grafana dashboards ship as ConfigMaps**
 (the operator's sidecar loads any ConfigMap carrying the dashboard label),
 replacing file provisioning while reusing the same dashboard JSON. **Loki**
-stays and **Alloy runs as a DaemonSet**, tailing pod logs on every node via
-Kubernetes service discovery instead of the Docker socket. The standalone
+stays and **Alloy runs as a DaemonSet**, each pod tailing only its OWN node's
+pod logs via node-local discovery (the Kubernetes SD `node` meta-label pinned
+to the pod's `spec.nodeName`) instead of the Docker socket. Node-local scoping
+is required, not incidental: a DaemonSet where every Alloy replica discovered
+pods cluster-wide would ship each log line once per node, duplicating
+everything in Loki. The standalone
 `cadvisor` container is retired -- the kubelet already exposes cAdvisor metrics
 and kube-prometheus-stack ships node-exporter -- while `postgres_exporter`
 stays with its own ServiceMonitor.
