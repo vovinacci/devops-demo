@@ -52,10 +52,12 @@ same stop-rules, CI parity, and docs-ship discipline as everything else here.
   operator reconciling desired state. A DevOps teaching platform that stops at
   compose stops one step short of where the work happens.
 - The D6 uniform contract (ADR-0004) was built "for this moment" and has never
-  been cashed in. On Kubernetes its payoff is direct and visible: the three
-  endpoints every D6 service already exposes (`/healthz`, `/readyz`,
-  `/metrics`) plus its structured logs become probes and scrape targets with
-  no per-service special-casing (bar the one documented nginx exception).
+  been cashed in. On Kubernetes its payoff is direct and
+  visible, each D6 output mapping to its own native mechanism with no
+  per-service special-casing (bar the one documented nginx exception):
+  `/healthz` and `/readyz` become the liveness and readiness probes,
+  `/metrics` becomes a Prometheus scrape target, and the structured logs are
+  collected by the logging stack (Alloy to Loki).
   Making that payoff concrete is
   the single strongest argument this repo can make for why D6 was worth its
   fixed scaffolding cost.
