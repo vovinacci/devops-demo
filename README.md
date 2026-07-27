@@ -47,7 +47,7 @@ devops-demo/
 │   ├── buf.yaml                 # Module config: lint rules, breaking-change category
 │   └── devopsdemo/items/v1/     # devopsdemo.items.v1: ItemService (backend serves)
 │
-├── scripts/                     # Doctor, toolchain drift gate
+├── scripts/                     # Doctor, toolchain drift gate, make target logic (ADR-0019)
 ├── services/                    # Self-contained services (own Dockerfile,
 │   ├── backend/                 #   Makefile, tests, README each)
 │   ├── frontend/
