@@ -1,4 +1,5 @@
 {
+  "uid": "devops-demo",
   "annotations": { "list": [{ "builtIn": 1, "datasource": "-- Grafana --", "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "Annotations & Alerts", "type": "dashboard" }] },
   "editable": true,
   "fiscalYearStartMonth": 1,
