@@ -32,13 +32,21 @@ for path in sorted(glob.glob(os.path.join(DASHBOARD_DIR, "*.json"))):
         failures.append(f"{path}: cannot read as JSON: {exc}")
         continue
 
+    if not isinstance(dashboard, dict):
+        failures.append(
+            f"{path}: top level is {type(dashboard).__name__}, expected a JSON object"
+        )
+        continue
+
     uid = dashboard.get("uid")
-    if not uid:
+    if uid is None or uid == "":
         failures.append(
             f'{path}: no "uid" -- add a stable one so this file owns exactly '
             "one dashboard (without it a UI save detaches and the next restart "
             "provisions a duplicate)"
         )
+    elif not isinstance(uid, str):
+        failures.append(f'{path}: "uid" must be a string, got {type(uid).__name__}')
     elif len(uid) > UID_MAX:
         failures.append(f'{path}: uid "{uid}" is longer than {UID_MAX} characters')
     else:
