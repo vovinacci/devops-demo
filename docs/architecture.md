@@ -91,8 +91,8 @@ files line up when read side by side.
 The gRPC client owns all reconnect logic (ADR-0002): on (re)connect it
 pulls a `ListItems` snapshot, reconciles it into `current_items`, then
 resumes the event stream; a connection lost while the client is down
-means those events are gone (at-most-once transport), which is the
-motivating exhibit for the NATS capstone (RFC-0001 Section 10).
+means those events are gone (at-most-once transport) -- accepted by
+design and permanent, not a gap awaiting a fix (ADR-0002).
 
 ## Components
 

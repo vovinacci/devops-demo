@@ -49,9 +49,9 @@ scope for this phase).
   sequence) -- the same recovery path as a network disconnect.
 - Known gap, accepted by design: a committed item whose event was never
   emitted (crash between commit and publish), and events emitted while a
-  consumer is disconnected or too slow, are unrecoverable. The
-  transactional-outbox fix is out of scope for this phase (RFC-0001
-  Section 10, NATS capstone).
+  consumer is disconnected or too slow, are unrecoverable. This is
+  permanent: the transactional-outbox fix is not planned, and at-most-once
+  delivery is accepted by design (ADR-0002).
 
 ### Health
 
