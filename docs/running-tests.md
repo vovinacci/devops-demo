@@ -35,16 +35,18 @@ The backend imports its generated gRPC stubs at module load time (`app.main`
 tests -- generate them once from the repo root:
 
 ```shell
-make generate
+make generate-backend
 ```
 
-Run via make (recommended -- `make test-backend` already depends on `generate`):
+Run via make (recommended -- `make test-backend` already depends on
+`generate-backend`):
 
 ```shell
 make test-backend
 ```
 
-Or invoke pytest directly from an activated virtualenv (after `make generate`):
+Or invoke pytest directly from an activated virtualenv (after
+`make generate-backend`):
 
 ```shell
 # run all

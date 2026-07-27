@@ -114,7 +114,7 @@ Never committed (gitignored, RFC-0001 D8 / ADR-0002 / AGENTS.md Hard rule
 1). Regenerate with:
 
 ```shell
-make generate   # from the repo root
+make generate-backend   # from the repo root
 ```
 
 This runs a single `python -m grpc_tools.protoc` invocation producing
@@ -149,7 +149,7 @@ the documented at-most-once-when-disconnected gap.
 ```shell
 make venv-install        # from the repo root: creates services/backend/.venv
 source services/backend/.venv/bin/activate
-make generate             # from the repo root: regenerate gRPC stubs
+make generate-backend     # from the repo root: regenerate gRPC stubs
 make test-backend         # from the repo root
 make lint-backend type-check
 ```

@@ -188,7 +188,8 @@ for the backend/analytics gRPC contract.
 
 ### Python gRPC codegen
 
-- `make generate` (RFC-0001 D8, ADR-0002): a single `python -m
+- `make generate` (RFC-0001 D8, ADR-0002), or `make generate-backend` for
+  this half alone: a single `python -m
   grpc_tools.protoc` invocation produces message classes, `.pyi` stubs,
   and the gRPC service stubs into `services/backend/app/proto_gen`
   (gitignored, never committed). `grpcio-tools` bundles its own protoc,
@@ -200,7 +201,8 @@ for the backend/analytics gRPC contract.
 
 ### Go gRPC codegen
 
-- `make generate` also runs `buf generate` (`proto/buf.gen.yaml`, Go-only:
+- `make generate` also runs `buf generate` (or `make generate-analytics` for
+  this half alone) (`proto/buf.gen.yaml`, Go-only:
   managed mode; `protoc-gen-go`/`protoc-gen-go-grpc` invoked via `go tool`,
   versioned by go.mod tool directives, Renovate-managed) into
   `services/analytics/internal/pb` (gitignored, never committed). Unlike

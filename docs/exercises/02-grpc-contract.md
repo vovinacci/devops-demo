@@ -31,7 +31,7 @@ If you are using the Python fallback, generate the stubs first (they are
 never committed -- RFC-0001 D8, ADR-0002):
 
 ```shell
-make generate
+make generate-backend
 ```
 
 ## Part 1: the live contract
