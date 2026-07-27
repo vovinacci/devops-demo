@@ -506,10 +506,14 @@ demoable.
   REST, backend gRPC, and Grafana are reachable through the Envoy Gateway;
   `make kind-down` deletes the cluster cleanly.
 - **PR-4:** Prometheus (Operator) discovers every metrics-bearing (D6-compliant)
-  service via its ServiceMonitor with the static scrape jobs removed -- the
-  nginx `frontend` is the one documented exception (no `/metrics`, so no
-  ServiceMonitor); Grafana loads its dashboards from ConfigMaps; Alloy tails
-  pod logs into Loki, node-locally, from every node.
+  service via its ServiceMonitor with the static scrape jobs removed -- six of
+  them: backend, analytics, reports, reports-ui, canary, postgres_exporter. The
+  nginx `frontend` is the one D6 service without one (no `/metrics`, ADR-0013).
+  The non-D6 infra workloads carry none either, each for its own reason: Loki,
+  Mailpit and the three Postgres StatefulSets expose no D6 `/metrics`,
+  `blackbox` is scraped through a `Probe` CR instead, and `loadgen` runs no
+  server at all. Grafana loads its dashboards from ConfigMaps; Alloy tails pod
+  logs into Loki, node-locally, from every node.
 - **PR-5:** the nightly Kind e2e workflow creates a cluster, `helm install`s
   the stack, smokes the Gateway routes and service health, and tears the
   cluster down; the k8s runbook documents bring-up, the JVM container-limit
