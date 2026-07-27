@@ -20,7 +20,7 @@ jobs:
     name: Renovate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Require PR_PAT_TOKEN
         env:
@@ -32,7 +32,7 @@ jobs:
           fi
 
       - name: Run Renovate
-        uses: renovatebot/github-action@3064367f740a1a91cca218698a63902689cce200 # v46.1.20
+        uses: renovatebot/github-action@1a96852b0384df1837619d04c60b2d10d1f9ff08 # v46.1.21
         with:
           token: ${{ secrets.PR_PAT_TOKEN }}
         env:
