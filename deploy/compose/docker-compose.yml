@@ -8,14 +8,14 @@ services:
     volumes:
       - dbdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-appdb}"]
       interval: 5s
       timeout: 3s
       retries: 10
     networks:
-      - devnet
+      - dbnet-core
     restart: unless-stopped
 
   api:
@@ -36,12 +36,13 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8000:8000"
-      - "50051:50051" # gRPC ItemService (RFC-0001 D3): backend serves, analytics dials
+      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:50051:50051" # gRPC ItemService (RFC-0001 D3): backend serves, analytics dials
     labels:
       - "environment=${ENVIRONMENT:-development}"
     networks:
       - devnet
+      - dbnet-core
     restart: unless-stopped
     healthcheck:
       # HTTP /healthz liveness AND the gRPC Health Checking Protocol on
@@ -84,7 +85,7 @@ services:
       - ./observability/prometheus_slo_rules.yml:/etc/prometheus/prometheus_slo_rules.yml:ro
       - ./observability/prometheus_alerts.yml:/etc/prometheus/prometheus_alerts.yml:ro
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     networks:
       - devnet
     restart: unless-stopped
@@ -106,7 +107,7 @@ services:
       # container recreation silently drops every active silence
       - alertmanager-data:/alertmanager
     ports:
-      - "9093:9093"
+      - "127.0.0.1:9093:9093"
     depends_on:
       mailpit:
         condition: service_healthy
@@ -131,7 +132,7 @@ services:
   mailpit:
     image: axllent/mailpit:v1.27.5@sha256:5921fa3c3f0a34eb000a89ac8279d1f9d711e486a9a8fd094f7db5a1920256ab
     ports:
-      - "8025:8025"
+      - "127.0.0.1:8025:8025"
     networks:
       - devnet
     restart: unless-stopped
@@ -151,9 +152,10 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "9187:9187"
+      - "127.0.0.1:9187:9187"
     networks:
       - devnet
+      - dbnet-core
     restart: unless-stopped
 
   grafana:
@@ -171,12 +173,15 @@ services:
       - ./observability/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
       - grafana-data:/var/lib/grafana
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       prometheus:
         condition: service_started
     networks:
       - devnet
+      # Analytics History dashboard queries postgres-analytics directly
+      # (RFC-0001 D5) as the read-only grafana_ro role.
+      - dbnet-analytics
     restart: unless-stopped
 
   loki:
@@ -186,7 +191,7 @@ services:
       - ./observability/loki/config.yml:/etc/loki/config.yml:ro
       - loki-data:/loki
     ports:
-      - "3100:3100"
+      - "127.0.0.1:3100:3100"
     networks:
       - devnet
     restart: unless-stopped
@@ -240,7 +245,7 @@ services:
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
     ports:
-      - "8081:8080"
+      - "127.0.0.1:8081:8080"
     networks:
       - devnet
     restart: unless-stopped
@@ -250,7 +255,7 @@ services:
       context: ./services/frontend
       target: runtime
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
     depends_on:
       api:
         condition: service_started
@@ -274,14 +279,14 @@ services:
       - pgdata-analytics:/var/lib/postgresql/data
     ports:
       # host 5433 for parity with db's host 5432 (both map to container 5432)
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${ANALYTICS_POSTGRES_USER:-analytics} -d ${ANALYTICS_POSTGRES_DB:-analytics}"]
       interval: 5s
       timeout: 3s
       retries: 10
     networks:
-      - devnet
+      - dbnet-analytics
     restart: unless-stopped
 
   # analytics profile (RFC-0001 D1): the Go analytics service. Ships the
@@ -331,9 +336,10 @@ services:
       postgres-analytics:
         condition: service_healthy
     ports:
-      - "8082:8082"
+      - "127.0.0.1:8082:8082"
     networks:
       - devnet
+      - dbnet-analytics
     restart: unless-stopped
     healthcheck:
       # distroless/static runtime ships no shell/wget -- the binary's own
@@ -362,14 +368,14 @@ services:
     ports:
       # host 5434: next after db's 5432 and postgres-analytics' 5433 (all
       # map to container 5432)
-      - "5434:5432"
+      - "127.0.0.1:5434:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${REPORTS_POSTGRES_USER:-reports} -d ${REPORTS_POSTGRES_DB:-reports}"]
       interval: 5s
       timeout: 3s
       retries: 10
     networks:
-      - devnet
+      - dbnet-reports
     restart: unless-stopped
 
   # reports profile (RFC-0001 D2): the Kotlin/Spring Boot JVM showcase. Own
@@ -406,9 +412,10 @@ services:
       # now, written by PR-2; the Dockerfile creates/chowns the mount point.
       - reports-artifacts:/var/lib/reports/artifacts
     ports:
-      - "8083:8083"
+      - "127.0.0.1:8083:8083"
     networks:
       - devnet
+      - dbnet-reports
     restart: unless-stopped
     healthcheck:
       # eclipse-temurin JRE runtime ships wget (installed in the Dockerfile),
@@ -438,7 +445,7 @@ services:
     profiles:
       - reports-ui
     ports:
-      - "8084:8084"
+      - "127.0.0.1:8084:8084"
     networks:
       - devnet
     restart: unless-stopped
@@ -460,7 +467,7 @@ services:
     volumes:
       - ./observability/blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
     ports:
-      - "9115:9115"
+      - "127.0.0.1:9115:9115"
     networks:
       - devnet
     restart: unless-stopped
@@ -491,7 +498,7 @@ services:
       api:
         condition: service_started
     ports:
-      - "8085:8080"
+      - "127.0.0.1:8085:8080"
     networks:
       - devnet
     restart: unless-stopped
@@ -565,4 +572,12 @@ volumes:
   alertmanager-data: {}
 
 networks:
+  # Application + observability mesh: every service that must be reachable
+  # by Prometheus, the Gateway, or another service.
   devnet: {}
+  # One network per data tier. A database joins only its own, so a
+  # compromised service can reach its own data and nothing else -- the
+  # blast radius of a single breach stops at the tier boundary.
+  dbnet-core: {}
+  dbnet-analytics: {}
+  dbnet-reports: {}

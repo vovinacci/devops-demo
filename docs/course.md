@@ -52,7 +52,7 @@ capture what a phase looked like when it shipped, never patched in place. When
 | 6. The JVM showcase                 | Phase 6     | Kotlin reports + canary v3        | D2, D6, D10, D12; ADR 4   | `make up-full`                   | ex 06 | --                                              | `phase-6`  |
 | 7. A UI over the API                | RFC-0002    | reports-ui Caddy SPA (`:8084`)    | RFC-0002; ADR 13          | `make up-full`                   | --    | --                                              | `rfc-0002` |
 | 8. Into Kind (UPCOMING)             | RFC-0003    | K8s/Kind, Gateway API, Helm       | RFC-0003 (in design)      | --                               | --    | --                                              | `rfc-0003` |
-| 9. Capstone: authN/authZ (UPCOMING) | RFC-0004    | OIDC across the polyglot mesh     | RFC-0004 (in design)      | --                               | --    | --                                              | `rfc-0004` |
+| 9. Capstone: authN/authZ (UPCOMING) | RFC-0004    | OIDC across the polyglot mesh     | RFC-0004 (in design)      | `make up-full`                   | ex 07 | --                                              | `rfc-0004` |
 
 `ex NN` is [`docs/exercises/NN-*.md`](exercises/00-baseline.md); `D<n>` is the
 decision record of that number in [RFC-0001 Section 6-12](rfc/0001-polyglot-platform.md);
@@ -178,6 +178,14 @@ providers is itself the lesson, the same "two implementations of one contract"
 pedagogy as the nginx/Caddy contrast. Currently in design; the `rfc-0004` tag
 will mark it. Discussion: where does each language draw the line between
 authentication and authorization, and what breaks when you swap the provider?
+
+One piece of this module is runnable **today**, ahead of RFC-0004:
+[exercise 07](exercises/07-what-the-flat-network-reaches.md) undoes the compose
+stack's network segmentation and loopback port bindings on purpose, shows an
+analytics-tier database reading the core application's rows across the flat
+network, and puts it back. Do it before the capstone: authentication is the
+control you add *after* you know what is reachable without it, and the exercise
+makes that reachability concrete rather than theoretical.
 
 ## Instructor notes
 
