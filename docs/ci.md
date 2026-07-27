@@ -30,7 +30,7 @@ flowchart LR
 | Workflow           | Triggers on                                                                  | Jobs                                                                                                  |
 |--------------------|------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
 | checks.yml         | every PR, push to main                                                       | prek hooks (all files), PR title commitlint                                                           |
-| backend.yml        | services/backend/** changes                                                  | no-committed-codegen check, ruff + mypy, `make generate` + pytest against real Postgres               |
+| backend.yml        | services/backend/** changes                                                  | no-committed-codegen check, ruff + mypy, `make generate-backend` + pytest against real Postgres       |
 | frontend.yml       | services/frontend/** changes                                                 | eslint, vitest                                                                                        |
 | canary.yml         | services/canary/** changes                                                   | fmt + clippy, cargo test, cargo-deny, image                                                           |
 | analytics.yml      | services/analytics/**, proto/** changes                                      | no-committed-codegen check, buf generate + lint + test (Postgres container), govulncheck, image       |

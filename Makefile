@@ -113,7 +113,14 @@ seed-history: seed ## Seed analytics historical data (RFC-0001 Phase 5 D5): run 
 		seed --days $${SEED_DAYS:-90} --seed $${SEED_SEED:-42}
 
 .PHONY: generate
-generate: ## Generate gRPC/protobuf stubs (Python + Go, never committed -- RFC-0001 D8, ADR-0002)
+generate: generate-backend generate-analytics ## Generate gRPC/protobuf stubs (Python + Go, never committed -- RFC-0001 D8, ADR-0002)
+
+# Split per language so a job that needs only one toolchain installs only
+# that toolchain: generate-backend needs grpcio-tools (bundled protoc),
+# generate-analytics needs buf. `generate` above stays the local
+# regenerate-everything entry point.
+.PHONY: generate-backend
+generate-backend: ## Generate Python gRPC/protobuf stubs only (grpcio-tools; no buf needed)
 	$(PRINT_TARGET)
 	rm -rf services/backend/app/proto_gen
 	mkdir -p services/backend/app/proto_gen
@@ -122,6 +129,10 @@ generate: ## Generate gRPC/protobuf stubs (Python + Go, never committed -- RFC-0
 		--pyi_out=services/backend/app/proto_gen \
 		--grpc_python_out=services/backend/app/proto_gen \
 		proto/devopsdemo/items/v1/items.proto
+
+.PHONY: generate-analytics
+generate-analytics: ## Generate Go gRPC/protobuf stubs only (buf)
+	$(PRINT_TARGET)
 	rm -rf services/analytics/internal/pb
 	$(MAKE) -C services/analytics generate
 
@@ -191,7 +202,7 @@ smoke-full: ## nightly CI stage, runnable locally: all profiles incl. reports/JV
 test: test-backend test-frontend test-canary test-analytics test-reports test-reports-ui ## Run all tests (backend + frontend + canary + analytics + reports + reports-ui)
 
 .PHONY: test-backend
-test-backend: generate ## Run backend tests locally via virtualenv
+test-backend: generate-backend ## Run backend tests locally via virtualenv
 	$(PRINT_TARGET)
 	@echo "Checking database availability..."
 	DB_WAS_RUNNING=$$($(COMPOSE) ps db 2>/dev/null | grep -qiE "up|running" && echo "yes" || echo "no"); \

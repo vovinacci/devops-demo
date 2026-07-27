@@ -83,11 +83,13 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Generate gRPC/protobuf stubs
-        # grpcio-tools bundles its own protoc; no separate buf/protoc
-        # install needed here (buf only governs proto/ lint/breaking in
-        # proto.yml, a separate workflow) -- RFC-0001 D8, ADR-0002
+        # generate-backend, not generate: the Python half only, so
+        # grpcio-tools' bundled protoc is enough and no buf/Go toolchain
+        # install is needed here (buf governs proto/ lint/breaking in
+        # proto.yml and the Go stubs in analytics.yml, separate
+        # workflows) -- RFC-0001 D8, ADR-0002
         run: |
-          make generate
+          make generate-backend
 
       - name: Run migrations
         working-directory: services/backend
