@@ -83,5 +83,25 @@
       matchUpdateTypes: ['major'],
       enabled: false,
     },
+    // Java: the JDK major is a deliberate decision, not a dependency chore.
+    // It is also the one runtime named differently in each of its two
+    // places -- 'java' in .mise.toml, 'eclipse-temurin' in the reports
+    // Dockerfile -- where python/go/node each use one name for both, so it
+    // takes two rules to get the coverage one rule buys elsewhere.
+    // scripts/check-toolchain-drift.sh requires the two to agree on the
+    // major, and Renovate cannot move them together: mise spells the version
+    // with a "+" build suffix, which is not a legal Docker tag character, so
+    // no image tag can ever match a bumped mise pin. Freeze the mise pin
+    // entirely and hold the image at its major; the image keeps taking patch
+    // and digest bumps from the docker group above.
+    {
+      matchDepNames: ['java'],
+      enabled: false,
+    },
+    {
+      matchDepNames: ['eclipse-temurin'],
+      matchUpdateTypes: ['major'],
+      enabled: false,
+    },
   ],
 }
