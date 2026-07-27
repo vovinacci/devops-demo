@@ -505,9 +505,11 @@ demoable.
   the three Postgres StatefulSets bind PVCs; the frontend, reports-ui, backend
   REST, backend gRPC, and Grafana are reachable through the Envoy Gateway;
   `make kind-down` deletes the cluster cleanly.
-- **PR-4:** Prometheus (Operator) discovers every service via its
-  ServiceMonitor with the static scrape jobs removed; Grafana loads its
-  dashboards from ConfigMaps; Alloy tails pod logs into Loki from every node.
+- **PR-4:** Prometheus (Operator) discovers every metrics-bearing (D6-compliant)
+  service via its ServiceMonitor with the static scrape jobs removed -- the
+  nginx `frontend` is the one documented exception (no `/metrics`, so no
+  ServiceMonitor); Grafana loads its dashboards from ConfigMaps; Alloy tails
+  pod logs into Loki, node-locally, from every node.
 - **PR-5:** the nightly Kind e2e workflow creates a cluster, `helm install`s
   the stack, smokes the Gateway routes and service health, and tears the
   cluster down; the k8s runbook documents bring-up, the JVM container-limit

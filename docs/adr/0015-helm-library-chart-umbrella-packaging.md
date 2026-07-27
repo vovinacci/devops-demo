@@ -20,6 +20,11 @@ application charts plus one umbrella chart. The library chart encodes the D6
 service shape once (Deployment + Service + probes wired from `/healthz` and
 `/readyz` + resources + ServiceMonitor); each per-service chart is a few values
 (image, ports, env, resource numbers) that instantiate the library template.
+The D6 pieces (each probe, the ServiceMonitor) are **default-on but
+per-service opt-out** values: the nginx `frontend` is the sole documented
+exception (ADR-0013 -- no `/healthz`/`/readyz`/`/metrics`), so its chart opts
+out of the HTTP probes (an honest `tcpSocket` liveness instead) and out of the
+ServiceMonitor, without special-casing the library template.
 The umbrella chart pulls the per-service charts as dependencies, and per-profile
 **values overlays** (`core`, `+analytics`, `+reports`, `+reports-ui`,
 `+synthetic`, `+load`) mirror the compose profiles (RFC-0001 D10, ADR-0008)
