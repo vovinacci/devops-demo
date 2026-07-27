@@ -89,6 +89,17 @@ repos:
         language: system
         files: ^(\.mise\.toml|\.devcontainer/devcontainer\.json|services/frontend/\.nvmrc|services/.*/Dockerfile|loadgen/Dockerfile|services/backend/pyproject\.toml|.*/gradle-wrapper\.properties)$
         pass_filenames: false
+  # Dashboard identity gate: a provisioned dashboard without a pinned uid has
+  # no durable identity, so a UI save detaches it and the next restart
+  # provisions a duplicate beside it
+  - repo: local
+    hooks:
+      - id: dashboard-uids
+        name: Grafana dashboards have stable uids
+        entry: bash scripts/check-dashboard-uids.sh
+        language: system
+        files: ^observability/grafana/dashboards/.*\.json$
+        pass_filenames: false
   # Secret scanning (ADR-0011)
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
