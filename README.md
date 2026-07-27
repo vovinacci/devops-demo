@@ -70,17 +70,30 @@ devops-demo/
 
 ### Requirements
 
-Verify everything with one command -- it checks tools, versions, the Docker
-daemon, and resources, and tells you how to fix what is missing:
+Two things this repo does not install for you: **Docker** (with Compose v2)
+and **[mise](https://mise.jdx.dev)**. Everything else -- Python, Node, Go,
+Rust, buf, k6, the JDK, Gradle -- is pinned in `.mise.toml` and installed by
+mise in one step:
+
+```shell
+curl https://mise.run | sh          # if you do not have it yet
+mise install                        # installs every pinned version
+eval "$(mise activate zsh)"         # add to your shell rc (bash: activate bash)
+```
+
+Using mise is not mandatory -- any other way to provide the same pinned
+versions works, and `make doctor` checks versions, not how you got them.
+It is simply the shortest path, and the one the pins are written for.
+
+Then verify everything with one command -- it checks tools, versions, the
+Docker daemon, and resources, names anything missing, and tells you how to
+fix it:
 
 ```shell
 make doctor
 ```
 
-Toolchain versions are pinned in `.mise.toml`
-([mise](https://mise.jdx.dev) installs them; any other way to provide the
-same versions works too). Minimum: Docker with Compose v2, GNU Make, 2 GB
-free RAM, 3 GB free disk.
+Minimum: Docker with Compose v2, GNU Make, 2 GB free RAM, 3 GB free disk.
 
 ### Running the Project
 
