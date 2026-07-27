@@ -3,7 +3,7 @@
 Backend emits after DB commit (emit-after-commit); delivery is
 at-most-once with no durability. If nobody is subscribed, or a subscriber
 is too slow to keep up, the event is simply not observed by it -- the
-accepted gap that motivates the NATS capstone (ADR-0002). This module has
+accepted, permanent limitation of this design (ADR-0002). This module has
 no dependency on generated gRPC code: it stays importable (and unit
 testable) without a `make generate` run.
 """

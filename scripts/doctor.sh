@@ -43,6 +43,47 @@ require_cmd() {
 echo "devops-demo doctor"
 echo
 
+# --- mise banner --------------------------------------------------------
+# Runs before the per-tool checks below. When several pinned tools are
+# absent, eight separate "install X" hints bury the one answer that fixes
+# all of them at once, so say it first and say it once. Silent when the
+# toolchain is already complete.
+mise_missing=""
+mise_missing_count=0
+for managed in python3 node cargo go buf k6 java gradle; do
+  if ! command -v "$managed" >/dev/null 2>&1; then
+    mise_missing="${mise_missing:+${mise_missing} }${managed}"
+    mise_missing_count=$((mise_missing_count + 1))
+  fi
+done
+
+if [ "$mise_missing_count" -gt 0 ]; then
+  banner_shell="${SHELL:-/bin/bash}"
+  banner_shell="${banner_shell##*/}"
+  echo "----------------------------------------------------------------"
+  printf '  %d pinned tool(s) not on PATH: %s\n\n' "$mise_missing_count" "$mise_missing"
+  if command -v mise >/dev/null 2>&1; then
+    echo "  mise is installed and .mise.toml pins every one of them."
+    echo "  Install the pinned versions in one step:"
+    echo
+    echo "      mise install"
+  else
+    echo "  All of them are pinned in .mise.toml, and mise installs the"
+    echo "  whole set in one step -- you do not need to chase them"
+    echo "  individually, or match versions by hand:"
+    echo
+    echo "      curl https://mise.run | sh"
+    echo "      mise install"
+  fi
+  # '$' passed as an argument, not written inline: it is literal text for the
+  # reader to copy, and inline it reads as an unexpanded command substitution.
+  printf '      eval "%s(mise activate %s)"   # add to your shell rc\n' '$' "$banner_shell"
+  echo
+  echo "  Then re-run: make doctor"
+  echo "----------------------------------------------------------------"
+  echo
+fi
+
 # --- required commands -------------------------------------------------
 require_cmd git "install git via your package manager"
 require_cmd make "install GNU make (xcode-select --install / apt install make)"

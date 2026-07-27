@@ -43,7 +43,7 @@ operational difference visible on a dashboard, not just add code.
 ## 4. Non-goals (this RFC)
 
 - Kubernetes manifests / Helm (compose remains the deployment target).
-- Message broker (NATS) -- explicitly deferred to a capstone phase (see Section 10).
+- Message broker (NATS) -- out of scope, and not planned later either (see Section 10, amended).
 - Chaos engineering (Toxiproxy) -- noted as a future phase; topology must not preclude it.
 - AuthN/AuthZ between services.
 - CDC (Debezium) -- rejected as too heavy for repo size.
@@ -124,7 +124,7 @@ Each decision below is a candidate for extraction into a standalone ADR (see Sec
 - Rationale: service-owns-its-store is visible in compose topology; pedagogically explicit.
 - Trade-off: extra RAM vs clean ownership. Accepted.
 - Ingestion via gRPC server-streaming from backend (see D3); polling rejected as
-  teaching-poor, broker deferred (see Section 10).
+  teaching-poor, broker not planned (see Section 10, amended).
 - Aggregation semantics (explicitly *not* stream-processor watermarking):
   - Bucket strictly on **event time**, never arrival time. D5 depends on this:
     the seeder is just an extremely late event source; arrival-time bucketing
@@ -199,8 +199,8 @@ sequenceDiagram
     create/delete churn during a disconnect are unrecoverable; event-count
     aggregates legitimately dip for the offline window. This dip is **not
     hidden** -- it is the visible signature of at-most-once transport eventing,
-    surfaces in the canary pipeline-lag metric, and is the motivating exhibit
-    for the NATS capstone.
+    surfaces in the canary pipeline-lag metric, and is the exhibit this design
+    exists to teach (Section 10, amended: no broker refactor is planned).
 - `core` profile consequence (D10): backend serves the gRPC port with zero
   clients at effectively no cost -- no buffering, no queueing. Events emitted
   with no consumer are simply unobserved.
@@ -209,11 +209,11 @@ sequenceDiagram
 - Event emission semantics: backend emits **after DB commit** (emit-after-commit).
   Accepted crash window: a committed item whose event was never emitted -- consistent
   with the at-most-once transport model, recovered on next snapshot reconcile.
-  The proper fix (transactional outbox) is explicitly in scope for the NATS
-  capstone, not this phase.
+  The proper fix (transactional outbox) is not planned, in this phase or any
+  later one (Section 10, amended).
 - Known limitation, documented deliberately: stream = transport-level eventing,
   point-to-point, no durability. If analytics is down, events are lost.
-  This gap is the motivation for the NATS capstone (Section 10).
+  This gap is accepted permanently (Section 10, amended).
 
 ### D4. k6 as the single traffic generator
 
@@ -539,6 +539,11 @@ parity, release-please -> GHCR releases, Renovate for dependencies.
 | 6 | Kotlin reports + JVM dashboards + report k6 scenario; canary v3 (report step) | JVM showcase |
 | 7 | Capstone: NATS event path refactor (separate RFC) | Fixes the documented durability gap of D3 |
 
+(Amended after Phase 6: phase 7 did not happen as written and is not
+planned. The broker refactor was dropped -- see Section 10 -- and the arc
+after Phase 6 is RFC-0003, Kubernetes on Kind, with authentication as the
+capstone, RFC-0004.)
+
 Each phase = one or few PRs, independently demoable. Standing rules for
 every phase: (a) the phase ships its module's CI pipeline as part of
 Definition of Done (D12); (b) the phase ships at least one student exercise
@@ -549,10 +554,12 @@ module's first commit.
 
 ## 10. Deferred / future work
 
-- **NATS refactor (capstone):** replace/augment gRPC stream with broker
-  (durability, replay, consumer lag dashboards); includes the
-  **transactional outbox** fixing the D3 emit-after-commit crash window.
-  Separate RFC.
+- **Broker refactor: not planned.** At-most-once delivery with no
+  durability is accepted permanently; the gap stays a teaching exhibit
+  rather than something a later phase closes. (Amended after Phase 6:
+  originally "NATS refactor (capstone)" -- replace/augment the gRPC stream
+  with a broker, including the transactional outbox fixing the D3
+  emit-after-commit crash window, as a separate RFC.)
 - **Tempo (tracing backend):** one compose service + config once RAM budget
   allows; services are already instrumented (D11).
 - **release-please manifest mode:** per-service versioning, if/when the

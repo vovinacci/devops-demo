@@ -58,33 +58,7 @@ down: ## Stop all services (all profiles; plain "compose down" skips profile-sco
 .PHONY: clean
 clean: down ## Complete project cleanup (containers, images, volumes, networks, local artifacts)
 	$(PRINT_TARGET)
-	@echo "Stopping and removing containers..."
-	-$(COMPOSE) --profile "*" down -v --remove-orphans
-	@echo "Removing project images..."
-	-docker images --filter "reference=devops-demo*" -q | xargs docker rmi -f
-	-docker images --filter "reference=*devops-demo*" -q | xargs docker rmi -f
-	@echo "Removing project volumes..."
-	-docker volume ls --filter "name=devops-demo" -q | xargs docker volume rm
-	-docker volume ls --filter "name=python-devops-demo" -q | xargs docker volume rm
-	-docker volume ls --filter "name=dbdata" -q | xargs docker volume rm
-	-docker volume ls --filter "name=loki-data" -q | xargs docker volume rm
-	@echo "Removing project networks..."
-	-docker network ls --filter "name=devops-demo" -q | xargs docker network rm
-	-docker network ls --filter "name=python-devops-demo" -q | xargs docker network rm
-	-docker network ls --filter "name=devnet" -q | xargs docker network rm
-	@echo "Cleaning local artifacts..."
-	-find . -type d -name "__pycache__" -exec rm -rf {} +
-	-find . -type d -name ".pytest_cache" -exec rm -rf {} +
-	-find . -type d -name ".ruff_cache" -exec rm -rf {} +
-	-find . -type d -name ".mypy_cache" -exec rm -rf {} +
-	-find . -type d -name "*.egg-info" -exec rm -rf {} +
-	-find . -type d -name "htmlcov" -exec rm -rf {} +
-	-find . -type f -name "*.pyc" -delete
-	-find . -type f -name "*.pyo" -delete
-	-find . -type f -name ".coverage" -delete
-	-find . -type d -name "node_modules" -exec rm -rf {} +
-	-find . -type d -name "dist" -exec rm -rf {} +
-	@echo "Cleanup completed!"
+	@COMPOSE="$(COMPOSE)" bash scripts/clean.sh
 
 .PHONY: logs
 logs: ## View API logs (follow mode)
@@ -113,7 +87,14 @@ seed-history: seed ## Seed analytics historical data (RFC-0001 Phase 5 D5): run 
 		seed --days $${SEED_DAYS:-90} --seed $${SEED_SEED:-42}
 
 .PHONY: generate
-generate: ## Generate gRPC/protobuf stubs (Python + Go, never committed -- RFC-0001 D8, ADR-0002)
+generate: generate-backend generate-analytics ## Generate gRPC/protobuf stubs (Python + Go, never committed -- RFC-0001 D8, ADR-0002)
+
+# Split per language so a job that needs only one toolchain installs only
+# that toolchain: generate-backend needs grpcio-tools (bundled protoc),
+# generate-analytics needs buf. `generate` above stays the local
+# regenerate-everything entry point.
+.PHONY: generate-backend
+generate-backend: ## Generate Python gRPC/protobuf stubs only (grpcio-tools; no buf needed)
 	$(PRINT_TARGET)
 	rm -rf services/backend/app/proto_gen
 	mkdir -p services/backend/app/proto_gen
@@ -122,6 +103,10 @@ generate: ## Generate gRPC/protobuf stubs (Python + Go, never committed -- RFC-0
 		--pyi_out=services/backend/app/proto_gen \
 		--grpc_python_out=services/backend/app/proto_gen \
 		proto/devopsdemo/items/v1/items.proto
+
+.PHONY: generate-analytics
+generate-analytics: ## Generate Go gRPC/protobuf stubs only (buf)
+	$(PRINT_TARGET)
 	rm -rf services/analytics/internal/pb
 	$(MAKE) -C services/analytics generate
 
@@ -191,61 +176,14 @@ smoke-full: ## nightly CI stage, runnable locally: all profiles incl. reports/JV
 test: test-backend test-frontend test-canary test-analytics test-reports test-reports-ui ## Run all tests (backend + frontend + canary + analytics + reports + reports-ui)
 
 .PHONY: test-backend
-test-backend: generate ## Run backend tests locally via virtualenv
+test-backend: generate-backend ## Run backend tests locally via virtualenv
 	$(PRINT_TARGET)
-	@echo "Checking database availability..."
-	DB_WAS_RUNNING=$$($(COMPOSE) ps db 2>/dev/null | grep -qiE "up|running" && echo "yes" || echo "no"); \
-	if [ "$$DB_WAS_RUNNING" = "no" ]; then \
-		echo ""; \
-		echo "⚠️  Database is not running. Starting DB only..."; \
-		$(COMPOSE) up -d db || true; \
-		echo "Waiting for DB readiness..."; \
-		timeout=30; \
-		while [ $$timeout -gt 0 ]; do \
-			if $(COMPOSE) exec -T db pg_isready -U app -d appdb; then \
-				break; \
-			fi; \
-			sleep 1; \
-			timeout=$$((timeout - 1)); \
-		done; \
-	fi; \
-	echo "Running DB migrations..."; \
-	( cd services/backend && DATABASE_URL="postgresql+asyncpg://app:app@localhost:5432/appdb" \
-		ALEMBIC_DATABASE_URL="postgresql+psycopg://app:app@localhost:5432/appdb" \
-		python -m alembic -c alembic.ini upgrade head ) || true; \
-	echo "Running backend tests via virtualenv..."; \
-	( cd services/backend && DATABASE_URL="postgresql+asyncpg://app:app@localhost:5432/appdb" \
-		ALEMBIC_DATABASE_URL="postgresql+psycopg://app:app@localhost:5432/appdb" \
-		pytest -q ); \
-	TEST_EXIT_CODE=$$?; \
-	if [ "$$DB_WAS_RUNNING" = "no" ]; then \
-		echo ""; \
-		echo "Stopping database started for tests..."; \
-		$(COMPOSE) stop db || true; \
-	fi; \
-	exit $$TEST_EXIT_CODE
+	@COMPOSE="$(COMPOSE)" bash scripts/test-backend.sh
 
 .PHONY: test-docker
 test-docker: ## Run tests in Docker container (for CI/CD)
 	$(PRINT_TARGET)
-	@echo "Checking database availability..."
-	if ! $(COMPOSE) ps db 2>/dev/null | grep -qiE "up|running"; then \
-		echo "⚠️  Database is not running. Starting DB..."; \
-		$(COMPOSE) up -d db || true; \
-		echo "Waiting for DB readiness..."; \
-		timeout=30; \
-		while [ $$timeout -gt 0 ]; do \
-			if $(COMPOSE) exec -T db pg_isready -U app -d appdb; then \
-				break; \
-			fi; \
-			sleep 1; \
-			timeout=$$((timeout - 1)); \
-		done; \
-	fi
-	@echo "Running tests in Docker container..."
-	$(COMPOSE) run --rm \
-		-v "$(CURDIR)/services/backend/tests:/app/tests:ro" \
-		api sh -c "pip install --user -e '.[dev]' && python -m alembic -c /app/alembic.ini upgrade head && pytest tests -q -v"
+	@COMPOSE="$(COMPOSE)" CURDIR="$(CURDIR)" bash scripts/test-docker.sh
 
 .PHONY: test-frontend
 test-frontend: ## Run frontend unit tests

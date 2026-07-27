@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.5.1](https://github.com/vovinacci/devops-demo/compare/v1.5.0...v1.5.1) (2026-07-27)
+
+
+### Bug Fixes
+
+* **ci:** scope backend codegen to the Python stubs so Test Backend has a buf-free path ([#189](https://github.com/vovinacci/devops-demo/issues/189)) ([b2303dc](https://github.com/vovinacci/devops-demo/commit/b2303dcfeb9baed1db5e9d9bae13de22b1ccfcbb))
+* **compose:** bind published ports to loopback and segment the database networks ([#191](https://github.com/vovinacci/devops-demo/issues/191)) ([b5eab66](https://github.com/vovinacci/devops-demo/commit/b5eab66ad85d665983c6d979cd5bbdd944b113a8))
+* **grafana:** pin a stable uid on every provisioned dashboard ([#195](https://github.com/vovinacci/devops-demo/issues/195)) ([37257ce](https://github.com/vovinacci/devops-demo/commit/37257ced31f4300ac47285684a616ec8a17c50d5))
+
 ## [1.5.0](https://github.com/vovinacci/devops-demo/compare/v1.4.0...v1.5.0) (2026-07-24)
 
 

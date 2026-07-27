@@ -114,8 +114,8 @@ curl -sS "http://localhost:8082/api/v1/items/$ID" | jq
    These events are emitted by the backend with zero consumers connected
    -- per ADR-0002 they are simply unobserved, gone the moment they are
    published. This is the point of the exercise: not a bug to route
-   around, but the documented at-most-once transport gap the NATS capstone
-   (RFC-0001 Section 10) exists to fix.
+   around, but the at-most-once transport gap this system accepts by
+   design, permanently (ADR-0002).
 
 6. After 5 minutes, confirm `AnalyticsStreamDown` is `firing` (its
    `for: 5m` window has elapsed) at http://localhost:9090/alerts, and read
@@ -208,10 +208,10 @@ curl -sS http://localhost:8000/items | jq '[.[] | select(.name | test("stream-ex
    whitebox/blackbox layer at all), could you tell the two options apart
    from inside analytics alone, and what would you have to add to?
 2. The exercise shows the aggregate dip never gets backfilled. Sketch, at
-   a high level, what a transactional outbox (RFC-0001 Section 10, the
-   NATS capstone) would have to add on the backend side to make
-   emitted-but-unobserved events recoverable, and why that requires a
-   durable broker rather than a smarter analytics-side retry.
+   a high level, what a transactional outbox would have to add on the
+   backend side to make emitted-but-unobserved events recoverable, and why
+   that requires a durable broker rather than a smarter analytics-side
+   retry. This system deliberately does neither (ADR-0002).
 3. `CanaryPipelineLagHigh` requires at least one `result="ok"` sample in
    its window to fire at all -- during this outage checks are all
    `skipped`, so it never fires; only `AnalyticsStreamDown` does. Is that

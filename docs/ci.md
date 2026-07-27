@@ -30,7 +30,7 @@ flowchart LR
 | Workflow           | Triggers on                                                                  | Jobs                                                                                                  |
 |--------------------|------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
 | checks.yml         | every PR, push to main                                                       | prek hooks (all files), PR title commitlint                                                           |
-| backend.yml        | services/backend/** changes                                                  | no-committed-codegen check, ruff + mypy, `make generate` + pytest against real Postgres               |
+| backend.yml        | services/backend/** changes                                                  | no-committed-codegen check, ruff + mypy, `make generate-backend` + pytest against real Postgres       |
 | frontend.yml       | services/frontend/** changes                                                 | eslint, vitest                                                                                        |
 | canary.yml         | services/canary/** changes                                                   | fmt + clippy, cargo test, cargo-deny, image                                                           |
 | analytics.yml      | services/analytics/**, proto/** changes                                      | no-committed-codegen check, buf generate + lint + test (Postgres container), govulncheck, image       |
@@ -38,7 +38,7 @@ flowchart LR
 | reports-ui.yml     | services/reports-ui/** changes                                               | caddy fmt + validate (via the caddy image), ASCII/HTML sanity, image build (no dependency audit, D3)  |
 | proto.yml          | proto/** changes                                                             | buf lint + format, buf breaking (against main)                                                        |
 | parity.yml         | loadprofile/**, services/analytics/internal/loadshape/**                     | JS (shape.js) vs Go (loadshape) parity against checked-in goldens (Hard rule 8)                       |
-| images.yml         | services/**, deploy/compose/**, loadgen/**, loadprofile/**                   | docker build + Trivy scan per service (matrix, includes loadgen)                                      |
+| images.yml         | services/**, deploy/compose/**, loadgen/**, loadprofile/**                   | docker build + Trivy gate per self-built service; Trivy report-only per pulled image (ADR-0011)       |
 | e2e.yml            | services/**, deploy/compose/**, observability/**, loadgen/**, loadprofile/** | `make smoke`: compose up core+analytics+load (`--wait`), k6 smoke gate, wiring assertions (see below) |
 | nightly.yml        | schedule (daily) + workflow_dispatch                                         | `make smoke-full`: same gate + reports/JVM profile, longer run, +report/canary/blackbox assertions    |
 | release-please.yml | push to main                                                                 | maintain release PR from commit history                                                               |
@@ -75,9 +75,19 @@ compatible).
 - **PR title commitlint:** squash-merge repo -- PR titles become the commit
   history release-please reads, so titles are linted as Conventional
   Commits, not branch commits.
-- **Trivy image scan:** every service image is built and scanned on change,
-  plus a weekly scheduled rescan -- new CVEs appear without commits; a
-  critical, fixable CVE fails the pipeline (RFC-0001 D13).
+- **Trivy image scan, two lanes (ADR-0011):** *scan everything that runs,
+  gate only what we build.* Self-built service images are built and scanned
+  on change, plus a weekly scheduled rescan -- new CVEs appear without
+  commits -- and a critical, fixable CVE fails the pipeline (RFC-0001 D13).
+  The images we pull (Prometheus, Grafana, Loki, Postgres, the exporters)
+  are scanned on the same runs at a wider severity net but reported, not
+  gated: there is no local fix for an upstream CVE, and a red build nobody
+  can act on only teaches people to ignore red. The pulled-image list is
+  derived from the compose file at scan time, so it cannot drift.
+  Reading these findings is a human step, deliberately: severity is not
+  risk. What turns a CVE into an incident is whether the affected image is
+  reachable from outside the host at all, which is a property of how the
+  stack is exposed, not of the CVE score.
 - **Secret scanning, two layers:** gitleaks runs in the hooks (working
   tree, every commit) and as a weekly full-git-history scan in CI -- a
   secret committed and later removed is invisible to the hook layer.

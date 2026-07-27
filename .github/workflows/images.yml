@@ -71,7 +71,7 @@ jobs:
             context: loadgen
             extra_build_args: "--build-context loadprofile=loadprofile --build-context proto=proto"
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # build+scan only, no pushes back -- do not leave the token in
           # the local git config
@@ -88,4 +88,63 @@ jobs:
           format: table
           severity: CRITICAL
           exit-code: "1"
+          ignore-unfixed: true
+
+  # Third-party images (Prometheus, Grafana, Postgres, ...) are pulled, not
+  # built here, and are just as reachable as our own code -- an unscanned
+  # Grafana is an unscanned service. They are scanned on the same schedule,
+  # but reported rather than gated: we cannot patch upstream, and a red
+  # pipeline nobody can act on is one people learn to ignore. What we build
+  # we gate; what we pull we watch. Both halves are documented in ADR-0011.
+  #
+  # The list is derived from the compose file, so there is no second
+  # inventory to drift -- a new pulled image is scanned the day it lands.
+  collect-third-party:
+    name: Collect third-party images
+    runs-on: ubuntu-latest
+    outputs:
+      images: ${{ steps.list.outputs.images }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Extract pulled images from compose
+        id: list
+        run: |
+          set -euo pipefail
+          images=$(grep -hoE '^[[:space:]]+image:[[:space:]]*[^[:space:]]+' \
+                     deploy/compose/docker-compose.yml \
+                   | awk '{print $2}' | sort -u \
+                   | jq -R '{ref: ., name: (split("@")[0])}' | jq -sc .)
+          if [ "$(jq 'length' <<<"$images")" -eq 0 ]; then
+            echo "no images found in compose -- extraction is broken" >&2
+            exit 1
+          fi
+          echo "images=$images" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Third-party images scanned"
+            echo
+            jq -r '.[] | "- `\(.name)`"' <<<"$images"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  scan-third-party:
+    name: Trivy report (${{ matrix.image.name }})
+    needs: collect-third-party
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.collect-third-party.outputs.images) }}
+    steps:
+      # exit-code 0 on purpose: this lane reports, it does not gate. The
+      # severity net is wider than the gating lane above precisely because
+      # nothing here can fail the build -- there is no cost to seeing more.
+      - name: Trivy scan (report only)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ matrix.image.ref }}
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: "0"
           ignore-unfixed: true
