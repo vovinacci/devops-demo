@@ -186,22 +186,9 @@ If `git diff` shows anything, you left the stack insecure -- revert it.
    and unique per tier. Argue whether the flat network would then be
    acceptable -- and what an attacker who has read-only access to one
    container's environment or filesystem could still do.
-3. `postgres_exporter` is the one service that crosses a tier boundary. (a)
-   What would you have to change to remove even that crossing, and (b) is the
-   result actually more secure, or has the exposure just moved somewhere less
-   visible? Consider where the metrics have to end up either way.
-4. Binding to `127.0.0.1` restricts only the host's interfaces -- it does
+3. Binding to `127.0.0.1` restricts only the host's interfaces -- it does
    nothing to container-to-container traffic, so a container on `devnet`
    still reaches every other `devnet` service by its compose DNS name.
    Which of the two changes in this exercise would have stopped the Part 2
    data read on its own, and why does that make port binding the weaker of
    the two controls?
-5. This stack runs on one machine, so a single loopback bind is enough. On
-   Kubernetes (RFC-0003) there is no `127.0.0.1` to bind to and no compose
-   network to segment. Which Kubernetes object plays the role of
-   `dbnet-analytics`, and what is the equivalent mistake -- the thing that is
-   on by default and quietly makes every pod reachable from every other?
-   Then the sting: Kind's default CNI (`kindnetd`) does not enforce that
-   object at all, so a correct policy applied there changes nothing you can
-   observe. What does that imply about testing a security control on a
-   platform whose defaults differ from production?
