@@ -36,6 +36,34 @@ The **DevOps Demo** dashboard is provisioned from
 metrics, database and PostgreSQL panels, Web Vitals, container resources,
 log panel, SLO status.
 
+## Authoring a dashboard, and what owns it
+
+The file provider runs with `allowUiUpdates: true`, so editing a dashboard in
+the UI works normally -- which is how a panel should be built. What the UI does
+not say is where the result went: into Grafana's own database, in the
+`grafana-data` volume, and not into the repo. `git status` stays clean, and the
+next `make down` + `make up` hands the dashboard back to its file.
+
+UI authoring is the first half of the loop, not all of it:
+
+1. Build the panel in the UI and save it.
+2. **Export** -> **Export as JSON** -> **Save JSON to file**.
+3. Write it over the matching file in `observability/grafana/dashboards/`.
+4. Commit it -- `git diff` is where a dashboard change gets reviewed.
+
+Every dashboard file pins a `uid` (`devops-demo`, `analytics-history`, and so
+on). That is what lets the provider recognise a dashboard as one it owns and
+overwrite it, rather than leaving an edited copy orphaned beside a freshly
+provisioned one, and it is what keeps `/d/<uid>/` links stable across a
+rebuild. `scripts/check-dashboard-uids.sh` gates it as a prek hook.
+
+The repo is the source of truth for dashboards; the volume is a cache of them.
+The exception worth knowing is annotations: `make seed-history` writes those
+through Grafana's HTTP API, so they live in the volume and nowhere else, and
+`make clean` takes them with it -- re-run the seeder to restore them.
+[Exercise 08](exercises/08-round-trip-a-dashboard.md) walks the whole loop and
+shows what each half costs.
+
 ## Offered load
 
 The **Load (k6)** dashboard (`load` compose profile, RFC-0001 D4,
