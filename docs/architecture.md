@@ -196,8 +196,44 @@ motivating exhibit for the NATS capstone (RFC-0001 Section 10).
   (routing/grouping/inhibition, RFC-0001 Section 7) + Mailpit (visible
   receiver). Details: [observability.md](observability.md).
 - **Infrastructure** -- Docker Compose (`deploy/compose/`), multi-stage
-  Dockerfiles, healthchecks, isolated network. Runtime versions are pinned
-  (`.mise.toml` for toolchains, digests for images).
+  Dockerfiles, healthchecks, segmented networks (below). Runtime versions are
+  pinned (`.mise.toml` for toolchains, digests for images).
+
+### Network topology
+
+Four networks, not one. `devnet` carries the application and observability
+mesh -- anything Prometheus must scrape or another service must call. Each
+database sits on its own tier network with only its owner:
+
+| Network | Members |
+| ------- | ------- |
+| `devnet` | every service reachable by Prometheus, or called from outside its own data tier |
+| `dbnet-core` | `db`, `api`, `postgres_exporter` |
+| `dbnet-analytics` | `postgres-analytics`, `analytics`, `grafana` |
+| `dbnet-reports` | `postgres-reports`, `reports` |
+
+Note that the databases themselves are deliberately *not* on `devnet`, so a
+service cannot reach another tier's database over the shared mesh.
+
+Each database is reachable only from its own tier, so a compromised service
+reaches its own data and no other tier's **over the compose network**. Two
+services cross into a tier they do not own, both on purpose:
+`postgres_exporter` (on `dbnet-core` to query `db`, on `devnet` so Prometheus
+can scrape it) and `grafana` (on `dbnet-analytics` for the Analytics History
+dashboard, as the read-only `grafana_ro` role). The remaining dual-homed
+services -- `api`, `analytics`, `reports` -- are the owners of the tiers they
+sit on.
+
+The "over the compose network" qualifier is load-bearing: `alloy` mounts the
+Docker socket and `cadvisor` runs privileged, so compromising either yields
+daemon-level control and the network boundary stops meaning anything. Both
+are demo conveniences, and neither is a network-layer problem to solve.
+
+Published ports bind to `127.0.0.1` rather than all interfaces, so the stack
+is reachable from the host and not from the network the host is on. Both
+defaults are the subject of
+[exercise 07](exercises/07-what-the-flat-network-reaches.md), which undoes
+them on purpose to show what each one prevents.
 
 ## Technology stack
 
