@@ -101,10 +101,12 @@ first, the diff second. Applies to human authors equally.
   --project-directory . --profile analytics down -v`.
 - Per-service targets where the service ships its own Makefile:
   `make -C services/canary build test lint run`.
-- `make generate` -- regenerates gRPC/protobuf Python stubs into
-  `services/backend/app/proto_gen` (buf + grpcio-tools; never committed,
-  RFC-0001 D8, ADR-0002). Run once after clone/proto change for IDE
-  completion; CI regenerates in its own build.
+- `make generate` -- regenerates every gRPC/protobuf stub: Python into
+  `services/backend/app/proto_gen` (grpcio-tools) and Go into
+  `services/analytics/internal/pb` (buf); never committed, RFC-0001 D8,
+  ADR-0002. `make generate-backend` / `make generate-analytics` do one
+  language each, for when only one toolchain is installed. Run once after
+  clone/proto change for IDE completion; CI regenerates in its own build.
 - `make incident` / `make heal` -- one-shot k6 incident overlay (10x
   spike or error storm) and its kill switch (RFC-0001 D4, ADR-0006);
   verify recovery afterward on the load dashboard and in Mailpit.
