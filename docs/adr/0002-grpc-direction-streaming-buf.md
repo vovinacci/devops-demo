@@ -7,7 +7,8 @@
 ## Context
 
 Analytics needs item events from the backend (the source of truth). A
-message broker is deliberately deferred to a capstone phase. Connection
+message broker is deliberately out of scope, and not planned later either
+(amended after Phase 6 -- see Alternatives and Consequences). Connection
 direction vs data direction is a classic streaming confusion worth teaching
 explicitly.
 
@@ -27,8 +28,10 @@ build-stage generation in Docker) and never committed.
 - Reverse direction (backend pushes to analytics): rejected -- the source
   of truth must not depend on a consumer.
 - Polling: rejected as teaching-poor.
-- Broker now: deferred -- the visible at-most-once gap motivates the NATS
-  capstone.
+- Broker: rejected -- the visible at-most-once gap is the exhibit, not a
+  defect to close. (Amended after Phase 6: originally "deferred -- the
+  visible at-most-once gap motivates the NATS capstone"; that refactor is
+  not planned, RFC-0001 Section 10.)
 - Committing generated Go code (the traditional Go norm): rejected on the
   deciding criterion "does anyone import these services as Go modules?" --
   no; buf is already a CI dependency, so generate-in-build guarantees
@@ -40,5 +43,7 @@ build-stage generation in Docker) and never committed.
 - Harder: IDE completion requires one `make generate` after clone; events
   emitted during a consumer disconnect are unrecoverable -- the aggregate
   dip stays visible by design.
-- Accepted: emit-after-commit crash window (a committed item whose event
-  was never emitted) until the transactional outbox arrives with NATS.
+- Accepted, permanently: emit-after-commit crash window (a committed item
+  whose event was never emitted). (Amended after Phase 6: originally
+  "until the transactional outbox arrives with NATS"; that work is not
+  planned, RFC-0001 Section 10.)
