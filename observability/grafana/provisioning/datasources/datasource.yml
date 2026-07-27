@@ -9,7 +9,7 @@ datasources:
     type: loki
     access: proxy
     url: http://loki:3100
-  # RFC-0001 D5/Section 5: "grafana -->|historical dashboards| pgA" --
+  # RFC-0001 D5/Section 5: "grafana -->|historical dashboards| pgB" --
   # the durable-business-data half of "ops metrics are ephemeral,
   # business data is durable". Connects as grafana_ro: a dedicated
   # least-privilege role (CONNECT + USAGE + SELECT on exactly the

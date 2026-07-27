@@ -27,32 +27,33 @@ The model is **hybrid: run the present, read the past.**
   profile the module needs -- `make up` for the core stack, `make up-full` for
   every optional profile, or a specific `--profile` selection. Then do the
   module's exercise against the running stack.
-- **Read how it grew.** Each build phase left an annotated git tag. Browse a
-  phase's exact state with `git checkout phase-3`, or see precisely what a
-  phase added with `git diff phase-2..phase-3`. Read the phase alongside its
-  RFC-0001 decision records and the ADRs that landed with it.
+- **Read how it grew.** Every phase argued its case before it shipped: read
+  the phase's RFC-0001 decision records and the ADRs that landed with it,
+  then read the pull requests that delivered it.
+  [RFC-0001 Section 9](rfc/0001-polyglot-platform.md) lists what each phase
+  built and in what order.
 - **Operate it.** The runbooks in [`docs/runbooks/`](runbooks/) are the ops
   half of every module: an alert fires, you open the runbook, you triage.
 
-`main` is the single source of truth. Bug fixes, doc corrections, and new
-exercises always land on `main` -- the tags are **read-only checkpoints** that
-capture what a phase looked like when it shipped, never patched in place. When
-`main` and a tag disagree, `main` is right; the tag is history.
+`main` is the single source of truth, and the only thing you run. Bug fixes,
+doc corrections, and new exercises always land there. The repo keeps no
+historical snapshots to run instead: an old tree would carry every defect
+fixed since, so history is for reading, not for bringing up.
 
 ## Course map
 
-| Module                              | Phase / RFC | What lands                        | Read (RFC + ADR)          | Run                              | Do    | Operate (runbooks)                              | Tag        |
-| ----------------------------------- | ----------- | --------------------------------- | ------------------------- | -------------------------------- | ----- | ----------------------------------------------- | ---------- |
-| 0. Baseline and operability         | Phase 0     | Repo layout, CI, toolchain        | D6, D8, D14; ADR 1/4/9/12 | `make up`                        | ex 00 | --                                              | `phase-0`  |
-| 1. Three-layer monitoring           | Phase 1     | blackbox + canary v1              | D6, D9, D10; ADR 7/8      | `make up-full`                   | ex 01 | probe-down, canary-journey-failing              | `phase-1`  |
-| 2. Contract-first gRPC              | Phase 2     | proto/ + gRPC server + buf gate   | D3, D11; ADR 2/10         | `make up`                        | ex 02 | --                                              | `phase-2`  |
-| 3. Analytics and the event stream   | Phase 3     | Go analytics + canary v2          | D1, D3, D7; ADR 5/2       | `make up-full`                   | ex 03 | analytics-stream-down, canary-pipeline-lag-high | `phase-3`  |
-| 4. Load and incident-to-inbox       | Phase 4     | loadgen + Alertmanager + e2e gate | D4, D5; ADR 3/6/7/8       | `make up-full` + `make incident` | ex 04 | all four (triage)                               | `phase-4`  |
-| 5. Historical data and seams        | Phase 5     | seeder + history dashboards       | D5, D7; ADR 5/3           | `make up-workshop` + seed        | ex 05 | --                                              | `phase-5`  |
-| 6. The JVM showcase                 | Phase 6     | Kotlin reports + canary v3        | D2, D6, D10, D12; ADR 4   | `make up-full`                   | ex 06 | --                                              | `phase-6`  |
-| 7. A UI over the API                | RFC-0002    | reports-ui Caddy SPA (`:8084`)    | RFC-0002; ADR 13          | `make up-full`                   | --    | --                                              | `rfc-0002` |
-| 8. Into Kind (UPCOMING)             | RFC-0003    | K8s/Kind, Gateway API, Helm       | RFC-0003 (in design)      | --                               | --    | --                                              | `rfc-0003` |
-| 9. Capstone: authN/authZ (UPCOMING) | RFC-0004    | OIDC across the polyglot mesh     | RFC-0004 (in design)      | `make up-full`                   | ex 07 | --                                              | `rfc-0004` |
+| Module                              | Phase / RFC | What lands                        | Read (RFC + ADR)          | Run                              | Do        | Operate (runbooks)                              |
+| ----------------------------------- | ----------- | --------------------------------- | ------------------------- | -------------------------------- | --------- | ----------------------------------------------- |
+| 0. Baseline and operability         | Phase 0     | Repo layout, CI, toolchain        | D6, D8, D14; ADR 1/4/9/12 | `make up`                        | ex 00     | --                                              |
+| 1. Three-layer monitoring           | Phase 1     | blackbox + canary v1              | D6, D9, D10; ADR 7/8      | `make up-full`                   | ex 01, 08 | probe-down, canary-journey-failing              |
+| 2. Contract-first gRPC              | Phase 2     | proto/ + gRPC server + buf gate   | D3, D11; ADR 2/10         | `make up`                        | ex 02     | --                                              |
+| 3. Analytics and the event stream   | Phase 3     | Go analytics + canary v2          | D1, D3, D7; ADR 5/2       | `make up-full`                   | ex 03     | analytics-stream-down, canary-pipeline-lag-high |
+| 4. Load and incident-to-inbox       | Phase 4     | loadgen + Alertmanager + e2e gate | D4, D5; ADR 3/6/7/8       | `make up-full` + `make incident` | ex 04     | all four (triage)                               |
+| 5. Historical data and seams        | Phase 5     | seeder + history dashboards       | D5, D7; ADR 5/3           | `make up-workshop` + seed        | ex 05     | --                                              |
+| 6. The JVM showcase                 | Phase 6     | Kotlin reports + canary v3        | D2, D6, D10, D12; ADR 4   | `make up-full`                   | ex 06     | --                                              |
+| 7. A UI over the API                | RFC-0002    | reports-ui Caddy SPA (`:8084`)    | RFC-0002; ADR 13          | `make up-full`                   | --        | --                                              |
+| 8. Into Kind (UPCOMING)             | RFC-0003    | K8s/Kind, Gateway API, Helm       | RFC-0003 (in design)      | --                               | --        | --                                              |
+| 9. Capstone: authN/authZ (UPCOMING) | RFC-0004    | OIDC across the polyglot mesh     | RFC-0004 (in design)      | `make up-full`                   | ex 07     | --                                              |
 
 `ex NN` is [`docs/exercises/NN-*.md`](exercises/00-baseline.md); `D<n>` is the
 decision record of that number in [RFC-0001 Section 6-12](rfc/0001-polyglot-platform.md);
@@ -83,6 +84,11 @@ failures. Read RFC-0001 D6, D9, D10; ADRs
 [probe-down](runbooks/probe-down.md) and
 [canary-journey-failing](runbooks/canary-journey-failing.md). Discussion: which
 layer fires first, and why is that the wrong one to alert on alone?
+
+The dashboards are a deliverable here, not just a view onto one:
+[exercise 08](exercises/08-round-trip-a-dashboard.md) edits one in Grafana,
+shows the repo never hearing about it, and closes the loop through a diff
+somebody can review.
 
 ### Module 2 -- Contract-first gRPC and tracing
 
@@ -158,8 +164,7 @@ The deployment and operability platform. Kubernetes on Kind, Gateway API via
 Envoy, Helm charts, the D6 health endpoints wired to probes, the measured
 per-service footprint turned into resource requests and limits, and the
 Prometheus Operator with ServiceMonitors. This is where the whole polyglot
-stack becomes production-like. Currently in design; the `rfc-0003` tag will
-mark it.
+stack becomes production-like. Currently in design.
 
 ### Module 9 -- Capstone: security, authN/authZ (RFC-0004, UPCOMING)
 
@@ -175,8 +180,8 @@ everything integrates against the standard OIDC discovery/JWKS contract, so any
 compliant provider drops in. The repo ships three interchangeable provider
 deployments -- Keycloak, Zitadel, Dex -- and **students choose one**; swapping
 providers is itself the lesson, the same "two implementations of one contract"
-pedagogy as the nginx/Caddy contrast. Currently in design; the `rfc-0004` tag
-will mark it. Discussion: where does each language draw the line between
+pedagogy as the nginx/Caddy contrast. Currently in design.
+Discussion: where does each language draw the line between
 authentication and authorization, and what breaks when you swap the provider?
 
 One piece of this module is runnable **today**, ahead of RFC-0004:
@@ -207,11 +212,10 @@ makes that reachability concrete rather than theoretical.
 
 ## How the platform was built
 
-Every build phase is an annotated tag and a matching RFC-0001 decision trail.
-To read the construction history end to end: walk the tags in order
-(`git log --oneline phase-0..phase-6`), diff adjacent phases to see exactly
-what each one added (`git diff phase-1..phase-2`), and read each phase's
-section of [RFC-0001](rfc/0001-polyglot-platform.md) beside the
-[ADRs](adr/) that froze its decisions. The
+Every build phase is a run of pull requests and a matching RFC-0001 decision
+trail. To read the construction history end to end: walk `git log --oneline`
+on `main` (each merge names its PR), and read each phase's section of
+[RFC-0001](rfc/0001-polyglot-platform.md) beside the [ADRs](adr/) that froze
+its decisions. The
 [engineering principles](engineering-principles.md) doc explains why the
 RFC-then-ADR lifecycle exists at all.

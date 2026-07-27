@@ -14,12 +14,12 @@ flowchart LR
     subgraph app [Application]
         fe["frontend (React + nginx)<br/>:8080"]
         be["api (FastAPI + grpc.aio)<br/>:8000, :50051"]
-        pg[("db (PostgreSQL)<br/>:5432")]
+        pgA[("db (PostgreSQL)<br/>:5432")]
         an["analytics (Go)<br/>:8082, analytics profile"]
-        pgA[("postgres-analytics (PostgreSQL)<br/>:5433, analytics profile")]
+        pgB[("postgres-analytics (PostgreSQL)<br/>:5433, analytics profile")]
         can["canary (Rust)<br/>:8085, synthetic profile"]
         rep["reports (Kotlin/Spring Boot)<br/>:8083, reports profile"]
-        pgR[("postgres-reports (PostgreSQL)<br/>:5434, reports profile")]
+        pgC[("postgres-reports (PostgreSQL)<br/>:5434, reports profile")]
         ui["reports-ui (Caddy static + proxy)<br/>:8084, reports-ui profile"]
     end
 
@@ -35,15 +35,15 @@ flowchart LR
     end
 
     fe -->|HTTP| be
-    be -->|SQLAlchemy / Alembic| pg
-    pgx --> pg
-    an -->|pgx| pgA
+    be -->|SQLAlchemy / Alembic| pgA
+    pgx --> pgA
+    an -->|pgx| pgB
     an -->|"dials :50051 (TCP direction)"| be
     be -.->|"WatchItemEvents pushes events (data direction, opposite the dial)"| an
     can -->|"journey: create -> verify -> delete"| be
     can -.->|"pipeline-lag poll (skipped when analytics profile absent)"| an
     can -.->|"report step (skipped when reports profile absent)"| rep
-    rep -->|JDBC| pgR
+    rep -->|JDBC| pgC
     rep -->|"HTTP: GET /items (report source of truth)"| be
     rep -.->|"HTTP: GET /api/v1/stats (best-effort, D10)"| an
     ui -.->|"reverse proxy /api/* -> reports /reports/... (503 when reports absent, D10)"| rep
@@ -60,7 +60,7 @@ flowchart LR
     alloy -->|container logs| loki
     graf --> prom
     graf --> loki
-    graf -.->|"historical dashboards<br/>(Postgres datasource)"| pgA
+    graf -.->|"historical dashboards<br/>(Postgres datasource)"| pgB
     prom -->|"alerting: block"| am
     am -->|"email_configs (SMTP)"| mp
 ```
@@ -74,18 +74,25 @@ over it (data direction: backend -> analytics, drawn as the separate
 dashed edge above) -- the two arrows point opposite ways on purpose, the
 classic streaming-direction confusion RFC-0001 D3 calls out explicitly.
 
-The `graf -> pgA` edge is the RFC-0001 D5 boundary made visible: Grafana
-queries `postgres-analytics` directly via a Postgres datasource for
-historical/business-data dashboards (`Analytics History`,
-`docs/observability.md`), separate from the `prom -> an` scrape edge
-above -- Prometheus panels show data only since the stack last started,
+The dashed Grafana -> `postgres-analytics` edge is the RFC-0001 D5 boundary
+made visible: Grafana queries that database directly via a Postgres
+datasource for historical/business-data dashboards (`Analytics History`,
+`docs/observability.md`), separate from the Prometheus -> analytics scrape
+edge above -- Prometheus panels show data only since the stack last started,
 while this edge is durable business history (RFC-0001 Phase 5 PR-2).
+
+RFC-0001 draws these same three databases abstractly, as **Postgres A**,
+**B**, and **C**. Concretely: A is `db` (`:5432`, the backend's), B is
+`postgres-analytics` (`:5433`), C is `postgres-reports` (`:5434`). So the
+`grafana -> Postgres B` edge in that RFC is this diagram's Grafana ->
+`postgres-analytics` edge. The node ids here use the same letters, so the two
+files line up when read side by side.
 
 The gRPC client owns all reconnect logic (ADR-0002): on (re)connect it
 pulls a `ListItems` snapshot, reconciles it into `current_items`, then
 resumes the event stream; a connection lost while the client is down
-means those events are gone (at-most-once transport), which is the
-motivating exhibit for the NATS capstone (RFC-0001 Section 10).
+means those events are gone (at-most-once transport) -- accepted by
+design and permanent, not a gap awaiting a fix (ADR-0002).
 
 ## Components
 
