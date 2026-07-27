@@ -146,7 +146,6 @@ network and a password that the compose file hands out in plain text.
 | `curl http://<LAN-IP>:8000/healthz` | `200` | connection fails |
 | `docker ps` port column | `0.0.0.0:5432->5432` and `[::]:5432->5432` | `127.0.0.1:5432->5432` |
 | `postgres-analytics` -> `db` | returns core `items` rows | `Name does not resolve` |
-| `postgres-reports` -> `postgres-analytics` | returns the analytics schema | `Name does not resolve` |
 | `api` / `analytics` / `reports` `/readyz` | `200` | `200` (unchanged) |
 | Prometheus `postgres` target | `up` | `up` (unchanged) |
 
@@ -191,11 +190,12 @@ If `git diff` shows anything, you left the stack insecure -- revert it.
    What would you have to change to remove even that crossing, and (b) is the
    result actually more secure, or has the exposure just moved somewhere less
    visible? Consider where the metrics have to end up either way.
-4. Binding to `127.0.0.1` protects the host's other interfaces, but every
-   container on `devnet` can still reach every published service by its
-   compose DNS name. Which of the two changes in this exercise would have
-   stopped the Part 2 data read on its own, and why does that make port
-   binding the weaker of the two controls?
+4. Binding to `127.0.0.1` restricts only the host's interfaces -- it does
+   nothing to container-to-container traffic, so a container on `devnet`
+   still reaches every other `devnet` service by its compose DNS name.
+   Which of the two changes in this exercise would have stopped the Part 2
+   data read on its own, and why does that make port binding the weaker of
+   the two controls?
 5. This stack runs on one machine, so a single loopback bind is enough. On
    Kubernetes (RFC-0003) there is no `127.0.0.1` to bind to and no compose
    network to segment. Which Kubernetes object plays the role of
