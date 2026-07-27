@@ -25,8 +25,38 @@ EDGE_LABEL = re.compile(r"\|[^|]*\|")
 # a declaration is an id immediately followed by its shape bracket, which may
 # sit at the start of a line or inline on either side of an edge
 DECL = re.compile(r"(\w+)\s*[\[\({]")
-# longest-first so `-.->` is not consumed by the plain-arrow alternative
-ARROW = re.compile(r"-\.->|-{2,3}>|={2}>|-{3}")
+# every flowchart link shape, longest-first so `-.->` is not consumed by the
+# plain-arrow alternative. The bare open links need three characters (`---`,
+# `===`), which is what keeps the two dashes of an inline `a -- text --> b`
+# label from reading as a link of their own.
+ARROW = re.compile(
+    r"<-{2,}>|<-\.-+>|<={2,}>"  # bidirectional
+    r"|o-{2,}o|x-{2,}x"  # circle / cross at both ends
+    r"|-\.-+[>ox]|-\.-+"  # dotted
+    r"|-{2,}[>ox]|-{3,}"  # normal
+    r"|={2,}[>ox]|={3,}"  # thick
+    r"|~{3,}"  # invisible
+)
+
+
+def strip_preamble(lines):
+    """Drop a diagram's front matter, init directives and comments.
+
+    Mermaid allows `---` front matter and `%%{init: ...}%%` before the type
+    declaration. Stripping rather than rejecting keeps a sequenceDiagram with
+    front matter skipping correctly; what must not happen is a flowchart
+    reading as some other diagram type and skipping its edge check.
+    Returns None when the front matter never closes.
+    """
+    if lines and lines[0] == "---":
+        for position in range(1, len(lines)):
+            if lines[position] == "---":
+                lines = lines[position + 1 :]
+                break
+        else:
+            return None
+    return [line for line in lines if not line.startswith("%%")]
+
 
 failures = []
 checked = skipped = 0
@@ -35,6 +65,10 @@ for path in sorted(set(glob.glob("**/*.md", recursive=True))):
     text = open(path, encoding="utf-8").read()
     for index, block in enumerate(BLOCK.findall(text)):
         lines = [line.strip() for line in block.split("\n") if line.strip()]
+        lines = strip_preamble(lines)
+        if lines is None:
+            failures.append(f"{path}: mermaid block {index} has unclosed front matter")
+            continue
         if not lines:
             failures.append(f"{path}: mermaid block {index} is empty")
             continue
