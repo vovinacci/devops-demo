@@ -1,6 +1,6 @@
 # RFC-0003: Kubernetes on Kind -- a deployment and operability platform
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Author:** vovin
 - **Created:** 2026-07-24
 - **Relationship to prior RFCs:** RFC-0001 (the polyglot platform) and
