@@ -238,11 +238,16 @@ service's measured runtime footprint**, not from guesses.
   consumer at ~400 MiB**, and the whole compose application stack measures
   **~1.6 GiB** at rest. Those numbers set the initial requests/limits, refined
   once running under Kind.
-- The JVM gets an **explicit, documented exhibit**: a container memory *limit*
-  alone does not bound the JVM heap -- the JVM must be told about the limit
-  (`-XX:MaxRAMPercentage`, container-awareness) or it sizes its heap against
-  the *node's* memory and gets OOM-killed by the kubelet at the limit. This
-  container-limit-vs-heap interaction is one of the most common real-world
+- The JVM gets an **explicit, documented exhibit**: the container memory
+  *limit* bounds the container's total footprint, not the heap. A supported JDK
+  (`reports` runs 21) reads the cgroup limit by default -- no flag turns that
+  on -- and `-XX:MaxRAMPercentage` only picks the heap's *share* of the limit
+  it already detected: 25% by default, 75% here. The remainder is not slack:
+  metaspace, thread stacks, code cache, and direct buffers live outside the
+  heap and inside the limit, so a percentage set too high still ends in an
+  OOM-kill by the kubelet. The node's memory enters the picture only when a pod
+  declares no limit at all, and the JVM has nothing narrower to size against.
+  This limit-vs-heap interaction is one of the most common real-world
   Kubernetes-JVM incidents and is called out in the reports chart's values and
   the k8s runbook as a first-class lesson, continuous with RFC-0001 D2's
   "heap sizing vs container limits".
@@ -272,7 +277,7 @@ Observability moves from static compose config to its Kubernetes-native form:
   container metrics** and kube-prometheus-stack ships node-exporter, so the
   standalone `cadvisor` container is retired on Kubernetes (a documented
   "the platform already gives you this" lesson); `postgres_exporter` stays as a
-  sidecar/Deployment with its own ServiceMonitor.
+  standalone Deployment + Service with its own ServiceMonitor (Section 6).
 - Rationale: the compose stack teaches static scrape config; Kubernetes
   teaches **label-based service discovery and operators reconciling
   monitoring**, which is how observability is actually run on Kubernetes. The
@@ -526,7 +531,7 @@ demoable.
 | **RAM.** Kind control-plane + kube-prometheus-stack + the full app stack + Envoy can reach ~6-10 GB, vs the ~1.6 GB compose stack -- past many student laptops | A trimmed **dev values** overlay (reduced replicas/resources, retention, scrape frequency); the `core` overlay as the default small footprint; a documented **requirements bump** for the Kind path with `make doctor` gating available RAM (RFC-0001 D14); k3s noted as a lighter fallback (DK1). A plain-Prometheus (no Operator) path is **explicitly out of scope and unsupported** -- it does not satisfy this RFC's observability contract (ServiceMonitor-driven discovery, DK6); the supported RAM relief is the trimmed dev overlay and the `core` overlay, not dropping the Operator |
 | Two deployment models read as duplication / drift | Framed as a deliberate contrast (DK10); the Helm values overlays mirror the compose profiles one-to-one (DK2, Section 6) so the mental model is shared, not forked |
 | Helm chart sprawl (library + per-service + umbrella) | The library chart is the point -- per-service charts are a few values each (DK2); `helm lint` + `kubeconform` gate every PR (DK9) |
-| JVM OOM-killed at the container limit | Made an **explicit exhibit** (DK5): `MaxRAMPercentage`/container-awareness set in the reports chart values, documented in the k8s runbook |
+| JVM OOM-killed at the container limit | Made an **explicit exhibit** (DK5): `MaxRAMPercentage` sets the heap's share of the limit the JDK already detects, with the non-heap remainder budgeted rather than assumed free -- set in the reports chart values, documented in the k8s runbook |
 | Kind-specific behavior (no cloud LoadBalancer, local image loading) taught as if universal | Documented as Kind-isms in the runbook; Gateway reached via a documented local method (port-forward / `kind` extra-port-mappings), called out as the local substitute for a cloud LB |
 | Nightly Kind e2e flakes on cluster bring-up | Bring-up is nightly, not per-PR (DK9); per-PR relies on the deterministic `kubeconform` render check; the e2e retries cluster create and surfaces logs on failure |
 | Scope creep (mesh, HPA, GitOps, Postgres operator) | Explicit non-goals (Section 4) and future work (Section 10); each is a separate RFC, none needed for the core primitives |
@@ -542,7 +547,7 @@ demoable.
 - It **cashes in** RFC-0001's forward-looking decisions: D6 (the uniform
   contract) becomes probes + ServiceMonitors (DK4, DK6); D10 (compose profiles
   - graceful degradation) becomes Helm values overlays (DK2); D2's
-  container-awareness/JVM concerns become the DK5 exhibit; and RFC-0001's own
+  heap-vs-container-limit JVM concerns become the DK5 exhibit; and RFC-0001's own
   deferred "Kubernetes deployment under `deploy/k8s/`" (RFC-0001 Section 10)
   is what this RFC delivers.
 - **The capstone is a future RFC-0004: authentication and authorization**, via

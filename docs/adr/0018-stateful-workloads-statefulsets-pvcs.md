@@ -24,7 +24,10 @@ identity. The reports service's artifact volume becomes a `ReadWriteOnce`
 
 StatefulSets are chosen because stable, sticky per-replica identity (a
 predictable pod name and DNS entry) plus durable per-replica storage that
-survives pod rescheduling is precisely their use case. Modelling each database
+survives pod recreation is precisely their use case. "Survives" is scoped to
+the owning node: the volume is node-local, so a recreated pod reattaches to it
+only where the node is still available. Local volumes do not follow a pod to
+another node, and recovery from node loss is out of scope for this platform. Modelling each database
 as its own StatefulSet keeps the D1 ownership boundary visible in the cluster
 topology exactly as it is in compose: three stores, three owners, no shared
 volume. The reports artifact PVC teaches the volume-lifecycle-vs-pod-lifecycle
@@ -44,8 +47,8 @@ RFC-0001 D2) they are files on a volume, never BLOBs in Postgres.
 
 ## Consequences
 
-- Easier: each database keeps a durable identity and volume across
-  rescheduling; the D1 "service owns its store" boundary stays legible in the
+- Easier: each database keeps a durable identity and volume across pod
+  recreation; the D1 "service owns its store" boundary stays legible in the
   cluster; the reports artifact PVC makes volume lifecycle a first-class
   exhibit.
 - Harder: PVCs on Kind are backed by local-path storage (`ReadWriteOnce`,

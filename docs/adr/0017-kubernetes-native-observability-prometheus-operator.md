@@ -17,9 +17,11 @@ run Prometheus on Kubernetes while teaching none of it.
 ## Decision
 
 Adopt the **Prometheus Operator** via the **kube-prometheus-stack** chart. It
-runs Prometheus, Alertmanager, and Grafana; **per-service ServiceMonitors**
-select each `/metrics` endpoint, retiring the static `prometheus.yml` scrape
-jobs (discovery is now label-driven). **Grafana dashboards ship as ConfigMaps**
+runs Prometheus, Alertmanager, and Grafana; **a ServiceMonitor per workload
+that exposes `/metrics`** (D6) selects that endpoint, retiring the static
+`prometheus.yml` scrape jobs (discovery is now label-driven). The nginx
+`frontend` is the sole documented exception -- it serves no `/metrics`
+(ADR-0013), so its chart opts out of the ServiceMonitor (ADR-0015). **Grafana dashboards ship as ConfigMaps**
 (the operator's sidecar loads any ConfigMap carrying the dashboard label),
 replacing file provisioning while reusing the same dashboard JSON. **Loki**
 stays and **Alloy runs as a DaemonSet**, each pod tailing only its OWN node's
