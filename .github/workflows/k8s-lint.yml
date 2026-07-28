@@ -10,6 +10,7 @@ on:
     paths:
       - "deploy/k8s/**"
       - ".mise.toml"
+      - "Makefile"
       - ".github/workflows/k8s-lint.yml"
   push:
     branches:
@@ -17,6 +18,7 @@ on:
     paths:
       - "deploy/k8s/**"
       - ".mise.toml"
+      - "Makefile"
       - ".github/workflows/k8s-lint.yml"
 
 # Read-only token: lint + render + schema-validate only read the checkout.

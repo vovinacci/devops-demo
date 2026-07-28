@@ -37,6 +37,14 @@ grpc:
 exec:
   command:
     {{- toYaml .command | nindent 4 }}
+{{- else if ne $type "none" }}
+{{- /*
+An unrecognised type matches no branch and would emit a probe with timing
+fields and no handler. kubeconform -strict accepts that (every handler is
+optional in the schema) while the API server rejects it, so the typo would
+survive the gate and surface only at install. Fail at render instead.
+*/}}
+{{- fail (printf "common.probeHandler: unsupported probe type %q (want httpGet|tcpSocket|grpc|exec|none)" $type) }}
 {{- end }}
 {{- with .initialDelaySeconds }}
 initialDelaySeconds: {{ . }}

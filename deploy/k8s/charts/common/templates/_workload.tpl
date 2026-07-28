@@ -13,6 +13,10 @@ metadata:
     {{- include "common.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount | default 1 }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "common.selectorLabels" . | nindent 6 }}
@@ -115,8 +119,13 @@ spec:
           volumeMounts:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+  {{- /*
+  Parenthesised lookup: a chart with no `persistence` key at all would
+  otherwise nil-pointer here, and an empty list would emit a null key.
+  */}}
+  {{- with (.Values.persistence).volumeClaims }}
   volumeClaimTemplates:
-    {{- range .Values.persistence.volumeClaims }}
+    {{- range . }}
     - metadata:
         name: {{ .name }}
       spec:
@@ -129,4 +138,5 @@ spec:
         storageClassName: {{ . }}
         {{- end }}
     {{- end }}
+  {{- end }}
 {{- end -}}

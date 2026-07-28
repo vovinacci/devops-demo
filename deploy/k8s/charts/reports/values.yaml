@@ -29,6 +29,12 @@ resources:
 service:
   enabled: true
   type: ClusterIP
+# A ReadWriteOnce claim attaches to one node at a time, so the default rolling
+# update deadlocks: the surge pod is scheduled before the old one releases the
+# volume, and on any other node it never attaches. Recreate trades a moment of
+# downtime for a rollout that finishes.
+strategy:
+  type: Recreate
 # Standalone artifact PVC (RFC-0003 DK7, ADR-0018): outlives any single pod.
 extraPVCs:
   - name: artifacts

@@ -158,6 +158,26 @@ Operator CR is **actually validated**. Without it the CR is an *error*
 gate does **not** use `--ignore-missing-schemas` (the DK9 trap: a green gate
 that validates nothing).
 
+### Refreshing the vendored schema
+
+`schemas/monitoring.coreos.com/servicemonitor_v1.json` is the `v1`
+`openAPIV3Schema` of the upstream `ServiceMonitor` CRD -- the whole resource
+(`apiVersion`, `kind`, `metadata`, `spec`), which is what `kubeconform`
+validates a manifest against. Regenerate it from a chosen prometheus-operator
+release:
+
+```sh
+TAG=v0.XX.0   # the operator release to track
+curl -fsSL "https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/${TAG}/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml" \
+  | yq -o=json '.spec.versions[] | select(.name == "v1") | .schema.openAPIV3Schema' \
+  > deploy/k8s/schemas/monitoring.coreos.com/servicemonitor_v1.json
+```
+
+The operator release is **not pinned yet**: PR-4 chooses the
+kube-prometheus-stack version, and this schema has to be refreshed to match it
+then. Until it is, the gate validates against whatever shape was vendored here,
+so a ServiceMonitor field added or removed upstream would pass unnoticed.
+
 ## Deliberate deviation from the RFC's toolchain line
 
 RFC-0003 DK9 lists `kind`, `kubectl`, `helm`, `kubeconform` as the new pinned
