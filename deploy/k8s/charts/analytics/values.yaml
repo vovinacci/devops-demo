@@ -1,0 +1,36 @@
+# Analytics: Go service, D6-compliant (RFC-0001 D1).
+image:
+  repository: devops-demo/analytics
+  tag: dev
+replicaCount: 1
+containerPort: 8082
+portName: http
+# ANALYTICS_DATABASE_URL / ANALYTICS_BACKEND_GRPC_ADDR arrive as a
+# ConfigMap/Secret in PR-3 (RFC-0003 DK8).
+env:
+  - name: DEMO_TIME_SCALE
+    value: "1"
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 128Mi
+service:
+  enabled: true
+  type: ClusterIP
+d6:
+  liveness:
+    type: httpGet
+    path: /healthz
+    port: http
+  readiness:
+    type: httpGet
+    path: /readyz
+    port: http
+  serviceMonitor:
+    enabled: true
+    path: /metrics
+    port: http
+    interval: 30s

@@ -1,0 +1,10 @@
+apiVersion: v2
+name: postgres-exporter
+description: postgres_exporter (RFC-0001 Section 7). Scraped via ServiceMonitor.
+type: application
+version: 0.1.0
+appVersion: "v0.20.1"
+dependencies:
+  - name: common
+    version: 0.1.0
+    repository: file://../common

@@ -1,0 +1,50 @@
+name: K8s Charts
+
+# Fast, cluster-free per-PR gate for the Helm packaging (RFC-0003 DK9, PR-2):
+# `helm lint` every chart, then `helm template <umbrella> | kubeconform -strict`
+# for every profile overlay, with the Prometheus Operator ServiceMonitor CRD
+# validated against a vendored schema (never --ignore-missing-schemas). The
+# heavier Kind-in-CI end-to-end run is nightly and lands in a later PR.
+on:
+  pull_request:
+    paths:
+      - "deploy/k8s/**"
+      - ".mise.toml"
+      - "Makefile"
+      - ".github/workflows/k8s-lint.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "deploy/k8s/**"
+      - ".mise.toml"
+      - "Makefile"
+      - ".github/workflows/k8s-lint.yml"
+
+# Read-only token: lint + render + schema-validate only read the checkout.
+permissions:
+  contents: read
+
+jobs:
+  lint-k8s:
+    name: Helm lint + kubeconform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      # mise is the repo's single source of truth for tool versions (ADR-0012).
+      # Installing helm + kubeconform from .mise.toml here is what makes the
+      # gate `make lint-k8s` run identically locally and in CI (RFC-0001 D12).
+      - name: Set up mise
+        uses: jdx/mise-action@9e7f7633ff6f6d6048a9418a68d48f288f50eb14 # v4.2.3
+        with:
+          install: false
+          cache: true
+
+      - name: Install helm + kubeconform (pinned in .mise.toml)
+        run: mise install helm kubeconform
+
+      - name: helm lint + helm template | kubeconform (offline, no cluster)
+        run: make lint-k8s

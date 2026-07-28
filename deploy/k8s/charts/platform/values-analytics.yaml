@@ -1,0 +1,6 @@
+# +analytics profile (RFC-0001 D1, ADR-0005): the Go analytics service and its
+# own Postgres. Layer with the base: `-f values.yaml -f values-analytics.yaml`.
+analytics:
+  enabled: true
+postgres-analytics:
+  enabled: true

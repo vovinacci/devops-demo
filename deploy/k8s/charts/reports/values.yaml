@@ -1,0 +1,69 @@
+# Reports: Kotlin/Spring Boot on the JVM (RFC-0001 D2). Two exhibits ride here:
+# the DK5 container-limit-vs-heap lesson (JAVA_TOOL_OPTIONS below) and the DK7
+# artifact PVC (generated XLSX/PDF/CSV are files on a volume, never BLOBs in
+# Postgres -- RFC-0001 D2).
+image:
+  repository: devops-demo/reports
+  tag: dev
+replicaCount: 1
+containerPort: 8083
+portName: http
+env:
+  # RFC-0003 DK5 EXHIBIT: a container memory LIMIT alone does not bound the JVM
+  # heap. The JVM must be told about the cgroup limit or it sizes its heap
+  # against the NODE memory and is OOM-killed by the kubelet at the limit.
+  # MaxRAMPercentage makes the heap track the limits.memory below (continuous
+  # with RFC-0001 D2 heap-sizing-vs-container-limits).
+  - name: JAVA_TOOL_OPTIONS
+    value: "-XX:MaxRAMPercentage=75.0"
+  - name: REPORTS_ARTIFACT_DIR
+    value: /var/lib/reports/artifacts
+resources:
+  # reports is the largest single consumer (~400 MiB at rest, RFC-0003 DK5).
+  requests:
+    cpu: 250m
+    memory: 384Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+service:
+  enabled: true
+  type: ClusterIP
+# A ReadWriteOnce claim attaches to one node at a time, so the default rolling
+# update deadlocks: the surge pod is scheduled before the old one releases the
+# volume, and on any other node it never attaches. Recreate trades a moment of
+# downtime for a rollout that finishes.
+strategy:
+  type: Recreate
+# Standalone artifact PVC (RFC-0003 DK7, ADR-0018): outlives any single pod.
+extraPVCs:
+  - name: artifacts
+    size: 1Gi
+    accessMode: ReadWriteOnce
+pvcMounts:
+  - name: artifacts
+    pvcName: artifacts
+    mountPath: /var/lib/reports/artifacts
+d6:
+  liveness:
+    type: httpGet
+    path: /healthz
+    port: http
+  readiness:
+    type: httpGet
+    path: /readyz
+    port: http
+  # JVM start is the slowest of any service (RFC-0001 D2): a startupProbe on
+  # /readyz gates liveness until Spring Boot + Flyway finish, so a slow boot
+  # is not mistaken for a liveness failure.
+  startup:
+    type: httpGet
+    path: /readyz
+    port: http
+    periodSeconds: 5
+    failureThreshold: 30
+  serviceMonitor:
+    enabled: true
+    path: /metrics
+    port: http
+    interval: 30s

@@ -1,0 +1,10 @@
+apiVersion: v2
+name: canary
+description: Rust synthetic canary (RFC-0001 Section 7, ADR-0007). Journeys the stack.
+type: application
+version: 0.1.0
+appVersion: "1.4.0"
+dependencies:
+  - name: common
+    version: 0.1.0
+    repository: file://../common

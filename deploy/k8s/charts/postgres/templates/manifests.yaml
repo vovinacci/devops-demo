@@ -1,0 +1,6 @@
+---
+{{ include "common.serviceaccount" . }}
+---
+{{ include "common.statefulset" . }}
+---
+{{ include "common.service" . }}

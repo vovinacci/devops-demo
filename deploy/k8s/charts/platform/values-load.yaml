@@ -1,0 +1,4 @@
+# +load profile (RFC-0001 D4, ADR-0006): the long-running k6 loadgen.
+# Layer: `-f values.yaml -f values-load.yaml`.
+loadgen:
+  enabled: true

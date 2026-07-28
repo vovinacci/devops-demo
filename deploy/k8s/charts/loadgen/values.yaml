@@ -1,0 +1,28 @@
+# Loadgen: a long-running k6 process (RFC-0001 D4). It has no HTTP listener,
+# so it renders a Deployment + ServiceAccount only -- no Service (nothing to
+# select), no probes (no endpoint), no ServiceMonitor. The opt-out flags below
+# express that honestly.
+image:
+  repository: devops-demo/loadgen
+  tag: dev
+replicaCount: 1
+# LOADGEN_* upstream URLs arrive as a ConfigMap in PR-3 (RFC-0003 DK8).
+env:
+  - name: DEMO_TIME_SCALE
+    value: "1"
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 128Mi
+service:
+  enabled: false
+d6:
+  liveness:
+    type: none
+  readiness:
+    type: none
+  serviceMonitor:
+    enabled: false

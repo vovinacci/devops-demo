@@ -1,0 +1,6 @@
+# +synthetic profile (ADR-0007 D9): the Rust canary and the blackbox exporter.
+# Layer: `-f values.yaml -f values-synthetic.yaml`.
+blackbox:
+  enabled: true
+canary:
+  enabled: true

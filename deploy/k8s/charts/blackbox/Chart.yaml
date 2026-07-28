@@ -1,0 +1,10 @@
+apiVersion: v2
+name: blackbox
+description: Prometheus blackbox_exporter (ADR-0007 D9). Probe CR wiring is PR-4.
+type: application
+version: 0.1.0
+appVersion: "v0.26.0"
+dependencies:
+  - name: common
+    version: 0.1.0
+    repository: file://../common

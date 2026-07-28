@@ -1,0 +1,9 @@
+apiVersion: v2
+name: common
+description: >-
+  Library chart encoding the RFC-0001 D6 uniform service shape once
+  (Deployment/StatefulSet + Service + ServiceAccount + probes wired from
+  /healthz and /readyz + resources + ServiceMonitor). Per-service charts
+  import it and supply a few values. RFC-0003 DK2, ADR-0015.
+type: library
+version: 0.1.0

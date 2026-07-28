@@ -1,0 +1,6 @@
+# +reports profile (RFC-0001 D2, Phase 6): the Kotlin/JVM reports service, its
+# own Postgres, and the artifact PVC. Layer: `-f values.yaml -f values-reports.yaml`.
+reports:
+  enabled: true
+postgres-reports:
+  enabled: true

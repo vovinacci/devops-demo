@@ -1,0 +1,35 @@
+# postgres_exporter: third-party image (digest pinned from compose). It has no
+# HTTP health endpoint, so liveness is an honest tcpSocket :9187 (opt-out, same
+# mechanism as the frontend) -- but it DOES expose D6-style /metrics, so it
+# KEEPS its ServiceMonitor (RFC-0003 Section 6). This shows the two opt-out
+# flags are independent: probe posture and scrape posture are separate.
+image:
+  repository: prometheuscommunity/postgres-exporter
+  tag: v0.20.1
+  digest: sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e
+replicaCount: 1
+containerPort: 9187
+portName: http
+# env (DATA_SOURCE_NAME) moves to a Secret in PR-3 (RFC-0003 DK8).
+resources:
+  requests:
+    cpu: 10m
+    memory: 16Mi
+  limits:
+    cpu: 100m
+    memory: 32Mi
+service:
+  enabled: true
+  type: ClusterIP
+d6:
+  liveness:
+    type: tcpSocket
+    port: http
+  readiness:
+    type: tcpSocket
+    port: http
+  serviceMonitor:
+    enabled: true
+    path: /metrics
+    port: http
+    interval: 30s

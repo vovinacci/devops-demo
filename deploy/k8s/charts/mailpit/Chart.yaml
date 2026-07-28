@@ -1,0 +1,10 @@
+apiVersion: v2
+name: mailpit
+description: Mailpit dummy SMTP sink + web UI (RFC-0001 Section 7).
+type: application
+version: 0.1.0
+appVersion: "v1.27.5"
+dependencies:
+  - name: common
+    version: 0.1.0
+    repository: file://../common

@@ -1,0 +1,96 @@
+# Base overlay = the `core` profile (RFC-0001 D10): the profile-less compose
+# stack. `helm template platform -f values.yaml` renders exactly the core
+# services; the additive profiles are off and turned on by layering a
+# values-<profile>.yaml overlay (-f), which mirrors `--profile <name>`.
+#
+# NOTE: prometheus / grafana / alertmanager / alloy / cadvisor are NOT charted
+# here -- RFC-0003 Section 6 marks them as coming from kube-prometheus-stack
+# and a DaemonSet in PR-4. cadvisor is retired outright (the kubelet already
+# exposes cAdvisor metrics). This umbrella charts the application + supporting
+# services only.
+
+# --- core (on) -----------------------------------------------------------
+backend:
+  enabled: true
+frontend:
+  enabled: true
+postgres-backend:
+  enabled: true
+postgres-exporter:
+  enabled: true
+mailpit:
+  enabled: true
+loki:
+  enabled: true
+
+# --- +analytics (off) ----------------------------------------------------
+analytics:
+  enabled: false
+postgres-analytics:
+  enabled: false
+  # Own store, own credentials (RFC-0001 D1). Demo-grade defaults; Secrets in
+  # PR-3 (RFC-0003 DK8).
+  env:
+    - name: POSTGRES_DB
+      value: analytics
+    - name: POSTGRES_USER
+      value: analytics
+    - name: POSTGRES_PASSWORD
+      value: analytics
+    - name: PGDATA
+      value: /var/lib/postgresql/data/pgdata
+  d6:
+    liveness:
+      type: exec
+      command: ["pg_isready", "-U", "analytics", "-d", "analytics"]
+      periodSeconds: 10
+      timeoutSeconds: 3
+    readiness:
+      type: exec
+      command: ["pg_isready", "-U", "analytics", "-d", "analytics"]
+      periodSeconds: 5
+      timeoutSeconds: 3
+    serviceMonitor:
+      enabled: false
+
+# --- +reports (off) ------------------------------------------------------
+reports:
+  enabled: false
+postgres-reports:
+  enabled: false
+  env:
+    - name: POSTGRES_DB
+      value: reports
+    - name: POSTGRES_USER
+      value: reports
+    - name: POSTGRES_PASSWORD
+      value: reports
+    - name: PGDATA
+      value: /var/lib/postgresql/data/pgdata
+  d6:
+    liveness:
+      type: exec
+      command: ["pg_isready", "-U", "reports", "-d", "reports"]
+      periodSeconds: 10
+      timeoutSeconds: 3
+    readiness:
+      type: exec
+      command: ["pg_isready", "-U", "reports", "-d", "reports"]
+      periodSeconds: 5
+      timeoutSeconds: 3
+    serviceMonitor:
+      enabled: false
+
+# --- +reports-ui (off) ---------------------------------------------------
+reports-ui:
+  enabled: false
+
+# --- +synthetic (off) ----------------------------------------------------
+blackbox:
+  enabled: false
+canary:
+  enabled: false
+
+# --- +load (off) ---------------------------------------------------------
+loadgen:
+  enabled: false

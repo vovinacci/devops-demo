@@ -1,0 +1,31 @@
+# Canary: Rust synthetic-journey service, D6-compliant.
+image:
+  repository: devops-demo/canary
+  tag: dev
+replicaCount: 1
+containerPort: 8080
+portName: http
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    cpu: 200m
+    memory: 64Mi
+service:
+  enabled: true
+  type: ClusterIP
+d6:
+  liveness:
+    type: httpGet
+    path: /healthz
+    port: http
+  readiness:
+    type: httpGet
+    path: /readyz
+    port: http
+  serviceMonitor:
+    enabled: true
+    path: /metrics
+    port: http
+    interval: 30s

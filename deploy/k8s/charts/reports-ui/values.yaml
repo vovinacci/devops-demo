@@ -1,0 +1,34 @@
+# Reports UI: static SPA served by Caddy (RFC-0002, ADR-0013). Unlike the
+# nginx frontend, Caddy MEETS D6 -- it serves /healthz, /readyz and re-exposes
+# /metrics on :8084 -- so it takes the library defaults (httpGet probes +
+# ServiceMonitor). This is the nginx-vs-Caddy D6 contrast, in Kubernetes.
+image:
+  repository: devops-demo/reports-ui
+  tag: dev
+replicaCount: 1
+containerPort: 8084
+portName: http
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 200m
+    memory: 64Mi
+service:
+  enabled: true
+  type: ClusterIP
+d6:
+  liveness:
+    type: httpGet
+    path: /healthz
+    port: http
+  readiness:
+    type: httpGet
+    path: /readyz
+    port: http
+  serviceMonitor:
+    enabled: true
+    path: /metrics
+    port: http
+    interval: 30s
