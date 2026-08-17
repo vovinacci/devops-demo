@@ -4,7 +4,7 @@
 # PR-4 (RFC-0003 Section 6) -- not a scrape of the exporters own /metrics.
 image:
   repository: prom/blackbox-exporter
-  tag: v0.26.0
+  tag: v0.26.0@sha256:92e05d5fe0df01d3980518dc42f07b778a8997048b57392ebc7f7391ebd7bb06
   digest: sha256:92e05d5fe0df01d3980518dc42f07b778a8997048b57392ebc7f7391ebd7bb06
 replicaCount: 1
 containerPort: 9115
