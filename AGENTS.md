@@ -140,6 +140,18 @@ producing review output; do not re-raise these.
   env-expand -- a secrets-layer password on one side only breaks the
   pair without improving posture. Real secret management belongs to the
   deferred security capstone (RFC-0001 Section 10).
+- `deploy/k8s/charts/*/values.yaml`: "remove the committed database
+  credentials; provision the Secrets externally at deploy time" --
+  rejected, same reason as the entry above and stated in
+  `deploy/k8s/README.md`: these are the same checked-in demo defaults
+  compose already carries (`app`/`analytics`/`reports`), the stack is a
+  local teaching cluster with no shared environment to reuse them
+  against, and a Secret is base64 rather than encryption in either case.
+  Splitting the k8s side onto an external secret store while compose
+  keeps its defaults would teach that a Secret object IS secrecy. The
+  value here is the ConfigMap-vs-Secret split, which makes the later swap
+  a change to one object; real secret management belongs to the deferred
+  security capstone (RFC-0001 Section 10).
 
 ## When unsure
 

@@ -211,8 +211,11 @@ if command -v kubeconform >/dev/null 2>&1; then
   fi
 fi
 
+# kind has printed its version in two shapes -- "kind version 0.32.0" and
+# "kind v0.32.0 go1.26.3 darwin/arm64" -- so pick the first token that LOOKS
+# like a version instead of trusting a field position.
 if command -v kind >/dev/null 2>&1; then
-  kiv="$(kind --version 2>/dev/null | awk '{print $3}' | cut -d. -f1,2)"
+  kiv="$(kind --version 2>/dev/null | tr ' ' '\n' | sed -n 's/^v\{0,1\}\([0-9][0-9.]*\)$/\1/p' | head -n1 | cut -d. -f1,2)"
   if [ "$kiv" = "$KIND_MINOR" ]; then
     pass "kind ${kiv}"
   else

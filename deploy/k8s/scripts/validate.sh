@@ -68,29 +68,47 @@ fi
 # to only one of them (RFC-0003 DK2; the same gate construction as above).
 echo "==> third-party image pins match the compose originals"
 image_drift=0
+# The image of ONE named compose service, not "anywhere in the file": a chart
+# pointed at some other service's image would otherwise still match.
+compose_image() {
+  awk -v svc="  $1:" '
+    $0 == svc { inblock = 1; next }
+    inblock && /^  [^ ]/ { exit }
+    inblock && $1 == "image:" { print $2; exit }
+  ' "$compose_file"
+}
+
 check_image() {
-  local chart="$1"
+  local chart="$1" service="$2"
   local values="$charts_dir/$chart/values.yaml"
-  local repo tag ref
+  local repo tag ref want
   repo="$(sed -n 's/^  repository: \(.*\)$/\1/p' "$values" | head -n1)"
   tag="$(sed -n 's/^  tag: \(.*\)$/\1/p' "$values" | head -n1)"
-  ref="${repo}:${tag}"
   if [ -z "$repo" ] || [ -z "$tag" ]; then
     echo "DRIFT $chart: cannot read image repository/tag from $values" >&2
     image_drift=$((image_drift + 1))
     return
   fi
-  if grep -qF "image: ${ref}" "$compose_file"; then
+  ref="${repo}:${tag}"
+  want="$(compose_image "$service")"
+  if [ -z "$want" ]; then
+    echo "DRIFT $chart: no image found for compose service '$service'" >&2
+    image_drift=$((image_drift + 1))
+  elif [ "$ref" = "$want" ]; then
     echo "ok    $chart: $ref"
   else
-    echo "DRIFT $chart: $ref is not pinned in $compose_file" >&2
-    grep -n "image: ${repo}:" "$compose_file" >&2 || true
+    echo "DRIFT $chart: $ref (compose service '$service' pins $want)" >&2
     image_drift=$((image_drift + 1))
   fi
 }
-for chart in postgres postgres-exporter mailpit loki blackbox; do
-  check_image "$chart"
-done
+
+# chart -> the compose service it mirrors. The three Postgres aliases share one
+# chart and one image, so `db` stands for all of them.
+check_image postgres db
+check_image postgres-exporter postgres_exporter
+check_image mailpit mailpit
+check_image loki loki
+check_image blackbox blackbox
 if [ "$image_drift" -gt 0 ]; then
   echo "image pin drift: ${image_drift} chart(s) disagree with compose." >&2
   exit 1
