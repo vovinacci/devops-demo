@@ -20,6 +20,21 @@ config:
 secret:
   DATABASE_URL: "postgresql+asyncpg://app:app@{{ .Release.Name }}-postgres-backend:5432/appdb"
   ALEMBIC_DATABASE_URL: "postgresql+psycopg://app:app@{{ .Release.Name }}-postgres-backend:5432/appdb"
+# Alembic runs as a Helm hook Job on every install and upgrade, using this
+# same image and the ALEMBIC_DATABASE_URL from the Secret above
+# (templates/migration-job.yaml). Under compose the equivalent step is
+# `make seed`, run by hand.
+migrationJob:
+  enabled: true
+  command: ["python", "-m", "alembic", "-c", "/app/alembic.ini", "upgrade", "head"]
+  backoffLimit: 6
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 128Mi
 resources:
   requests:
     cpu: 100m

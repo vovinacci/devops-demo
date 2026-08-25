@@ -260,18 +260,24 @@ without systemd-resolved), add one line:
 
 Grafana's route lands in PR-4, together with Grafana.
 
-### What is not wired yet: migrations and seed data
+### Migrations run themselves
 
-Same as compose. `make up` leaves the backend database unmigrated until
-`make seed` runs `alembic upgrade head`, and there is no Kubernetes
-counterpart to that target yet -- so a freshly deployed backend answers
-`/healthz` and `/readyz` (both are connectivity checks) while a query for
-items fails on a missing table. Run the migration by hand until a Job lands:
+Under compose, `make up` leaves the backend database unmigrated until someone
+remembers to run `make seed`. On Kubernetes the deploy owns that step: the
+backend chart ships a **Helm hook Job** that runs `alembic upgrade head` on
+every install and upgrade (`charts/backend/templates/migration-job.yaml`).
+
+It is a `post-install,post-upgrade` hook rather than a `pre-*` one because on
+a first install there is no Postgres yet when the pre-hooks run, while
+`--wait` has the StatefulSet ready before the post-hooks. A successful Job
+deletes itself; a **failed one is kept** so there is something to read:
 
 ```sh
-kubectl -n devops-demo exec deploy/platform-backend -- \
-  python -m alembic -c /app/alembic.ini upgrade head
+kubectl -n devops-demo logs job/platform-backend-migrate
 ```
+
+Seed *data* is still a manual step -- the equivalent of `make seed --count 20`
+has no Kubernetes counterpart yet.
 
 ### When a deploy fails halfway
 

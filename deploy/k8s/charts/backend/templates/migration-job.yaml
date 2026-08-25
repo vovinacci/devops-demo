@@ -1,0 +1,52 @@
+{{/*
+Schema migrations as a Helm hook Job (RFC-0003 DK8 continuation). Compose runs
+`alembic upgrade head` from `make seed`, a step a human remembers; on
+Kubernetes the deploy itself owns it.
+
+post-install,post-upgrade rather than pre-*: on a first install there is no
+Postgres yet when the pre-hooks run, and `helm upgrade --install --wait` waits
+for the release's own resources -- the StatefulSet included -- before running
+post-hooks. The backoffLimit still covers the case of someone installing
+without --wait: the pod fails against a database that is not listening and the
+Job retries it.
+
+The pod deliberately does NOT carry common.selectorLabels. Those are what the
+backend Service selects on, so a migration pod wearing them would be sent live
+traffic while it ran.
+*/}}
+{{- if .Values.migrationJob.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "common.fullname" . }}-migrate
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    # Keep a FAILED job for inspection; a successful one has nothing to say.
+    # before-hook-creation clears the previous run so a redeploy is not
+    # blocked by an immutable Job object.
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.migrationJob.backoffLimit | default 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "common.name" . }}-migrate
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: devops-demo
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "common.serviceAccountName" . }}
+      containers:
+        - name: migrate
+          image: {{ include "common.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          command:
+            {{- toYaml .Values.migrationJob.command | nindent 12 }}
+          {{- include "common.envFrom" . | trim | nindent 10 }}
+          {{- with .Values.migrationJob.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}
