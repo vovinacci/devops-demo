@@ -3,7 +3,7 @@
 # ServiceMonitor. SMTP :1025 is in-cluster only (added in PR-3 as needed).
 image:
   repository: axllent/mailpit
-  tag: v1.27.5
+  tag: v1.27.5@sha256:5921fa3c3f0a34eb000a89ac8279d1f9d711e486a9a8fd094f7db5a1920256ab
   digest: sha256:5921fa3c3f0a34eb000a89ac8279d1f9d711e486a9a8fd094f7db5a1920256ab
 replicaCount: 1
 containerPort: 8025

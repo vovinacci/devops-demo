@@ -91,7 +91,7 @@ repos:
         name: toolchain versions match .mise.toml
         entry: bash scripts/check-toolchain-drift.sh
         language: system
-        files: ^(\.mise\.toml|\.devcontainer/devcontainer\.json|services/frontend/\.nvmrc|services/.*/Dockerfile|loadgen/Dockerfile|services/backend/pyproject\.toml|.*/gradle-wrapper\.properties)$
+        files: ^(\.mise\.toml|\.devcontainer/.*\.json|.*/\.nvmrc|(services/.*|loadgen)/Dockerfile|services/backend/pyproject\.toml|\.github/workflows/canary\.yml|.*/gradle-wrapper\.properties)$
         pass_filenames: false
   # Dashboard identity gate: a provisioned dashboard without a pinned uid has
   # no durable identity, so a UI save detaches it and the next restart
