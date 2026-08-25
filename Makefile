@@ -110,6 +110,18 @@ generate-analytics: ## Generate Go gRPC/protobuf stubs only (buf)
 	rm -rf services/analytics/internal/pb
 	$(MAKE) -C services/analytics generate
 
+##@ Kubernetes
+
+.PHONY: kind-up
+kind-up: ## Create the local Kind cluster (multi-node, digest-pinned) + cluster-scoped prerequisites; idempotent (RFC-0003 DK10)
+	$(PRINT_TARGET)
+	bash deploy/k8s/scripts/kind-up.sh
+
+.PHONY: kind-down
+kind-down: ## Delete the local Kind cluster (data included -- this is a factory reset, not a restart)
+	$(PRINT_TARGET)
+	bash deploy/k8s/scripts/kind-down.sh
+
 ##@ Load generation
 
 .PHONY: incident

@@ -15,6 +15,10 @@ K6_MINOR="$(sed -n 's/^k6 = "\(.*\)"/\1/p' .mise.toml)"
 # JDK pinned as temurin-<major>; only the major is user-visible in `java -version`
 JAVA_MAJOR="$(sed -n 's/^java = "temurin-\(.*\)"/\1/p' .mise.toml)"
 GRADLE_MINOR="$(sed -n 's/^gradle = "\(.*\)"/\1/p' .mise.toml)"
+HELM_MINOR="$(sed -n 's/^helm = "\(.*\)"/\1/p' .mise.toml)"
+KUBECONFORM_MINOR="$(sed -n 's/^kubeconform = "\(.*\)"/\1/p' .mise.toml)"
+KIND_MINOR="$(sed -n 's/^kind = "\(.*\)"/\1/p' .mise.toml)"
+KUBECTL_MINOR="$(sed -n 's/^kubectl = "\(.*\)"/\1/p' .mise.toml)"
 MIN_RAM_GB=4
 MIN_DISK_GB=5
 
@@ -50,7 +54,7 @@ echo
 # toolchain is already complete.
 mise_missing=""
 mise_missing_count=0
-for managed in python3 node cargo go buf k6 java gradle; do
+for managed in python3 node cargo go buf k6 java gradle helm kubeconform kind kubectl; do
   if ! command -v "$managed" >/dev/null 2>&1; then
     mise_missing="${mise_missing:+${mise_missing} }${managed}"
     mise_missing_count=$((mise_missing_count + 1))
@@ -97,6 +101,10 @@ require_cmd buf "run 'mise install' (see .mise.toml) or install buf ${BUF_MINOR}
 require_cmd k6 "run 'mise install' (see .mise.toml) or install k6 ${K6_MINOR} (https://grafana.com/docs/k6/latest/set-up/install-k6/)"
 require_cmd java "run 'mise install' (see .mise.toml) or install Temurin JDK ${JAVA_MAJOR}"
 require_cmd gradle "run 'mise install' (see .mise.toml) or install Gradle ${GRADLE_MINOR} (the reports service also ships a committed wrapper)"
+require_cmd helm "run 'mise install' (see .mise.toml) or install Helm ${HELM_MINOR} (https://helm.sh/docs/intro/install/)"
+require_cmd kubeconform "run 'mise install' (see .mise.toml) or install kubeconform ${KUBECONFORM_MINOR}"
+require_cmd kind "run 'mise install' (see .mise.toml) or install kind ${KIND_MINOR} (https://kind.sigs.k8s.io/)"
+require_cmd kubectl "run 'mise install' (see .mise.toml) or install kubectl ${KUBECTL_MINOR}"
 
 # --- docker daemon and compose v2 --------------------------------------
 if command -v docker >/dev/null 2>&1; then
@@ -182,6 +190,44 @@ if command -v gradle >/dev/null 2>&1; then
     pass "gradle ${grv}"
   else
     warn "gradle ${grv}, expected ${GRADLE_MINOR}" "mise install, then activate mise in your shell: eval \"\$(mise activate zsh)\" in ~/.zshrc"
+  fi
+fi
+
+if command -v helm >/dev/null 2>&1; then
+  hv="$(helm version --short 2>/dev/null | sed 's/^v//' | cut -d. -f1,2)"
+  if [ "$hv" = "$HELM_MINOR" ]; then
+    pass "helm ${hv}"
+  else
+    warn "helm ${hv}, expected ${HELM_MINOR}" "mise install, then activate mise in your shell: eval \"\$(mise activate zsh)\" in ~/.zshrc"
+  fi
+fi
+
+if command -v kubeconform >/dev/null 2>&1; then
+  kcv="$(kubeconform -v 2>&1 | sed 's/^v//' | cut -d. -f1,2)"
+  if [ "$kcv" = "$KUBECONFORM_MINOR" ]; then
+    pass "kubeconform ${kcv}"
+  else
+    warn "kubeconform ${kcv}, expected ${KUBECONFORM_MINOR}" "mise install, then activate mise in your shell: eval \"\$(mise activate zsh)\" in ~/.zshrc"
+  fi
+fi
+
+if command -v kind >/dev/null 2>&1; then
+  kiv="$(kind --version 2>/dev/null | awk '{print $3}' | cut -d. -f1,2)"
+  if [ "$kiv" = "$KIND_MINOR" ]; then
+    pass "kind ${kiv}"
+  else
+    warn "kind ${kiv}, expected ${KIND_MINOR}" "mise install, then activate mise in your shell: eval \"\$(mise activate zsh)\" in ~/.zshrc"
+  fi
+fi
+
+# Client-only: `kubectl version` without --client contacts a cluster, which
+# doctor must never require (it runs before `make kind-up`).
+if command -v kubectl >/dev/null 2>&1; then
+  kbv="$(kubectl version --client -o yaml 2>/dev/null | sed -n 's/^ *gitVersion: v\([0-9]*\.[0-9]*\).*/\1/p' | head -n1)"
+  if [ "$kbv" = "$KUBECTL_MINOR" ]; then
+    pass "kubectl ${kbv}"
+  else
+    warn "kubectl ${kbv}, expected ${KUBECTL_MINOR}" "mise install, then activate mise in your shell: eval \"\$(mise activate zsh)\" in ~/.zshrc"
   fi
 fi
 
