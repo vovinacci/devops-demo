@@ -1,0 +1,37 @@
+# Kind-only edge plumbing (RFC-0003 Section 9). Applied by
+# deploy/k8s/scripts/kind-deploy.sh into the release namespace and referenced
+# by the umbrella Gateway's infrastructure.parametersRef, which is set ONLY on
+# Kind (--set gateway.envoyProxyRef=...). The charts themselves stay portable:
+# on a cloud cluster the reference is empty and the Gateway's Service is the
+# LoadBalancer Envoy Gateway defaults to.
+#
+# Why it is needed: Kind has no cloud LoadBalancer, so that default Service
+# would sit <pending> forever. NodePort works, but the port would be allocated
+# at random from 30000-32767 -- and deploy/k8s/kind/cluster.yaml has to name
+# the port in advance to map it to localhost:8080. The StrategicMerge patch
+# pins it, keyed on the port name Envoy Gateway generates for an HTTP listener
+# on :80 (<protocol>-<port>).
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: kind-nodeport
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        type: NodePort
+        # Envoy Gateway defaults this to Local, which preserves the client
+        # source IP by only answering on nodes that actually run an Envoy pod.
+        # cluster.yaml maps the host port on the control-plane node, which is
+        # tainted and never runs one -- so every request would be dropped
+        # there. Cluster lets any node forward to wherever Envoy landed.
+        externalTrafficPolicy: Cluster
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              ports:
+                - name: http-80
+                  port: 80
+                  nodePort: 30080

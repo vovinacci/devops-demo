@@ -9,6 +9,20 @@
 # exposes cAdvisor metrics). This umbrella charts the application + supporting
 # services only.
 
+# --- edge (ADR-0016) -----------------------------------------------------
+# One Gateway; the Routes below it are rendered per enabled service by
+# templates/gateway.yaml. Grafana's route arrives in PR-4 with Grafana itself.
+gateway:
+  enabled: true
+  className: eg
+  # Every route is <service>.<domain>. The .localhost tree is loopback by
+  # RFC 6761, so these resolve with no /etc/hosts entry on macOS and on
+  # systemd-resolved.
+  domain: devops-demo.localhost
+  # Kind-only; set by deploy/k8s/scripts/kind-deploy.sh. Empty here keeps the
+  # chart portable (see deploy/k8s/kind/envoyproxy.yaml).
+  envoyProxyRef: ""
+
 # --- core (on) -----------------------------------------------------------
 backend:
   enabled: true

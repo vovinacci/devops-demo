@@ -12,6 +12,11 @@ COMPOSE = docker compose -f deploy/compose/docker-compose.yml --project-director
 # fallback (ADR-0012); both read .pre-commit-config.yaml
 PREK = $(shell command -v prek 2>/dev/null || echo pre-commit)
 
+# Kubernetes deploy profile, the k8s counterpart of `--profile` under compose
+# (RFC-0001 D10). Passed explicitly into the script rather than relying on
+# make's export rules.
+PROFILE ?= core
+
 ##@ Help
 
 .PHONY: help
@@ -116,6 +121,11 @@ generate-analytics: ## Generate Go gRPC/protobuf stubs only (buf)
 kind-up: ## Create the local Kind cluster (multi-node, digest-pinned) + cluster-scoped prerequisites; idempotent (RFC-0003 DK10)
 	$(PRINT_TARGET)
 	bash deploy/k8s/scripts/kind-up.sh
+
+.PHONY: kind-deploy
+kind-deploy: ## Build + `kind load` the service images and helm-install the umbrella chart (PROFILE=core|analytics|reports|reports-ui|synthetic|load|full, default core)
+	$(PRINT_TARGET)
+	PROFILE="$(PROFILE)" bash deploy/k8s/scripts/kind-deploy.sh
 
 .PHONY: kind-down
 kind-down: ## Delete the local Kind cluster (data included -- this is a factory reset, not a restart)

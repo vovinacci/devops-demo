@@ -9,11 +9,11 @@ set -euo pipefail
 
 # Ensure the mise-pinned kind/kubectl are on PATH (self-bootstrap under mise
 # once if they are not), so a bare `bash kind-up.sh` works locally too.
-if ! command -v kind >/dev/null 2>&1 || ! command -v kubectl >/dev/null 2>&1; then
+if ! command -v kind >/dev/null 2>&1 || ! command -v kubectl >/dev/null 2>&1 || ! command -v helm >/dev/null 2>&1; then
   if command -v mise >/dev/null 2>&1; then
     exec mise exec -- "$0" "$@"
   fi
-  echo "kind and kubectl are required (pinned in .mise.toml; run 'mise install')" >&2
+  echo "kind, kubectl and helm are required (pinned in .mise.toml; run 'mise install')" >&2
   exit 1
 fi
 
@@ -35,6 +35,11 @@ cluster_name="$(sed -n 's/^name: \(.*\)$/\1/p' "$cluster_config")"
 # the platform is still PR-4's choice (see deploy/k8s/README.md); PR-4 must
 # reconcile this tag, the vendored schema, and its kube-prometheus-stack pick.
 PROMETHEUS_OPERATOR_TAG="v0.93.1"
+# Envoy Gateway is the Gateway API implementation (ADR-0016). Its chart also
+# ships the Gateway API CRDs themselves (bundle v1.6.1 at this version), so
+# there is no separate CRD install step -- `helm install` applies everything
+# under the chart's crds/ directory.
+ENVOY_GATEWAY_VERSION="1.9.0"
 servicemonitor_crd="https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/${PROMETHEUS_OPERATOR_TAG}/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml"
 
 if kind get clusters 2>/dev/null | grep -qx "$cluster_name"; then
@@ -57,6 +62,18 @@ kubectl wait --for=condition=Ready nodes --all --timeout=120s
 # to write, which fails outright on CRDs this size.
 echo "==> installing the ServiceMonitor CRD (prometheus-operator ${PROMETHEUS_OPERATOR_TAG})"
 kubectl apply --server-side -f "$servicemonitor_crd"
+
+echo "==> installing Envoy Gateway ${ENVOY_GATEWAY_VERSION} (Gateway API CRDs included)"
+helm upgrade --install eg oci://docker.io/envoyproxy/gateway-helm \
+  --version "$ENVOY_GATEWAY_VERSION" \
+  --kube-context "kind-${cluster_name}" \
+  --namespace envoy-gateway-system --create-namespace \
+  --wait --timeout 5m
+
+# Cluster-scoped and shared by every release, so it is installed with the
+# controller rather than rendered by the umbrella chart.
+echo "==> installing the GatewayClass"
+kubectl apply -f deploy/k8s/kind/gatewayclass.yaml
 
 echo
 echo "cluster '$cluster_name' is up. Next: make kind-deploy"

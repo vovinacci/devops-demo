@@ -1,0 +1,131 @@
+{{/*
+The edge (ADR-0016): ONE Gateway, and a Route per service that publishes an
+external surface. Routes live in the umbrella rather than in the per-service
+charts because a route is a statement about the platform's public shape --
+which hostname reaches which service -- not about how a service is packaged,
+and because they must stay gated on the same <name>.enabled conditions the
+umbrella already uses for its dependencies.
+
+Routing is BY HOSTNAME, not by path prefix. Host-based routing is what a real
+edge does: each service keeps its own origin, so cookies, CORS and absolute
+paths behave as they would in production, and no service has to be rewritten
+to live under a sub-path.
+
+Hostnames end in .localhost on purpose. RFC 6761 reserves the whole
+.localhost tree for loopback, and macOS and systemd-resolved both resolve
+*.localhost to 127.0.0.1 with no configuration -- so `make kind-up &&
+make kind-deploy` gives working URLs with no /etc/hosts editing. See
+deploy/k8s/README.md for the fallback on resolvers that do not.
+*/}}
+{{- if .Values.gateway.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Release.Name }}-gateway
+  labels:
+    app.kubernetes.io/part-of: devops-demo
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  gatewayClassName: {{ .Values.gateway.className }}
+  {{- /*
+  Set on Kind only (deploy/k8s/kind/envoyproxy.yaml). Empty everywhere else,
+  which leaves the Gateway's Service as the LoadBalancer a cloud cluster
+  provisions -- the charts carry no Kind-ism.
+  */}}
+  {{- with .Values.gateway.envoyProxyRef }}
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: {{ . }}
+  {{- end }}
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: "*.{{ .Values.gateway.domain }}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+{{- if index .Values "frontend" "enabled" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-frontend
+  labels:
+    app.kubernetes.io/part-of: devops-demo
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  parentRefs:
+    - name: {{ .Release.Name }}-gateway
+  hostnames:
+    - "frontend.{{ .Values.gateway.domain }}"
+  rules:
+    - backendRefs:
+        - name: {{ .Release.Name }}-frontend
+          port: 80
+{{- end }}
+{{- if index .Values "reports-ui" "enabled" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-reports-ui
+  labels:
+    app.kubernetes.io/part-of: devops-demo
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  parentRefs:
+    - name: {{ .Release.Name }}-gateway
+  hostnames:
+    - "reports-ui.{{ .Values.gateway.domain }}"
+  rules:
+    - backendRefs:
+        - name: {{ .Release.Name }}-reports-ui
+          port: 8084
+{{- end }}
+{{- if index .Values "backend" "enabled" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-backend
+  labels:
+    app.kubernetes.io/part-of: devops-demo
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  parentRefs:
+    - name: {{ .Release.Name }}-gateway
+  hostnames:
+    - "api.{{ .Values.gateway.domain }}"
+  rules:
+    - backendRefs:
+        - name: {{ .Release.Name }}-backend
+          port: 8000
+---
+{{/*
+The gRPC surface gets a GRPCRoute, not an HTTPRoute with a path match. Both
+would forward the bytes; only GRPCRoute understands gRPC's service/method
+structure, so a rule can match `items.v1.ItemService/ListItems` and the proxy
+reports gRPC status codes rather than HTTP ones. It shares the same HTTP
+listener -- gRPC is HTTP/2 (RFC-0001 D3).
+*/}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: {{ .Release.Name }}-backend-grpc
+  labels:
+    app.kubernetes.io/part-of: devops-demo
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  parentRefs:
+    - name: {{ .Release.Name }}-gateway
+  hostnames:
+    - "grpc.{{ .Values.gateway.domain }}"
+  rules:
+    - backendRefs:
+        - name: {{ .Release.Name }}-backend
+          port: 50051
+{{- end }}
+{{- end }}

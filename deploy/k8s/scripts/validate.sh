@@ -3,11 +3,12 @@
 # `helm template <umbrella> | kubeconform -strict` for every profile overlay.
 # No cluster required -- this is a pure templating + schema-validation pass.
 #
-# kubeconform is given an explicit -schema-location for the Prometheus Operator
-# ServiceMonitor CRD (vendored under deploy/k8s/schemas/), so the CR is
-# ACTUALLY validated, never skipped. --ignore-missing-schemas is deliberately
-# NOT used (it would silently pass exactly the CRs worth checking, the DK9
-# trap).
+# kubeconform is given an explicit -schema-location for every CRD the charts
+# render -- the Prometheus Operator ServiceMonitor and the Gateway API
+# Gateway/HTTPRoute/GRPCRoute -- vendored under deploy/k8s/schemas/, so those
+# CRs are ACTUALLY validated, never skipped. --ignore-missing-schemas is
+# deliberately NOT used (it would silently pass exactly the CRs worth
+# checking, the DK9 trap).
 #
 # `make lint-k8s` and the k8s-lint CI workflow both run this file -- make == CI
 # (RFC-0001 D12).
@@ -30,7 +31,8 @@ charts_dir="deploy/k8s/charts"
 umbrella="$charts_dir/platform"
 schema_dir="deploy/k8s/schemas"
 # kubeconform schema-location template resolving the vendored CRD JSON schemas
-# (lowercased kind), e.g. monitoring.coreos.com/servicemonitor_v1.json.
+# (lowercased kind), e.g. monitoring.coreos.com/servicemonitor_v1.json and
+# gateway.networking.k8s.io/httproute_v1.json.
 crd_schema="$schema_dir/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
 
 # Per-service charts (consume the common library) + the library itself.
@@ -74,7 +76,7 @@ helm lint "$charts_dir/common" "${services[@]/#/$charts_dir/}" "$umbrella"
 run_profile() {
   local name="$1"
   shift
-  echo "==> profile '$name': helm template | kubeconform -strict (ServiceMonitor CRD validated)"
+  echo "==> profile '$name': helm template | kubeconform -strict (ServiceMonitor + Gateway API CRs validated)"
   helm template platform "$umbrella" "$@" |
     kubeconform -strict -summary \
       -schema-location default \
