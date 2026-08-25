@@ -32,7 +32,7 @@ jobs:
           fi
 
       - name: Run Renovate
-        uses: renovatebot/github-action@1a96852b0384df1837619d04c60b2d10d1f9ff08 # v46.1.21
+        uses: renovatebot/github-action@0a7b68676027570f113b1d6e7b69b231b56167ab # v46.2.3
         with:
           token: ${{ secrets.PR_PAT_TOKEN }}
         env:
