@@ -213,52 +213,39 @@ used by release-please.
 ## Automated review
 
 **CodeRabbit** (`.coderabbit.yaml`): AI review on every non-draft PR to
-`main`. The configuration encodes one split -- **CI owns style, the bot
-owns design**. `make ci` is exactly what CI runs, so a linter re-run in
-review only produces a second copy of a finding the author already has.
+`main`. It is **advice, not a gate** -- `request_changes_workflow` is off,
+its one custom check is a warning, and nothing it posts blocks a merge.
+Branch protection below is what gates; do not wait on the bot.
 
-Every tool that duplicates a CI job or a prek hook is off (ruff, clippy,
-golangci-lint, eslint, hadolint, shellcheck, yamllint, markdownlint, buf,
-Trivy, osv-scanner), and so is every remaining default-on tool that could
-fire on a file type this repository actually has -- `pylint` and `flake8`
-(ruff), `oxc` and `reactDoctor` (eslint), `stylelint`, `htmlhint`,
-`trufflehog` (gitleaks), `languagetool` and `vale` (prose nits on a
-docs-heavy repo), `presidio` (the seeded demo data is synthetic by
-design), plus `dotenvLint`, `sqlfluff`, `squawk` and `checkov`. Those last
-four are off on principle rather than redundancy: a gate that runs only in
-review breaks local == CI parity (Section 6 below). If any of them is
-worth having, it belongs in `make ci` as a prek hook, and `squawk`
-(migration safety) is the strongest candidate.
+What to expect as an author:
 
-Three tools are on. `actionlint` and `zizmor` cover workflow correctness
-and action-pinning security, which nothing else checks; `github-checks`
-lets the review read CI results rather than guess at them. `gitleaks` is
-a deliberate fourth -- it overlaps the prek hook and the full-history scan
-and stays on anyway, because hard rule 6 makes a missed secret far more
-expensive than a duplicate comment.
+- **No style or lint comments.** CI owns those, and `make ci` runs exactly
+  what CI runs, so a formatting nit in review would be a second copy of
+  something you already have locally. A style comment from the bot means
+  the configuration is wrong -- fix the config, not the code.
+- **Design, correctness, and this repository's invariants.** `AGENTS.md`
+  is loaded as a code guideline, so the Hard rules apply by number and the
+  Rejected Findings list is in scope. A finding that reappears after being
+  rejected there is a bug: say so in the thread rather than re-arguing it.
+- **A "Change model" reminder** if a behavioral change ships without that
+  PR-template section filled in.
 
-Tools not named in `.coderabbit.yaml` cannot fire here: the repository has
-no Ruby, PHP, Swift, C/C++, Lua, Terraform or Rego sources, and
-semgrep/opengrep stay dormant without a ruleset in the repo.
+Not reviewed: generated files (lockfiles, the Gradle wrapper,
+`CHANGELOG.md`, vendored CRD schemas), and machine-generated PRs from
+release-please and Renovate. Renovate self-hosts under `PR_PAT_TOKEN`, so
+its PRs come from a human account and the skip has to match title prefixes
+(`chore(deps)`, `fix(deps)`, `fix(deps-dev)`) rather than the author. The
+skip costs something real: a Renovate bump is what surfaced the toolchain
+drift that `scripts/check-toolchain-drift.sh` now gates on every PR.
 
-The Hard rules are **not** restated in the YAML. `AGENTS.md` is loaded as a
-code guideline, so the rules and the Rejected Findings list have one home
-and cannot drift; `path_instructions` only point at the rule that applies
-to each area, by number. Review is advisory: `request_changes_workflow` is
-off and the one custom pre-merge check (the PR template's "Change model"
-section is filled in) is a warning, never a merge block -- branch
-protection below is what actually gates.
+Deliberate gaps: no IaC hardening scan and no migration-safety linting.
+Both would be worth having -- as a prek hook in `make ci`, not as a
+review-only check, because a gate that runs in one place and not the other
+breaks local == CI parity (engineering-principles.md Section 6).
 
-Generated files are filtered out of review (lockfiles, the Gradle wrapper,
-`CHANGELOG.md`, vendored CRD schemas), and so are machine-generated PRs:
-release-please, which regenerates its PR from commit history on every
-merge, and Renovate. Because Renovate self-hosts under `PR_PAT_TOKEN` its
-PRs are authored by a human account rather than `renovate[bot]`, so the
-filter matches on title prefix (`chore(deps)`, `fix(deps)`,
-`fix(deps-dev)`) instead of author. The trade-off is real -- a dependency
-bump is what surfaced the toolchain-drift gap -- but that class is now
-gated by `scripts/check-toolchain-drift.sh`, which catches it every time
-rather than when a reviewer happens to look.
+Which analysis tools are on, which are off, and the reason for each is in
+`.coderabbit.yaml`, inline next to the setting. That file is
+authoritative; this section deliberately does not restate it.
 
 ## Branch protection (settings as documentation)
 
