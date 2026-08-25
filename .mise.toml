@@ -13,7 +13,7 @@
 [tools]
 python = "3.12"
 node = "24"
-rust = "1.97"
+rust = "1.98"
 go = "1.26"
 buf = "1.72"
 k6 = "2.1"
