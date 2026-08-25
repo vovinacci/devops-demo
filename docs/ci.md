@@ -210,6 +210,39 @@ than via the hosted Mend app -- the automation stays in the repository as
 code. Prerequisite: the `PR_PAT_TOKEN` secret (PAT with repo scope), also
 used by release-please.
 
+## Automated review
+
+**CodeRabbit** (`.coderabbit.yaml`): AI review on every PR to `main`. The
+configuration encodes one split -- **CI owns style, the bot owns design**.
+`make ci` is exactly what CI runs, so a linter re-run in review only
+produces a second copy of a finding the author already has; every tool
+already gated by CI or a prek hook is switched off there (ruff, clippy,
+golangci-lint, eslint, hadolint, shellcheck, yamllint, markdownlint, buf,
+Trivy). Only tools covering ground CI does not are on: `actionlint` and
+`zizmor` for workflow correctness and action-pinning security. `gitleaks`
+is the deliberate exception -- it overlaps the prek hook and the
+full-history scan and stays on anyway, because hard rule 6 makes a missed
+secret far more expensive than a duplicate comment.
+
+The Hard rules are **not** restated in the YAML. `AGENTS.md` is loaded as a
+code guideline, so the rules and the Rejected Findings list have one home
+and cannot drift; `path_instructions` only point at the rule that applies
+to each area, by number. Review is advisory: `request_changes_workflow` is
+off and the one custom pre-merge check (the PR template's "Change model"
+section is filled in) is a warning, never a merge block -- branch
+protection below is what actually gates.
+
+Generated files are filtered out of review (lockfiles, the Gradle wrapper,
+`CHANGELOG.md`, vendored CRD schemas), and so are machine-generated PRs:
+release-please, which regenerates its PR from commit history on every
+merge, and Renovate. Because Renovate self-hosts under `PR_PAT_TOKEN` its
+PRs are authored by a human account rather than `renovate[bot]`, so the
+filter matches on title prefix (`chore(deps)`, `fix(deps)`,
+`fix(deps-dev)`) instead of author. The trade-off is real -- a dependency
+bump is what surfaced the toolchain-drift gap -- but that class is now
+gated by `scripts/check-toolchain-drift.sh`, which catches it every time
+rather than when a reviewer happens to look.
+
 ## Branch protection (settings as documentation)
 
 GitHub repository settings expected by this pipeline -- kept here because
