@@ -30,6 +30,7 @@ cd "$repo_root"
 charts_dir="deploy/k8s/charts"
 umbrella="$charts_dir/platform"
 schema_dir="deploy/k8s/schemas"
+compose_file="deploy/compose/docker-compose.yml"
 # kubeconform schema-location template resolving the vendored CRD JSON schemas
 # (lowercased kind), e.g. monitoring.coreos.com/servicemonitor_v1.json and
 # gateway.networking.k8s.io/httproute_v1.json.
@@ -59,6 +60,39 @@ check_copy observability/loki/config.yml "$charts_dir/loki/files/config.yml"
 check_copy observability/blackbox/blackbox.yml "$charts_dir/blackbox/files/blackbox.yml"
 if [ "$copy_drift" -gt 0 ]; then
   echo "config file drift: ${copy_drift} copy/copies disagree with the compose original." >&2
+  exit 1
+fi
+
+# Third-party images are pinned twice -- once in compose, once in the chart --
+# and nothing imports one from the other. This is what catches a bump applied
+# to only one of them (RFC-0003 DK2; the same gate construction as above).
+echo "==> third-party image pins match the compose originals"
+image_drift=0
+check_image() {
+  local chart="$1"
+  local values="$charts_dir/$chart/values.yaml"
+  local repo tag ref
+  repo="$(sed -n 's/^  repository: \(.*\)$/\1/p' "$values" | head -n1)"
+  tag="$(sed -n 's/^  tag: \(.*\)$/\1/p' "$values" | head -n1)"
+  ref="${repo}:${tag}"
+  if [ -z "$repo" ] || [ -z "$tag" ]; then
+    echo "DRIFT $chart: cannot read image repository/tag from $values" >&2
+    image_drift=$((image_drift + 1))
+    return
+  fi
+  if grep -qF "image: ${ref}" "$compose_file"; then
+    echo "ok    $chart: $ref"
+  else
+    echo "DRIFT $chart: $ref is not pinned in $compose_file" >&2
+    grep -n "image: ${repo}:" "$compose_file" >&2 || true
+    image_drift=$((image_drift + 1))
+  fi
+}
+for chart in postgres postgres-exporter mailpit loki blackbox; do
+  check_image "$chart"
+done
+if [ "$image_drift" -gt 0 ]; then
+  echo "image pin drift: ${image_drift} chart(s) disagree with compose." >&2
   exit 1
 fi
 

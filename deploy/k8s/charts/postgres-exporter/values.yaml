@@ -6,7 +6,6 @@
 image:
   repository: prometheuscommunity/postgres-exporter
   tag: v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e
-  digest: sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e
 replicaCount: 1
 containerPort: 9187
 portName: http

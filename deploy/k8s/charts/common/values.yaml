@@ -4,7 +4,7 @@
 # image:
 #   repository: devops-demo/backend   # built images: placeholder repo (PR-3 loads into Kind)
 #   tag: dev                          # used when digest is empty
-#   digest: ""                        # infra images pin the compose sha256 here
+#   tag: ""                           # infra images carry the full compose ref (version@sha256:...)
 #   pullPolicy: IfNotPresent
 # replicaCount: 1
 # containerPort: 8000                 # primary port (named by portName)
