@@ -210,6 +210,53 @@ than via the hosted Mend app -- the automation stays in the repository as
 code. Prerequisite: the `PR_PAT_TOKEN` secret (PAT with repo scope), also
 used by release-please.
 
+## Automated review
+
+**CodeRabbit** (`.coderabbit.yaml`): AI review on every non-draft PR to
+`main`. It is **advice, not a gate** -- `request_changes_workflow` is off,
+its one custom check is a warning, and nothing it posts blocks a merge.
+Branch protection below is what gates; do not wait on the bot.
+
+What to expect as an author:
+
+- **No style or lint comments.** CI owns those, and `make ci` runs exactly
+  what CI runs, so a formatting nit in review would be a second copy of
+  something you already have locally. A style comment from the bot means
+  the configuration is wrong -- fix the config, not the code.
+- **Design, correctness, and this repository's invariants.** `AGENTS.md`
+  is loaded as a code guideline, so the Hard rules apply by number and the
+  Rejected Findings list is in scope. A finding that reappears after being
+  rejected there is a bug: say so in the thread rather than re-arguing it.
+- **A "Change model" reminder** if a behavioral change ships without that
+  PR-template section filled in.
+
+Not reviewed: generated files (lockfiles, the Gradle wrapper,
+`CHANGELOG.md`, vendored CRD schemas), and machine-generated PRs from
+release-please and Renovate. Renovate self-hosts under `PR_PAT_TOKEN`, so
+its PRs come from a human account and the skip has to match title prefixes
+(`chore(deps)`, `fix(deps)`, `fix(deps-dev)`) rather than the author. The
+skip costs something real: a Renovate bump is what surfaced the toolchain
+drift that `scripts/check-toolchain-drift.sh` now gates on every PR. A skip
+is not a lock-out -- commenting `@coderabbitai full review` on any of those
+PRs reviews it from scratch on demand. Use that form rather than plain
+`review`, which is incremental and has no baseline on a PR the bot never
+looked at.
+
+One bound is worth knowing because it is deliberate: the Rejected Findings
+list and any other suppression excuse only **pre-existing** findings. A
+suppression that a PR adds or widens -- a new Rejected Findings entry, a
+broadened linter `--ignore`, a `deny.toml` skip -- does not excuse a defect
+that same PR introduces, and the bot is told to say so.
+
+Deliberate gaps: no IaC hardening scan and no migration-safety linting.
+Both would be worth having -- as a prek hook in `make ci`, not as a
+review-only check, because a gate that runs in one place and not the other
+breaks local == CI parity (engineering-principles.md Section 6).
+
+Which analysis tools are on, which are off, and the reason for each is in
+`.coderabbit.yaml`, inline next to the setting. That file is
+authoritative; this section deliberately does not restate it.
+
 ## Branch protection (settings as documentation)
 
 GitHub repository settings expected by this pipeline -- kept here because
