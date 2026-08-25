@@ -1,0 +1,77 @@
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+
+ingester:
+  lifecycler:
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+    num_tokens: 128
+    heartbeat_period: 5s
+    heartbeat_timeout: 1m
+    observe_period: 10s
+    join_after: 0s  # Join immediately for single-node setup
+    min_ready_duration: 0s
+    final_sleep: 0s
+  wal:
+    dir: /loki/wal
+  max_chunk_age: 2h
+  chunk_idle_period: 30m
+  chunk_target_size: 1048576
+  chunk_retain_period: 15s
+
+# Distributor configuration for single-node setup
+distributor:
+  ring:
+    kvstore:
+      store: inmemory
+    heartbeat_timeout: 1m
+    heartbeat_period: 5s
+
+# Schema configuration - updated to v13 with tsdb index type
+# This is required for structured metadata support and native OTLP ingestion
+schema_config:
+  configs:
+    - from: 2020-10-15
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  tsdb_shipper:
+    active_index_directory: /loki/index
+    cache_location: /loki/cache
+  filesystem:
+    directory: /loki/chunks
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  retention_delete_delay: 2h
+  retention_delete_worker_count: 150
+  delete_request_store: filesystem
+
+# Limits configuration
+limits_config:
+  # Allow structured metadata (requires schema v13 and tsdb)
+  allow_structured_metadata: true
+  # Retention period
+  retention_period: 24h
+  # Reject old samples
+  reject_old_samples: true
+  # aligned with retention_period: accepting samples older than retention
+  # would queue them for immediate deletion
+  reject_old_samples_max_age: 24h
+  # Single-node setup: allow queries even if ingester is not fully ready
+  max_query_parallelism: 32
+  # Single-node setup: reduce requirements for healthy instances
+  max_concurrent_tail_requests: 10
+
+# retention is handled by the compactor (retention_enabled above);
+# the deprecated table_manager is a no-op for tsdb and is not configured

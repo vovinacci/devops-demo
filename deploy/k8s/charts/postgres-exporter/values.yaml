@@ -10,7 +10,11 @@ image:
 replicaCount: 1
 containerPort: 9187
 portName: http
-# env (DATA_SOURCE_NAME) moves to a Secret in PR-3 (RFC-0003 DK8).
+# The exporter's whole configuration is one password-bearing DSN, so it has a
+# Secret and no ConfigMap. sslmode=disable matches compose: this connection
+# never leaves the cluster network.
+secret:
+  DATA_SOURCE_NAME: "postgresql://app:app@{{ .Release.Name }}-postgres-backend:5432/appdb?sslmode=disable"
 resources:
   requests:
     cpu: 10m

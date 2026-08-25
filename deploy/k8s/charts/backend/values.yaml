@@ -10,11 +10,16 @@ extraPorts:
   # in the Service; no Gateway route until PR-3 (GRPCRoute).
   - name: grpc
     containerPort: 50051
-# DATABASE_URL / ALEMBIC_DATABASE_URL move to a ConfigMap/Secret in PR-3
-# (RFC-0003 DK8). PR-2 renders the D6 shape only.
-env:
-  - name: ENVIRONMENT
-    value: production
+# Settings split by KIND of data (RFC-0003 DK8): plain settings in a
+# ConfigMap, anything carrying a password in a Secret. Both arrive as
+# environment variables via envFrom, so the app code is identical to compose.
+config:
+  ENVIRONMENT: production
+# Both DSNs embed the demo password, so both are credentials -- the driver
+# prefix is the only difference (asyncpg for the app, psycopg for Alembic).
+secret:
+  DATABASE_URL: "postgresql+asyncpg://app:app@{{ .Release.Name }}-postgres-backend:5432/appdb"
+  ALEMBIC_DATABASE_URL: "postgresql+psycopg://app:app@{{ .Release.Name }}-postgres-backend:5432/appdb"
 resources:
   requests:
     cpu: 100m

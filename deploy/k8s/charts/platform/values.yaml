@@ -28,17 +28,14 @@ analytics:
   enabled: false
 postgres-analytics:
   enabled: false
-  # Own store, own credentials (RFC-0001 D1). Demo-grade defaults; Secrets in
-  # PR-3 (RFC-0003 DK8).
-  env:
-    - name: POSTGRES_DB
-      value: analytics
-    - name: POSTGRES_USER
-      value: analytics
-    - name: POSTGRES_PASSWORD
-      value: analytics
-    - name: PGDATA
-      value: /var/lib/postgresql/data/pgdata
+  # Own store, own credentials (RFC-0001 D1) -- the alias overrides both the
+  # ConfigMap and the Secret the postgres chart defaults to (RFC-0003 DK8).
+  config:
+    POSTGRES_DB: analytics
+    POSTGRES_USER: analytics
+    PGDATA: /var/lib/postgresql/data/pgdata
+  secret:
+    POSTGRES_PASSWORD: analytics
   d6:
     liveness:
       type: exec
@@ -58,15 +55,12 @@ reports:
   enabled: false
 postgres-reports:
   enabled: false
-  env:
-    - name: POSTGRES_DB
-      value: reports
-    - name: POSTGRES_USER
-      value: reports
-    - name: POSTGRES_PASSWORD
-      value: reports
-    - name: PGDATA
-      value: /var/lib/postgresql/data/pgdata
+  config:
+    POSTGRES_DB: reports
+    POSTGRES_USER: reports
+    PGDATA: /var/lib/postgresql/data/pgdata
+  secret:
+    POSTGRES_PASSWORD: reports
   d6:
     liveness:
       type: exec

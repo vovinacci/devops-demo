@@ -37,6 +37,29 @@ crd_schema="$schema_dir/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.jso
 services=(backend frontend analytics reports reports-ui canary blackbox
   loadgen mailpit loki postgres-exporter postgres)
 
+# Config files that exist twice on purpose: compose bind-mounts the original,
+# Helm can only read files inside a chart, so the chart carries a copy that
+# becomes a ConfigMap (RFC-0003 DK8). Physical duplication + an un-driftable
+# gate is the same construction as scripts/check-toolchain-drift.sh.
+echo "==> config file copies match the compose originals"
+copy_drift=0
+check_copy() {
+  local original="$1" copy="$2"
+  if cmp -s "$original" "$copy"; then
+    echo "ok    $copy == $original"
+  else
+    echo "DRIFT $copy differs from $original" >&2
+    diff -u "$original" "$copy" >&2 || true
+    copy_drift=$((copy_drift + 1))
+  fi
+}
+check_copy observability/loki/config.yml "$charts_dir/loki/files/config.yml"
+check_copy observability/blackbox/blackbox.yml "$charts_dir/blackbox/files/blackbox.yml"
+if [ "$copy_drift" -gt 0 ]; then
+  echo "config file drift: ${copy_drift} copy/copies disagree with the compose original." >&2
+  exit 1
+fi
+
 echo "==> helm dependency build (vendor the common library into each chart)"
 for s in "${services[@]}"; do
   helm dependency build "$charts_dir/$s" >/dev/null

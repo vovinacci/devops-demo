@@ -29,8 +29,12 @@ FROM nginx:alpine@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2
 # Copy built application from builder stage
 COPY --from=builder /build/dist /usr/share/nginx/html
 
-# Copy custom nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# nginx renders /etc/nginx/templates/*.template through envsubst into
+# conf.d/ at start-up. The default keeps the compose service name, so an
+# image run with no environment behaves exactly as before; Kubernetes
+# overrides it with the Service DNS name (deploy/k8s/charts/frontend).
+ENV FRONTEND_BACKEND_URL=http://api:8000
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 # Expose port
 EXPOSE 80

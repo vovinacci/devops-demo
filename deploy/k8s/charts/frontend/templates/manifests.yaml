@@ -1,6 +1,14 @@
 ---
 {{ include "common.serviceaccount" . }}
 ---
+{{ include "common.pvc" . }}
+---
+{{ include "common.configmap" . }}
+---
+{{ include "common.secret" . }}
+---
+{{ include "common.fileconfigmap" . }}
+---
 {{ include "common.deployment" . }}
 ---
 {{ include "common.service" . }}

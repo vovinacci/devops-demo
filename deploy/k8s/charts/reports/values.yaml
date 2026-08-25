@@ -8,16 +8,23 @@ image:
 replicaCount: 1
 containerPort: 8083
 portName: http
-env:
+config:
   # RFC-0003 DK5 EXHIBIT: a container memory LIMIT alone does not bound the JVM
   # heap. The JVM must be told about the cgroup limit or it sizes its heap
   # against the NODE memory and is OOM-killed by the kubelet at the limit.
   # MaxRAMPercentage makes the heap track the limits.memory below (continuous
   # with RFC-0001 D2 heap-sizing-vs-container-limits).
-  - name: JAVA_TOOL_OPTIONS
-    value: "-XX:MaxRAMPercentage=75.0"
-  - name: REPORTS_ARTIFACT_DIR
-    value: /var/lib/reports/artifacts
+  JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75.0"
+  REPORTS_ARTIFACT_DIR: /var/lib/reports/artifacts
+  # The one service whose JDBC URL keeps user and password in separate
+  # variables -- so the URL and the user stay plain settings and only the
+  # password is a credential.
+  REPORTS_DATABASE_URL: "jdbc:postgresql://{{ .Release.Name }}-postgres-reports:5432/reports"
+  REPORTS_DATABASE_USER: reports
+  REPORTS_BACKEND_URL: "http://{{ .Release.Name }}-backend:8000"
+  REPORTS_ANALYTICS_URL: "http://{{ .Release.Name }}-analytics:8082"
+secret:
+  REPORTS_DATABASE_PASSWORD: reports
 resources:
   # reports is the largest single consumer (~400 MiB at rest, RFC-0003 DK5).
   requests:

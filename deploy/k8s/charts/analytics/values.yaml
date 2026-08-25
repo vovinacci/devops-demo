@@ -5,11 +5,17 @@ image:
 replicaCount: 1
 containerPort: 8082
 portName: http
-# ANALYTICS_DATABASE_URL / ANALYTICS_BACKEND_GRPC_ADDR arrive as a
-# ConfigMap/Secret in PR-3 (RFC-0003 DK8).
-env:
-  - name: DEMO_TIME_SCALE
-    value: "1"
+config:
+  DEMO_TIME_SCALE: "1"
+  ANALYTICS_BACKEND_GRPC_ADDR: "{{ .Release.Name }}-backend:50051"
+  ANALYTICS_LOADPROFILE_PATH: /etc/analytics/loadprofile/profile.json
+  # GRAFANA_URL / GRAFANA_USER / GRAFANA_PASSWORD are deliberately absent.
+  # They are read only by the `seed` subcommand's annotation step, never by
+  # the running server (internal/grafana/config.go defaults all three), and
+  # Grafana itself is not charted until PR-4 -- setting them now would point
+  # at a Service that does not exist and commit a password for no benefit.
+secret:
+  ANALYTICS_DATABASE_URL: "postgres://analytics:analytics@{{ .Release.Name }}-postgres-analytics:5432/analytics?sslmode=disable"
 resources:
   requests:
     cpu: 50m

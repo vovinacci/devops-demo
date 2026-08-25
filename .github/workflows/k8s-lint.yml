@@ -5,10 +5,16 @@ name: K8s Charts
 # for every profile overlay, with the Prometheus Operator ServiceMonitor CRD
 # validated against a vendored schema (never --ignore-missing-schemas). The
 # heavier Kind-in-CI end-to-end run is nightly and lands in a later PR.
+#
+# The observability/ paths are here because the gate also diffs the chart-local
+# copies of those config files against them (RFC-0003 DK8): editing the
+# compose original alone is exactly the drift this catches.
 on:
   pull_request:
     paths:
       - "deploy/k8s/**"
+      - "observability/loki/config.yml"
+      - "observability/blackbox/blackbox.yml"
       - ".mise.toml"
       - "Makefile"
       - ".github/workflows/k8s-lint.yml"
@@ -17,6 +23,8 @@ on:
       - main
     paths:
       - "deploy/k8s/**"
+      - "observability/loki/config.yml"
+      - "observability/blackbox/blackbox.yml"
       - ".mise.toml"
       - "Makefile"
       - ".github/workflows/k8s-lint.yml"
