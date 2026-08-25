@@ -14,7 +14,7 @@
 # path_instructions below -- one source, no drift. Rejected Findings live
 # there too, together with the bound that stops a suppression added by the
 # pull request under review from excusing a defect that same PR introduces.
-language: en-US
+language: en-GB
 
 tone_instructions: >-
   Be direct. Lead with the defect and its consequence, not with praise. Cite
