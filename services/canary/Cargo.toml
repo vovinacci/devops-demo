@@ -9,7 +9,12 @@ publish = false
 axum = "0.8.9"
 opentelemetry = "0.32.0"
 opentelemetry_sdk = { version = "0.32.1", features = ["rt-tokio"] }
-prometheus = "0.14.0"
+# default-features off: the default "protobuf" feature pulls protobuf
+# 3.7.2 in for the protobuf exposition format, which the canary never
+# emits -- /metrics is TextEncoder only (src/metrics.rs). Dropping it
+# also drops the last consumer of thiserror 1.x, so cargo-deny stops
+# warning about a duplicate thiserror.
+prometheus = { version = "0.14.0", default-features = false }
 # default-features off: the canary only ever calls the backend over
 # plain HTTP inside the compose network (never TLS), so the TLS stack
 # and its runtime dependency on a system CA bundle are dropped entirely
