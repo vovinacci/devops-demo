@@ -51,7 +51,7 @@ RUN mkdir -p /var/lib/reports/artifacts && chown -R appuser:appuser /var/lib/rep
 
 COPY --from=builder --chown=appuser:appuser /build/build/libs/reports-0.1.0.jar /app/reports.jar
 
-USER appuser
+USER 1000
 
 # Container-aware heap sizing (RFC-0001 D2): the JVM reads cgroup limits and
 # caps the heap at 75% of the container memory limit -- the deeper GC/heap
@@ -60,7 +60,7 @@ ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0"
 ENV REPORTS_ARTIFACT_DIR="/var/lib/reports/artifacts"
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=40s --retries=3 \
-    CMD wget -q -O /dev/null http://localhost:8083/healthz || exit 1
+    CMD ["sh", "-c", "wget -q -O /dev/null http://localhost:8083/healthz || exit 1"]
 
 EXPOSE 8083
 

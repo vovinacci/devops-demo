@@ -56,10 +56,10 @@ RUN groupadd -r appuser && \
 
 COPY --from=builder --chown=appuser:appuser /build/target/release/canary /usr/local/bin/canary
 
-USER appuser
+USER 1000
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget -q -O /dev/null http://localhost:8080/healthz || exit 1
+    CMD ["sh", "-c", "wget -q -O /dev/null http://localhost:8080/healthz || exit 1"]
 
 EXPOSE 8080
 
