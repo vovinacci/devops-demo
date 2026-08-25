@@ -115,7 +115,7 @@ COPY --chown=appuser:appuser pyproject.toml /app/pyproject.toml
 ENV PATH=/home/appuser/.local/bin:$PATH
 
 # Switch to non-root user (security best practice)
-USER appuser
+USER 1000
 
 # Health check for Docker/Kubernetes: HTTP /healthz liveness AND the gRPC
 # Health Checking Protocol on :50051 -- both must pass (RFC-0001 D6)

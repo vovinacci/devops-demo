@@ -17,10 +17,10 @@ RUN caddy validate --config /etc/caddy/Caddyfile
 # the runtime user; :8084 is unprivileged so no cap is needed to bind it.
 RUN addgroup -S caddy && adduser -S -G caddy -u 1000 caddy \
     && chown -R caddy:caddy /config /data /srv
-USER caddy
+USER 1000
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget -q -O /dev/null http://localhost:8084/healthz || exit 1
+    CMD ["sh", "-c", "wget -q -O /dev/null http://localhost:8084/healthz || exit 1"]
 
 EXPOSE 8084
 
