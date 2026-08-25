@@ -69,6 +69,22 @@ expect "canary Dockerfile FROM" \
   "$(sed -n 's/^FROM rust:\([0-9][0-9.]*\).*/\1/p' services/canary/Dockerfile | head -n1)" \
   "$canon_rust"
 
+# dtolnay/rust-toolchain takes the version as a literal workflow input --
+# nothing imports it from .mise.toml, and each job in canary.yml declares its
+# own. Check every occurrence so a job added later cannot drift in unnoticed,
+# and fail loudly if the pattern stops matching at all (a silently empty loop
+# would read as "no drift").
+wf_toolchains=0
+while IFS= read -r ver; do
+  wf_toolchains=$((wf_toolchains + 1))
+  expect "canary workflow toolchain #${wf_toolchains}" "$ver" "$canon_rust"
+done < <(sed -n 's/^ *toolchain: "\([0-9][0-9.]*\)"/\1/p' .github/workflows/canary.yml)
+
+if [ "$wf_toolchains" -eq 0 ]; then
+  printf 'DRIFT canary workflow toolchain: no toolchain input found (canon %s)\n' "$canon_rust"
+  drift=$((drift + 1))
+fi
+
 expect "analytics Dockerfile FROM" \
   "$(sed -n 's/^FROM golang:\([0-9][0-9.]*\).*/\1/p' services/analytics/Dockerfile | head -n1)" \
   "$canon_go"
