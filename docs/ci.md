@@ -236,7 +236,15 @@ release-please and Renovate. Renovate self-hosts under `PR_PAT_TOKEN`, so
 its PRs come from a human account and the skip has to match title prefixes
 (`chore(deps)`, `fix(deps)`, `fix(deps-dev)`) rather than the author. The
 skip costs something real: a Renovate bump is what surfaced the toolchain
-drift that `scripts/check-toolchain-drift.sh` now gates on every PR.
+drift that `scripts/check-toolchain-drift.sh` now gates on every PR. A skip
+is not a lock-out -- commenting `@coderabbitai review` on any of those PRs
+runs a full review on demand.
+
+One bound is worth knowing because it is deliberate: the Rejected Findings
+list and any other suppression excuse only **pre-existing** findings. A
+suppression that a PR adds or widens -- a new Rejected Findings entry, a
+broadened linter `--ignore`, a `deny.toml` skip -- does not excuse a defect
+that same PR introduces, and the bot is told to say so.
 
 Deliberate gaps: no IaC hardening scan and no migration-safety linting.
 Both would be worth having -- as a prek hook in `make ci`, not as a
