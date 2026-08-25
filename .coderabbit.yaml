@@ -204,10 +204,55 @@ reviews:
     osvScanner:
       enabled: false # cargo-deny, govulncheck and Trivy cover this
 
+    # --- Default-on, would fire on file types this repo actually has, and
+    # add nothing over the gates above: off. Tools absent from this file
+    # cannot fire here -- there are no Ruby, PHP, Swift, C/C++, Lua,
+    # Terraform or Rego sources, and semgrep/opengrep stay dormant without
+    # a ruleset in the repo.
+    pylint:
+      enabled: false # duplicates ruff
+    flake8:
+      enabled: false # duplicates ruff
+    oxc:
+      enabled: false # duplicates eslint
+    reactDoctor:
+      enabled: false # duplicates eslint's react rules
+    stylelint:
+      enabled: false # 3 CSS files, all static
+    htmlhint:
+      enabled: false # 2 HTML files, both index shells
+    trufflehog:
+      enabled: false # gitleaks is the one secret scanner; see below
+    languagetool:
+      enabled: false # docs-heavy teaching repo -- prose grammar nits on
+      # every docs PR would drown the design findings
+    vale:
+      enabled: false # ditto; markdownlint and the ASCII-only hook own docs
+    presidio:
+      enabled: false # seeded demo data is synthetic by design (RFC-0001 D5)
+    dotenvLint:
+      enabled: false # linting belongs in `make ci`, not only in review --
+      # a gate that exists in one place breaks local == CI parity
+      # (engineering-principles.md Section 6). Candidate for a prek hook.
+    sqlfluff:
+      enabled: false # same reason as dotenvLint
+    squawk:
+      enabled: false # migration-safety linting is worth having on a repo
+      # that teaches operations, but adding it is its own decision, not a
+      # side effect of configuring review
+    checkov:
+      enabled: false # kubeconform schema-validates the rendered manifests
+      # and Trivy scans the images; checkov's hardening ruleset would flag
+      # the deliberately minimal teaching manifests on every PR
+
     # --- Not covered anywhere else: on.
     actionlint:
       enabled: true
     zizmor:
+      enabled: true
+    # Not a linter -- lets the review read CI results instead of guessing
+    # at them.
+    github-checks:
       enabled: true
     # Overlaps the prek gitleaks hook and the full-history CI scan, and stays
     # on anyway: hard rule 6, and a duplicate secret finding costs far less

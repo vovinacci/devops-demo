@@ -212,17 +212,34 @@ used by release-please.
 
 ## Automated review
 
-**CodeRabbit** (`.coderabbit.yaml`): AI review on every PR to `main`. The
-configuration encodes one split -- **CI owns style, the bot owns design**.
-`make ci` is exactly what CI runs, so a linter re-run in review only
-produces a second copy of a finding the author already has; every tool
-already gated by CI or a prek hook is switched off there (ruff, clippy,
+**CodeRabbit** (`.coderabbit.yaml`): AI review on every non-draft PR to
+`main`. The configuration encodes one split -- **CI owns style, the bot
+owns design**. `make ci` is exactly what CI runs, so a linter re-run in
+review only produces a second copy of a finding the author already has.
+
+Every tool that duplicates a CI job or a prek hook is off (ruff, clippy,
 golangci-lint, eslint, hadolint, shellcheck, yamllint, markdownlint, buf,
-Trivy). Only tools covering ground CI does not are on: `actionlint` and
-`zizmor` for workflow correctness and action-pinning security. `gitleaks`
-is the deliberate exception -- it overlaps the prek hook and the
-full-history scan and stays on anyway, because hard rule 6 makes a missed
-secret far more expensive than a duplicate comment.
+Trivy, osv-scanner), and so is every remaining default-on tool that could
+fire on a file type this repository actually has -- `pylint` and `flake8`
+(ruff), `oxc` and `reactDoctor` (eslint), `stylelint`, `htmlhint`,
+`trufflehog` (gitleaks), `languagetool` and `vale` (prose nits on a
+docs-heavy repo), `presidio` (the seeded demo data is synthetic by
+design), plus `dotenvLint`, `sqlfluff`, `squawk` and `checkov`. Those last
+four are off on principle rather than redundancy: a gate that runs only in
+review breaks local == CI parity (Section 6 below). If any of them is
+worth having, it belongs in `make ci` as a prek hook, and `squawk`
+(migration safety) is the strongest candidate.
+
+Three tools are on. `actionlint` and `zizmor` cover workflow correctness
+and action-pinning security, which nothing else checks; `github-checks`
+lets the review read CI results rather than guess at them. `gitleaks` is
+a deliberate fourth -- it overlaps the prek hook and the full-history scan
+and stays on anyway, because hard rule 6 makes a missed secret far more
+expensive than a duplicate comment.
+
+Tools not named in `.coderabbit.yaml` cannot fire here: the repository has
+no Ruby, PHP, Swift, C/C++, Lua, Terraform or Rego sources, and
+semgrep/opengrep stay dormant without a ruleset in the repo.
 
 The Hard rules are **not** restated in the YAML. `AGENTS.md` is loaded as a
 code guideline, so the rules and the Rejected Findings list have one home
