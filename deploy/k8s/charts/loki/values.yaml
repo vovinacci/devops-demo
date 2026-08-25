@@ -4,7 +4,7 @@
 # DaemonSet land in PR-4.
 image:
   repository: grafana/loki
-  tag: 3.7.3
+  tag: 3.7.3@sha256:70b9f699fc9bb868b62f1cfd4f787dfa50242f1fd92e6089787d5d7daea75fe8
   digest: sha256:70b9f699fc9bb868b62f1cfd4f787dfa50242f1fd92e6089787d5d7daea75fe8
 replicaCount: 1
 containerPort: 3100
