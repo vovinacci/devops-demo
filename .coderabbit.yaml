@@ -191,8 +191,10 @@ reviews:
     # toolchain-drift gap in #204. That class is now gated by
     # scripts/check-toolchain-drift.sh, which is a stronger guarantee than a
     # bot happening to notice it again.
-    # Skipping is not a lock-out: "@coderabbitai review" on any of these PRs
-    # still runs a full review on demand.
+    # Skipping is not a lock-out: "@coderabbitai full review" on any of these
+    # PRs reviews it from scratch on demand. The plain "review" command is
+    # incremental, so on a PR that was never auto-reviewed it has no baseline
+    # to work from.
     ignore_title_keywords:
       - 'chore(main): release'
       - 'chore(deps)'

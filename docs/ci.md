@@ -237,8 +237,10 @@ its PRs come from a human account and the skip has to match title prefixes
 (`chore(deps)`, `fix(deps)`, `fix(deps-dev)`) rather than the author. The
 skip costs something real: a Renovate bump is what surfaced the toolchain
 drift that `scripts/check-toolchain-drift.sh` now gates on every PR. A skip
-is not a lock-out -- commenting `@coderabbitai review` on any of those PRs
-runs a full review on demand.
+is not a lock-out -- commenting `@coderabbitai full review` on any of those
+PRs reviews it from scratch on demand. Use that form rather than plain
+`review`, which is incremental and has no baseline on a PR the bot never
+looked at.
 
 One bound is worth knowing because it is deliberate: the Rejected Findings
 list and any other suppression excuse only **pre-existing** findings. A
