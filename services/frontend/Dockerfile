@@ -38,7 +38,7 @@ EXPOSE 80
 # Healthcheck; 127.0.0.1 explicitly -- busybox wget resolves localhost to
 # ::1 first and nginx listens on IPv4 only
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://127.0.0.1/ || exit 1
+    CMD ["sh", "-c", "wget --no-verbose --tries=1 --spider http://127.0.0.1/ || exit 1"]
 
 # nginx starts automatically
 CMD ["nginx", "-g", "daemon off;"]
