@@ -15,6 +15,10 @@ resources:
   limits:
     cpu: 200m
     memory: 64Mi
+# The /api reverse-proxy upstream in the Caddyfile. Compose can hardcode
+# `reports`; here the Service is named after the release.
+config:
+  REPORTS_UI_REPORTS_URL: "{{ .Release.Name }}-reports:8083"
 service:
   enabled: true
   type: ClusterIP
