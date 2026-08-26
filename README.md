@@ -11,21 +11,31 @@ Kotlin) with contract-first gRPC, shaped load generation, three-layer
 monitoring, and a static reports UI -- delivered through
 [RFC-0001](docs/rfc/0001-polyglot-platform.md) and
 [RFC-0002](docs/rfc/0002-reports-ui.md) (with
-[RFC-0000](docs/rfc/0000-baseline-retrospective.md) as the baseline). The
-next arc is the deployment and operability platform --
-[RFC-0003](docs/rfc/0003-kubernetes-kind-platform.md): the same system on
-Kubernetes (Kind) with Helm and the Gateway API, beside the compose stack --
-and after it an authentication capstone (a future RFC-0004) that rides on
-that platform.
+[RFC-0000](docs/rfc/0000-baseline-retrospective.md) as the baseline).
+
+It runs on **two deployment targets**, and both are supported:
+[Docker Compose](deploy/compose/README.md) as the fast local path, and
+[Kubernetes on Kind](deploy/k8s/README.md) with Helm, the Gateway API and a
+Prometheus Operator stack -- delivered through
+[RFC-0003](docs/rfc/0003-kubernetes-kind-platform.md). Neither replaces the
+other: compose is the smallest way to run the whole platform, Kubernetes is
+where you see what changes when the same system has to be scheduled,
+discovered and routed. After it comes an authentication capstone (a future
+RFC-0004) that rides on that platform.
 
 ## Structure
 
 ```text
 devops-demo/
 ├── .github/                     # Workflows, PR/issue templates, Renovate config
-├── deploy/
-│   └── compose/
-│       └── docker-compose.yml   # Main Docker Compose configuration
+├── deploy/                      # One directory per deployment target
+│   ├── compose/                 # Docker Compose stack (README.md)
+│   │   └── docker-compose.yml
+│   └── k8s/                     # Kubernetes on Kind (README.md)
+│       ├── charts/              # Helm library chart + per-service + umbrella
+│       ├── kind/                # Cluster config and cluster-scoped prerequisites
+│       ├── schemas/             # Vendored CRD schemas for the offline gate
+│       └── scripts/             # validate.sh, kind-up/deploy/seed/down
 │
 ├── docs/                        # Documentation (see index below)
 │   ├── adr/                     # Architecture Decision Records
@@ -99,63 +109,39 @@ fix it:
 make doctor
 ```
 
-Minimum: Docker with Compose v2, GNU Make, 2 GB free RAM, 3 GB free disk.
+Minimum for the compose stack: Docker Engine >= 24 with Compose v2, GNU Make, 2 GB free
+RAM, 3 GB free disk. The Kind cluster needs substantially more -- it runs a
+Kubernetes control plane, three nodes and an observability stack beside the
+services ([`deploy/k8s/README.md`](deploy/k8s/README.md) has the detail).
 
 ### Running the Project
 
-- Start everything
+Two deployment targets, equally supported. Each has its own guide -- these are
+the entry points, not a summary of what is there.
 
-  ```shell
-  make up
-  ```
+**Docker Compose** -- the fast local path, and what the exercises assume:
 
-- Seed initial data (could be done multiple times)
+```shell
+make up            # the core stack
+make up-full       # every optional profile
+make seed          # 20 items
+make down
+```
 
-  ```shell
-  make seed
-  ```
+Service URLs, profiles, seeding and workshop mode:
+**[`deploy/compose/README.md`](deploy/compose/README.md)**.
 
-- Seed 90 days of analytics history (RFC-0001 Phase 5 D5; needs the
-  `analytics` profile up first)
+**Kubernetes (Kind)** -- the same system, scheduled and routed:
 
-  ```shell
-  make up-full
-  make seed-history
-  ```
+```shell
+make kind-up                     # cluster + Envoy Gateway + kube-prometheus-stack
+make kind-deploy PROFILE=full    # build, load into Kind, helm install
+make kind-seed                   # items + analytics history
+make kind-down
+```
 
-- Workshop mode: all profiles at `DEMO_TIME_SCALE=24` (one profile-day
-  compresses to 1 wall-clock hour, RFC-0001 D5) -- seed at the same scale
-  or loadgen's scale guard refuses to start against the mismatched seed
-  marker (no marker yet or analytics absent: it continues)
-
-  ```shell
-  make up-workshop
-  DEMO_TIME_SCALE=24 SEED_DAYS=3 make seed-history
-  ```
-
-  See [Exercise 05](docs/exercises/05-find-the-seeded-anomalies.md) for
-  what to do with it.
-
-After successful startup, all services will be available at the following URLs:
-
-| Service               | URL                         | Credentials | Description                                                                               |
-|-----------------------|-----------------------------|-------------|-------------------------------------------------------------------------------------------|
-| **Frontend**          | http://localhost:8080       | -           | React application with CRUD interface for managing items                                  |
-| **API**               | http://localhost:8000       | -           | FastAPI REST API server                                                                   |
-| **API (gRPC)**        | localhost:50051             | -           | ItemService (ListItems, GetItemStats, WatchItemEvents) -- backend serves, analytics dials |
-| **API Documentation** | http://localhost:8000/docs  | -           | Swagger UI with interactive API documentation                                             |
-| **ReDoc**             | http://localhost:8000/redoc | -           | Alternative API documentation in ReDoc format                                             |
-| **Grafana**           | http://localhost:3000       | admin/admin | Dashboards for metrics and logs visualization                                             |
-| **Prometheus**        | http://localhost:9090       | -           | UI for viewing and querying metrics                                                       |
-| **Loki**              | http://localhost:3100       | -           | API for accessing logs                                                                    |
-| **Postgres Exporter** | http://localhost:9187       | -           | PostgreSQL metrics in Prometheus format                                                   |
-| **cAdvisor**          | http://localhost:8081       | -           | Container and resource metrics                                                            |
-| **Alertmanager**      | http://localhost:9093       | -           | Alert routing, grouping, silencing, inhibition                                            |
-| **Mailpit**           | http://localhost:8025       | -           | Visible alert receiver: SMTP sink + web UI for notifications                              |
-| **Canary**            | http://localhost:8085       | -           | Synthetic-journey canary (`synthetic` profile)                                            |
-| **Analytics API**     | http://localhost:8082       | -           | Event ingestion + read API (items, stats, seed-marker) (`analytics` profile)              |
-| **Reports API**       | http://localhost:8083       | -           | Kotlin/Spring Boot reports service: async XLSX/PDF/CSV engine (`reports` profile)         |
-| **Reports UI**        | http://localhost:8084       | -           | Static SPA over the reports API, served by Caddy (`reports-ui` profile)                   |
+Routes, the Operator model and the Kind-isms:
+**[`deploy/k8s/README.md`](deploy/k8s/README.md)**.
 
 For the full command list run `make help`.
 
@@ -164,7 +150,12 @@ For the full command list run `make help`.
 ### Using and operating
 
 - [Prerequisites](docs/prerequisites.md) -- required knowledge and learning resources
-- [Local setup](docs/local-setup.md) -- development environment, dependencies, Docker
+- [Docker Compose stack](deploy/compose/README.md) -- running the stack,
+  profiles, service URLs, seeding
+- [Kubernetes on Kind](deploy/k8s/README.md) -- charts, the cluster, the
+  Gateway, the Operator, and the offline chart gate
+- [Local setup](docs/local-setup.md) -- development environment, toolchains,
+  running a single service outside compose
 - [Architecture](docs/architecture.md) -- system components and how they connect
 - [Observability](docs/observability.md) -- metrics, logs, dashboards, SLOs
 - [Database and data](docs/data.md) -- schema, migrations, seeding
