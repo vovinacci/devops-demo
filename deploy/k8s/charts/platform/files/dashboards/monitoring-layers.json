@@ -1,0 +1,275 @@
+{
+  "uid": "monitoring-layers",
+  "annotations": { "list": [{ "builtIn": 1, "datasource": "-- Grafana --", "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "Annotations & Alerts", "type": "dashboard" }] },
+  "editable": true,
+  "fiscalYearStartMonth": 1,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "iteration": 1,
+  "links": [],
+  "panels": [
+    {
+      "type": "table",
+      "title": "Blackbox: Probe Success by Instance",
+      "description": "Blackbox layer (ADR-0007 D9): 1 = reachable, 0 = failing its HTTP check. Down entirely when the synthetic profile is not up -- expected degradation.",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "probe_success",
+          "format": "table",
+          "instant": true,
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 1, "color": "green" }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "showHeader": true }
+    },
+    {
+      "type": "timeseries",
+      "title": "Blackbox: Probe Duration",
+      "description": "Latency of the blackbox probe itself, by instance (ADR-0007 D9).",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "probe_duration_seconds",
+          "legendFormat": "{{ instance }}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Canary: Journey Success Rate (5m)",
+      "description": "Synthetic layer (ADR-0007 D9): fraction of canary journeys (create -> verify -> clean up) that fully succeeded.",
+      "gridPos": { "x": 0, "y": 8, "w": 8, "h": 6 },
+      "targets": [
+        {
+          "expr": "sum(rate(canary_journey_total{result=\"success\"}[5m])) / clamp_min(sum(rate(canary_journey_total[5m])), 1e-9)",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 0.99, "color": "green" }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Canary: Last Success Age",
+      "description": "Seconds since the last fully successful canary journey. Rising steadily = journeys are failing or the canary is not running.",
+      "gridPos": { "x": 8, "y": 8, "w": 8, "h": 6 },
+      "targets": [
+        {
+          "expr": "time() - canary_journey_last_success_timestamp_seconds",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 120, "color": "red" }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Whitebox: API Request Rate by Status",
+      "description": "Whitebox layer (RFC-0001 D6/D9): the backend's own self-reported RED metric, shown next to the blackbox and synthetic layers above for direct comparison.",
+      "gridPos": { "x": 16, "y": 8, "w": 8, "h": 6 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total[5m])) by (status)",
+          "legendFormat": "{{ status }}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Canary: Per-Step Latency (p95)",
+      "description": "Synthetic layer (ADR-0007 D9): p95 duration of each journey step, recorded even when the step fails -- localizes which step is slow before it fails outright (see the CanaryJourneyFailing runbook).",
+      "gridPos": { "x": 0, "y": 14, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(canary_journey_step_duration_seconds_bucket[5m])) by (le, step))",
+          "legendFormat": "{{ step }}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Canary: Pipeline Lag (p95)",
+      "description": "Synthetic layer, v2 (RFC-0001 D9): p95 create -> analytics-visible lag, the gRPC event-stream path end to end (ADR-0002). Only \"ok\" outcomes feed this histogram -- see the result panel for timeout/skipped shares.",
+      "gridPos": { "x": 0, "y": 22, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(canary_pipeline_lag_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95 lag",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Canary: Pipeline Check Results",
+      "description": "Synthetic layer, v2 (RFC-0001 D9): pipeline-lag poll outcomes by result. \"skipped\" (analytics unreachable, ADR-0008 D10 graceful degradation) and \"timeout\" (analytics up but item never visible) never fail the canary journey itself (Hard rule 9) -- this panel is where those signals are visible.",
+      "gridPos": { "x": 12, "y": 22, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(canary_pipeline_check_total[5m])) by (result)",
+          "legendFormat": "{{ result }}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Canary: Report Generation Latency (p95)",
+      "description": "Synthetic layer, v3 (RFC-0001 D9): p95 report generation latency (submit -> SUCCEEDED) against the reports service. Only \"ok\" outcomes feed this histogram -- see the result panel for timeout/failed/skipped shares.",
+      "gridPos": { "x": 0, "y": 30, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(canary_report_generation_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95 generation",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Canary: Report Check Results",
+      "description": "Synthetic layer, v3 (RFC-0001 D9): report-step outcomes by result. \"skipped\" (reports unreachable, ADR-0008 D10 graceful degradation), \"timeout\" (reports up but the job never reached a terminal state), and \"failed\" (the render itself failed) never fail the canary journey itself (Hard rule 9) -- this panel is where those signals are visible.",
+      "gridPos": { "x": 12, "y": 30, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(canary_report_check_total[5m])) by (result)",
+          "legendFormat": "{{ result }}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+        },
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["devops-demo", "monitoring-layers"],
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "selected": true },
+        "hide": 0,
+        "label": "Prometheus"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "title": "Monitoring Layers",
+  "version": 1,
+  "weekStart": ""
+}

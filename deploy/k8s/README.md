@@ -11,8 +11,9 @@ independent things live here, and they stay independent on purpose:
   thing. A multi-node Kind cluster, Envoy Gateway at the edge, the charts
   installed on top.
 
-The Kubernetes-native observability (kube-prometheus-stack Operator,
-Grafana/Loki-Alloy) is still **PR-4**.
+Observability is Kubernetes-native: the Prometheus Operator discovers targets
+from ServiceMonitors instead of a static scrape file, and Grafana loads
+dashboards from labelled ConfigMaps instead of a mounted directory.
 
 ## Why a library chart
 
@@ -45,22 +46,30 @@ deploy/k8s/
     backend/ frontend/ analytics/ reports/ reports-ui/ canary/
     blackbox/ loadgen/ mailpit/ loki/ postgres-exporter/
                             thin per-service charts (import common)
+    alloy/                  log-shipping DaemonSet (its own config, a rewrite)
     postgres/               ONE StatefulSet chart, aliased 3x by the umbrella
     platform/               umbrella chart (depends on the per-service charts)
-      templates/gateway.yaml  the edge: Gateway + HTTPRoutes + GRPCRoute
+      templates/gateway.yaml     the edge: Gateway + HTTPRoutes + GRPCRoute
+      templates/monitoring.yaml  PrometheusRules + the blackbox Probe
+      templates/dashboards.yaml  Grafana dashboards as labelled ConfigMaps
+      files/rules/               copies of the compose rule files
+      files/dashboards/          copies of the compose dashboards
       values.yaml            base = the `core` profile
       values-<profile>.yaml  additive overlays (analytics/reports/...)
   kind/
     cluster.yaml            multi-node cluster, digest-pinned node image
     gatewayclass.yaml       cluster-scoped GatewayClass for Envoy Gateway
     envoyproxy.yaml         Kind-only: pins the edge Service to NodePort 30080
+    referencegrant.yaml     lets the platform's route reach Grafana's namespace
+    kube-prometheus-stack-values.yaml   the observability stack, trimmed for Kind
   schemas/
     monitoring.coreos.com/servicemonitor_v1.json     vendored CRD schemas
     gateway.networking.k8s.io/{gateway,httproute,grpcroute}_v1.json
   scripts/
     validate.sh             the offline lint + render + kubeconform gate
-    kind-up.sh              cluster + Envoy Gateway + the ServiceMonitor CRD
+    kind-up.sh              cluster + Envoy Gateway + kube-prometheus-stack
     kind-deploy.sh          build + `kind load` + `helm upgrade --install`
+    kind-seed.sh            items + analytics history (schema is a hook Job)
     kind-down.sh            delete the cluster
 ```
 
@@ -72,7 +81,7 @@ against the original so it cannot drift.
 Build artifacts (`charts/*/charts/`, `Chart.lock`) are gitignored -- they are
 rebuilt by `helm dependency build` (the gate does this for you).
 
-## Which services are charted (the PR-4 boundary)
+## Which services are charted, and which come from the stack
 
 Charted here (application + supporting services, RFC-0003 Section 6):
 
@@ -87,11 +96,14 @@ Charted here (application + supporting services, RFC-0003 Section 6):
   the three Postgres instances `postgres-backend` / `postgres-analytics` /
   `postgres-reports`, and the `reports` artifact PVC.
 
-**Deliberately NOT charted here:** `prometheus`, `grafana`, `alertmanager`,
-`alloy`. RFC-0003 Section 6 sources those from the **kube-prometheus-stack**
-Operator and a DaemonSet in **PR-4** -- charting them now would package the
-wrong (static-config) shape. `cadvisor` is retired outright on Kubernetes (the
-kubelet already exposes cAdvisor container metrics, DK6).
+- **The log shipper** (DaemonSet): `alloy`, one collector per node.
+
+**Deliberately NOT charted here:** `prometheus`, `grafana`, `alertmanager`.
+They come from **kube-prometheus-stack**, installed by `make kind-up` as a
+cluster prerequisite -- charting them would package the wrong (static-config)
+shape, and a remote chart in the umbrella would make the offline CI gate
+reach the network. `cadvisor` is retired outright on Kubernetes (the kubelet
+already exposes cAdvisor container metrics, DK6).
 
 ## The D6 opt-out mechanism (DK2) and the frontend exception (DK4)
 
@@ -168,11 +180,18 @@ Store CSI driver or External Secrets. Separating them from the ConfigMap is
 what makes that later swap a change to *one object* rather than an audit of
 every manifest.
 
-Two variable groups are **deliberately absent** until PR-4: analytics'
-`GRAFANA_URL`/`GRAFANA_USER`/`GRAFANA_PASSWORD` (read only by the `seed`
-subcommand, never by the running server, and Grafana is not charted yet) and
-loadgen's `K6_PROMETHEUS_RW_SERVER_URL`. Pointing them at Services that do not
-exist would buy nothing and commit one more password.
+Addresses that reach the observability stack are namespace-qualified --
+analytics' `GRAFANA_URL`, loadgen's `K6_PROMETHEUS_RW_SERVER_URL` -- because
+that stack is a separate release in its own namespace and a bare Service name
+resolves only within the caller's.
+
+**A ConfigMap or Secret edit does not restart the pods reading it.** With
+`envFrom` the container reads its environment once, at start, so an upgrade
+that changes only configuration reports success, leaves the pods running, and
+the new value never takes effect. The library stamps a `checksum/config`
+annotation built from each service's config, secret and config files onto the
+pod template, so changing configuration changes the template and Kubernetes
+rolls the pods.
 
 ## The JVM exhibit (DK5)
 
@@ -203,9 +222,10 @@ dependency; the base turns the `core` set on and the rest off.
 ## Run it on Kind
 
 ```sh
-make kind-up                      # cluster + Envoy Gateway + ServiceMonitor CRD
+make kind-up                      # cluster + Envoy Gateway + kube-prometheus-stack
 make kind-deploy                  # build, load, install -- the core profile
 make kind-deploy PROFILE=full     # or any profile from the table above
+make kind-seed                    # items + analytics history (dashboards need data)
 make kind-down                    # delete the cluster, data included
 ```
 
@@ -248,6 +268,7 @@ sub-path. Everything goes through the Gateway on `localhost:8080`:
 | `http://reports-ui.devops-demo.localhost:8080/` | reports-ui (Caddy SPA, `reports-ui` profile) |
 | `http://api.devops-demo.localhost:8080/` | backend REST |
 | `grpc.devops-demo.localhost:8080` | backend gRPC (GRPCRoute) |
+| `http://grafana.devops-demo.localhost:8080/` | Grafana (admin/admin) |
 
 No `/etc/hosts` editing: RFC 6761 reserves the whole `.localhost` tree for
 loopback, and macOS and systemd-resolved both resolve `*.localhost` to
@@ -255,10 +276,11 @@ loopback, and macOS and systemd-resolved both resolve `*.localhost` to
 without systemd-resolved), add one line:
 
 ```text
-127.0.0.1 frontend.devops-demo.localhost reports-ui.devops-demo.localhost api.devops-demo.localhost grpc.devops-demo.localhost
+127.0.0.1 frontend.devops-demo.localhost reports-ui.devops-demo.localhost api.devops-demo.localhost grpc.devops-demo.localhost grafana.devops-demo.localhost
 ```
 
-Grafana's route lands in PR-4, together with Grafana.
+Grafana's route is the one that crosses a namespace: it belongs to the
+kube-prometheus-stack release, so it needs a ReferenceGrant (below).
 
 ### Migrations run themselves
 
@@ -276,8 +298,61 @@ deletes itself; a **failed one is kept** so there is something to read:
 kubectl -n devops-demo logs job/platform-backend-migrate
 ```
 
-Seed *data* is still a manual step -- the equivalent of `make seed --count 20`
-has no Kubernetes counterpart yet.
+Seed *data* is `make kind-seed`, the counterpart of `make seed` and
+`make seed-history`. It needs no DEMO_TIME_SCALE juggling: `kubectl exec` runs
+inside the analytics pod, which already carries the value from its ConfigMap,
+so the seeded history and the running stack cannot disagree about scale.
+
+### Observability, the Operator way
+
+The stack -- Prometheus Operator, Prometheus, Alertmanager, Grafana,
+kube-state-metrics, node-exporter -- is installed by `make kind-up` into the
+`monitoring` namespace. The platform contributes the custom resources that say
+WHAT to watch:
+
+| Compose | Kubernetes | Owner |
+| --- | --- | --- |
+| a `scrape_configs` job per service | `ServiceMonitor` | the service's own chart |
+| `rule_files` | `PrometheusRule` | the umbrella |
+| the `blackbox_http` job + `relabel_configs` | `Probe` | the umbrella |
+| a mounted dashboards directory | labelled `ConfigMap` | the umbrella |
+| an Alloy container reading the Docker socket | a `DaemonSet` per node | its own chart |
+
+That is the whole difference. Under compose these are sections of one
+`prometheus.yml` that Prometheus must restart to reload; here each is an
+object owned by the thing it describes, added by creating a resource. The
+static scrape jobs are not ported at all -- their equivalent is the
+ServiceMonitor each D6 chart already renders.
+
+**The selector trap.** kube-prometheus-stack defaults every selector to "only
+objects labelled `release=<my release>`". Our CRs come from a different
+release, so Prometheus comes up perfectly healthy and silently scrapes
+nothing of ours. The four `*SelectorNilUsesHelmValues: false` lines in
+`kind/kube-prometheus-stack-values.yaml` are what make it select cluster-wide.
+A green Prometheus with no targets is the failure mode to recognise.
+
+**Two Kind-isms in that file.** The control plane runs as static pods on
+127.0.0.1, so the kube-controller-manager, kube-scheduler, kube-proxy and etcd
+scrapes can never succeed -- they and their alert rules are off, otherwise a
+fresh cluster alerts on its own unreachable internals. And Grafana is pinned
+to the image compose runs, with plugin preinstallation disabled and a
+startupProbe: the chart's newer default spends over a minute building a search
+index at boot, against probes with a 1s timeout and no startup gate, so the
+kubelet kills it mid-build and it restarts into the same build.
+
+**Logs.** Alloy runs one pod per node and reads pod logs through the
+Kubernetes API -- no hostPath mount, no privilege, just declared RBAC. It is
+scoped to its own node with a field selector on `spec.nodeName` from the
+downward API; without that every collector tails every pod and each line
+ships once per node.
+
+**The cross-namespace route.** Grafana belongs to the stack's release, so the
+platform's HTTPRoute for it points into another namespace. Gateway API refuses
+that unless the target namespace publishes a `ReferenceGrant`
+(`kind/referencegrant.yaml`) -- consent given by the owner of the referenced
+thing rather than taken by the referrer, the deliberate difference from
+ingress-style routing. A missing grant shows up as `ResolvedRefs=False` on the
+route, not as a silent failure.
 
 ### When a deploy fails halfway
 
@@ -355,11 +430,14 @@ helm template eg oci://docker.io/envoyproxy/gateway-helm --version 1.9.0 --inclu
   | grep -o 'gateway.networking.k8s.io/bundle-version: v[0-9.]*' | sort -u
 ```
 
-The **prometheus-operator release is not pinned as a platform choice**: PR-4
-picks the kube-prometheus-stack version, and this schema has to be refreshed to
-match it then. The tag in `deploy/k8s/scripts/kind-up.sh` pins the CRD
-*install* only, so that `helm install` has a `ServiceMonitor` kind to accept;
-PR-4 must reconcile the three (its stack version, that tag, and this schema).
+**Two independent pins, each with its own pair to keep in step.** The
+`monitoring.coreos.com` schemas track the Prometheus Operator: `kind-up.sh`
+installs kube-prometheus-stack `88.5.4`, whose appVersion is operator
+`v0.93.1`, which is the tag those files are cut from. The
+`gateway.networking.k8s.io` schemas track Gateway API `v1.6.1`, the bundle
+Envoy Gateway ships. Bumping either chart means re-cutting only its own
+schemas -- but re-cut them in the same change, or the gate validates CRs
+against a shape the cluster no longer has.
 
 ## The toolchain (DK9)
 

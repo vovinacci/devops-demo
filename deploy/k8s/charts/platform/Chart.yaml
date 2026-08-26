@@ -42,6 +42,10 @@ dependencies:
     version: 0.1.0
     repository: file://../loki
     condition: loki.enabled
+  - name: alloy
+    version: 0.1.0
+    repository: file://../alloy
+    condition: alloy.enabled
   # --- +analytics ---
   - name: analytics
     version: 0.1.0

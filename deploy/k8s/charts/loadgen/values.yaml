@@ -7,9 +7,6 @@ image:
   tag: dev
 replicaCount: 1
 # Upstreams and tuning knobs, no credentials (RFC-0003 DK8).
-# K6_PROMETHEUS_RW_SERVER_URL is deliberately absent: the k6 remote-write
-# output targets Prometheus, which is not charted until PR-4. It returns here
-# with the Operator, together with the -o experimental-prometheus-rw argument.
 config:
   DEMO_TIME_SCALE: "1"
   LOADGEN_BACKEND_URL: "http://{{ .Release.Name }}-backend:8000"
@@ -20,6 +17,13 @@ config:
   LOADGEN_STAGE_MINUTES: "15"
   LOADGEN_PREALLOCATED_VUS: "10"
   LOADGEN_MAX_VUS: "50"
+  # k6's built-in remote-write output (RFC-0001 D4, ADR-0006). The image CMD
+  # already passes -o experimental-prometheus-rw, so without this the writes
+  # go to k6's default localhost and fail every flush. Prometheus must also
+  # accept them: enableRemoteWriteReceiver in the stack values, the counterpart
+  # of compose's --web.enable-remote-write-receiver flag.
+  K6_PROMETHEUS_RW_SERVER_URL: "http://kube-prometheus-stack-prometheus.monitoring.svc:9090/api/v1/write"
+  K6_PROMETHEUS_RW_TREND_STATS: "p(95),p(99),avg"
 resources:
   requests:
     cpu: 50m

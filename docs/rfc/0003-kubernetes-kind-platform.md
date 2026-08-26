@@ -618,3 +618,15 @@ ServiceMonitors and `kubeconform` would validate nothing.
 `make kind-up` therefore installs the **ServiceMonitor CRD alone**, pinned to a
 prometheus-operator tag. The Operator itself, and the choice of
 kube-prometheus-stack version, remain PR-4's.
+
+### A3 -- Alloy is charted by the platform, and has a ServiceMonitor (added during PR-4)
+
+Section 8's PR-4 criterion enumerates the metrics-bearing services as six:
+backend, analytics, reports, reports-ui, canary and postgres_exporter. There
+are seven. Section 6 assumed Alloy would arrive as an upstream chart, but
+adding a remote chart to the umbrella would make `helm dependency build` --
+which the offline CI gate runs -- reach the network, so Alloy is charted here
+like Loki is. It exposes `/metrics` and therefore takes a ServiceMonitor from
+the same library default as every other D6 service.
+
+The nginx `frontend` remains the one D6 service without one (ADR-0013).

@@ -1,0 +1,183 @@
+# kube-prometheus-stack values for the local Kind cluster (RFC-0003 DK6,
+# ADR-0017). Applied by deploy/k8s/scripts/kind-up.sh into the `monitoring`
+# namespace.
+#
+# The Operator is a CLUSTER prerequisite, installed beside Envoy Gateway
+# rather than charted in the umbrella: it owns cluster-scoped CRDs and RBAC,
+# N releases share one of it, and -- decisively -- adding a remote chart as an
+# umbrella dependency would make `helm dependency build` (which the CI gate
+# runs) reach the network, turning the offline gate into a networked one.
+#
+# What the platform contributes instead is the CRs: ServiceMonitors from the
+# D6 charts, PrometheusRules and the blackbox Probe from the umbrella, and
+# Grafana dashboards as labelled ConfigMaps.
+
+# THE SELECTOR TRAP, and the reason these four lines exist: the chart defaults
+# every selector to "only objects labelled release=<this release>". Our CRs
+# come from a DIFFERENT release (platform), so Prometheus would start up
+# perfectly healthy and silently scrape nothing of ours. Setting these to
+# false means "select every matching CR in the cluster", which is what a
+# single-tenant demo cluster wants.
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    # Matches the compose stack's retention (observability/loki/config.yml
+    # keeps 24h too), and keeps the Kind footprint small.
+    # loadgen's k6 writes its metrics in over the remote-write API rather than
+    # being scraped -- a k6 run is too short-lived to scrape. Compose enables
+    # the same receiver with --web.enable-remote-write-receiver.
+    enableRemoteWriteReceiver: true
+    retention: 24h
+    scrapeInterval: 15s
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+  # Ported from observability/alertmanager/alertmanager.yml. The root receiver
+  # is a real but non-notifying blackhole so nothing is silently dropped by
+  # falling off the end of the route tree (RFC-0001 D9); mailpit is the
+  # visible receiver, reachable at its Service in the platform namespace.
+  config:
+    route:
+      receiver: blackhole
+      group_by: ["alertname"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      routes:
+        - receiver: mailpit
+          matchers:
+            - severity =~ "critical|warning"
+    receivers:
+      - name: blackhole
+      - name: mailpit
+        email_configs:
+          - to: "oncall@devops-demo.local"
+            from: "alertmanager@devops-demo.local"
+            smarthost: "platform-mailpit.devops-demo.svc:1025"
+            require_tls: false
+
+grafana:
+  # Pinned to the SAME image compose runs, digest included. Not only for
+  # parity: the chart's default (13.2.x) spends over a minute building a
+  # search index at start-up on a Kind node and gets liveness-killed before
+  # it finishes, restarting into the same build.
+  image:
+    tag: 13.1.0
+    sha: "121a7a9ece6dc10b969f1f96eed64b4f07dfac0d0b8abc070f7cb83bbde86f63"
+  # Same demo-grade credentials as the compose stack (ADR-0011); see
+  # deploy/k8s/README.md on why they are not externalised here.
+  adminUser: admin
+  adminPassword: admin
+  grafana.ini:
+    security:
+      disable_initial_admin_password_change: true
+      disable_gravatar: true
+    users:
+      allow_sign_up: false
+      allow_org_create: false
+    plugins:
+      # Grafana 13 preinstalls bundled apps by default, which means a network
+      # download on every container start. Left on, it does not just slow
+      # boot: the chart's readiness/liveness probes use a 1s timeout, Grafana
+      # cannot answer /api/health while installing, and the kubelet kills and
+      # restarts it -- which starts the download again. A restart loop that
+      # looks like a broken image and is really a probe racing a download.
+      # Compose disables the same thing with GF_INSTALL_PLUGINS="".
+      preinstall_disabled: true
+  # A slow start is not a liveness failure. The chart's default probes use a
+  # 1s timeout with no startupProbe, so a Grafana that boots slowly on a busy
+  # Kind node is killed and restarted into the same slow boot. Gating
+  # liveness behind a startupProbe is the same shape the platform's own slow
+  # starter uses (charts/reports, JVM + Flyway).
+  startupProbe:
+    httpGet:
+      path: /api/health
+      port: 3000
+    periodSeconds: 10
+    failureThreshold: 30
+  readinessProbe:
+    httpGet:
+      path: /api/health
+      port: 3000
+    timeoutSeconds: 10
+    failureThreshold: 10
+  livenessProbe:
+    httpGet:
+      path: /api/health
+      port: 3000
+    timeoutSeconds: 10
+    failureThreshold: 10
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      # The dashboards are ConfigMaps in the platform namespace, not this
+      # one, so the sidecar has to look beyond its own release namespace.
+      searchNamespace: ALL
+      folderAnnotation: grafana_folder
+      provider:
+        foldersFromFilesStructure: true
+  # Prometheus is wired up by the chart itself; these two are the platform's.
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://platform-loki.devops-demo.svc:3100
+    - name: Analytics Postgres
+      type: postgres
+      access: proxy
+      uid: DS_ANALYTICS_PG
+      url: platform-postgres-analytics.devops-demo.svc:5432
+      database: analytics
+      user: grafana_ro
+      editable: false
+      jsonData:
+        sslmode: disable
+        postgresVersion: 1600
+        timescaledb: false
+      secureJsonData:
+        password: grafana_ro
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+
+# Kind runs the control plane as static pods bound to 127.0.0.1, so these four
+# scrape targets can never be reached and would sit permanently down -- a
+# Kind-ism, not a platform defect. Their alert rules go with them, otherwise
+# the cluster alerts on its own unreachable internals from the first minute.
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeEtcd:
+  enabled: false
+defaultRules:
+  rules:
+    etcd: false
+    kubeControllerManager: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+    kubeProxy: false

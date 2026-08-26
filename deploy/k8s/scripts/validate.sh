@@ -38,7 +38,7 @@ crd_schema="$schema_dir/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.jso
 
 # Per-service charts (consume the common library) + the library itself.
 services=(backend frontend analytics reports reports-ui canary blackbox
-  loadgen mailpit loki postgres-exporter postgres)
+  loadgen mailpit loki alloy postgres-exporter postgres)
 
 # Config files that exist twice on purpose: compose bind-mounts the original,
 # Helm can only read files inside a chart, so the chart carries a copy that
@@ -58,6 +58,15 @@ check_copy() {
 }
 check_copy observability/loki/config.yml "$charts_dir/loki/files/config.yml"
 check_copy observability/blackbox/blackbox.yml "$charts_dir/blackbox/files/blackbox.yml"
+# The rule files and dashboards are rendered into PrometheusRule CRs and
+# Grafana dashboard ConfigMaps, so they must stay identical to what compose
+# feeds Prometheus and Grafana -- otherwise the two stacks silently alert and
+# chart on different definitions.
+check_copy observability/prometheus_slo_rules.yml "$umbrella/files/rules/prometheus_slo_rules.yml"
+check_copy observability/prometheus_alerts.yml "$umbrella/files/rules/prometheus_alerts.yml"
+for dashboard in observability/grafana/dashboards/*.json; do
+  check_copy "$dashboard" "$umbrella/files/dashboards/$(basename "$dashboard")"
+done
 if [ "$copy_drift" -gt 0 ]; then
   echo "config file drift: ${copy_drift} copy/copies disagree with the compose original." >&2
   exit 1
@@ -114,11 +123,17 @@ if [ "$image_drift" -gt 0 ]; then
   exit 1
 fi
 
-echo "==> helm dependency build (vendor the common library into each chart)"
+# `update`, not `build`: build refuses when a local Chart.lock is older than
+# Chart.yaml, so adding a dependency makes the gate fail with a lockfile error
+# instead of doing the obvious thing. The locks are gitignored build artifacts
+# that nobody reviews, and every dependency here is a file:// path, so there
+# is no version resolution to pin down -- regenerating is both safe and what
+# CI does anyway on a clean checkout.
+echo "==> helm dependency update (vendor the common library into each chart)"
 for s in "${services[@]}"; do
-  helm dependency build "$charts_dir/$s" >/dev/null
+  helm dependency update "$charts_dir/$s" >/dev/null
 done
-helm dependency build "$umbrella" >/dev/null
+helm dependency update "$umbrella" >/dev/null
 
 echo "==> helm lint"
 helm lint "$charts_dir/common" "${services[@]/#/$charts_dir/}" "$umbrella"

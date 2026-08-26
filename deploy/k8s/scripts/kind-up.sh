@@ -23,24 +23,16 @@ cd "$repo_root"
 cluster_config="deploy/k8s/kind/cluster.yaml"
 cluster_name="$(sed -n 's/^name: \(.*\)$/\1/p' "$cluster_config")"
 
-# The Prometheus Operator itself is PR-4, but its ServiceMonitor CRD has to
-# exist NOW: every D6 service chart renders a ServiceMonitor unconditionally,
-# so `helm install` fails on an unknown kind without it. The alternative --
-# guarding the template with `.Capabilities.APIVersions.Has` -- is a trap:
-# `helm template` has no cluster capabilities, so the guard would silently stop
-# rendering ServiceMonitors and the offline kubeconform gate (RFC-0003 DK9,
-# the whole point of PR-2) would validate nothing.
+# Kubernetes-native observability (RFC-0003 DK6, ADR-0017). This chart brings
+# the Prometheus Operator, Prometheus, Alertmanager, Grafana, kube-state-metrics
+# and node-exporter -- and, importantly, every monitoring.coreos.com CRD, so the
+# standalone ServiceMonitor CRD install PR-3 needed is gone.
 #
-# This tag pins the CRD *install* only. Which prometheus-operator ships with
-# the platform is still PR-4's choice (see deploy/k8s/README.md); PR-4 must
-# reconcile this tag, the vendored schema, and its kube-prometheus-stack pick.
-PROMETHEUS_OPERATOR_TAG="v0.93.1"
-# Envoy Gateway is the Gateway API implementation (ADR-0016). Its chart also
-# ships the Gateway API CRDs themselves (bundle v1.6.1 at this version), so
-# there is no separate CRD install step -- `helm install` applies everything
-# under the chart's crds/ directory.
+# Pinned deliberately: chart 88.5.4 ships operator v0.93.1, which is the version
+# deploy/k8s/schemas/monitoring.coreos.com/ is vendored from. Those two move
+# together -- see deploy/k8s/README.md.
+KUBE_PROMETHEUS_STACK_VERSION="88.5.4"
 ENVOY_GATEWAY_VERSION="1.9.0"
-servicemonitor_crd="https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/${PROMETHEUS_OPERATOR_TAG}/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml"
 
 if kind get clusters 2>/dev/null | grep -qx "$cluster_name"; then
   echo "==> cluster '$cluster_name' already exists (skipping create)"
@@ -57,11 +49,17 @@ kubectl config use-context "kind-${cluster_name}"
 echo "==> waiting for nodes to be Ready"
 kubectl wait --for=condition=Ready nodes --all --timeout=120s
 
-# --server-side: the CRD's embedded openAPIV3Schema is far larger than the
-# 256 KiB last-applied-configuration annotation a client-side apply would try
-# to write, which fails outright on CRDs this size.
-echo "==> installing the ServiceMonitor CRD (prometheus-operator ${PROMETHEUS_OPERATOR_TAG})"
-kubectl apply --server-side -f "$servicemonitor_crd"
+echo "==> installing kube-prometheus-stack ${KUBE_PROMETHEUS_STACK_VERSION} (Operator, Prometheus, Alertmanager, Grafana)"
+# --force-update: `helm repo add` fails when the name already exists with a
+# different URL, which would abort an otherwise idempotent kind-up.
+helm repo add --force-update prometheus-community https://prometheus-community.github.io/helm-charts >/dev/null
+helm repo update prometheus-community >/dev/null
+helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+  --version "$KUBE_PROMETHEUS_STACK_VERSION" \
+  --kube-context "kind-${cluster_name}" \
+  --namespace monitoring --create-namespace \
+  -f deploy/k8s/kind/kube-prometheus-stack-values.yaml \
+  --wait --timeout 10m
 
 echo "==> installing Envoy Gateway ${ENVOY_GATEWAY_VERSION} (Gateway API CRDs included)"
 helm upgrade --install eg oci://docker.io/envoyproxy/gateway-helm \

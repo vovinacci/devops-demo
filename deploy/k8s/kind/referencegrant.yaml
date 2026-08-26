@@ -1,0 +1,26 @@
+# Cross-namespace routing permission (ADR-0016). The platform's Gateway and
+# HTTPRoutes live in the release namespace; Grafana belongs to the
+# kube-prometheus-stack release in `monitoring`. Gateway API refuses a
+# backendRef that crosses a namespace boundary unless the TARGET namespace
+# publishes this grant -- consent is given by the owner of the thing being
+# referenced, not taken by the referrer. That is the deliberate difference
+# from ingress-style routing, where any Ingress could name any Service.
+#
+# Applied by deploy/k8s/scripts/kind-deploy.sh into `monitoring`, because the
+# namespace it protects belongs to the cluster prerequisites rather than to
+# the application chart.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: grafana-from-platform
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      # kind-deploy.sh substitutes the release namespace here, so a deploy
+      # into a non-default NAMESPACE still gets a grant that names it.
+      namespace: __PLATFORM_NAMESPACE__
+  to:
+    - group: ""
+      kind: Service
+      name: kube-prometheus-stack-grafana

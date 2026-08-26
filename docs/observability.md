@@ -185,6 +185,20 @@ regardless of which dashboard they were written from. `make up-workshop`
 them and a live-verified caveat where two of the three leave no trace in
 the hourly aggregate at that scale even though their annotation stays exact.
 
+## The same stack on Kubernetes
+
+Everything above describes the compose stack. On Kubernetes the signals and
+the queries are identical -- deliberately, since the rule files and dashboards
+are the same files -- but nothing is configured centrally. Prometheus
+discovers targets from a `ServiceMonitor` each service ships, the rules become
+`PrometheusRule` objects, the blackbox targets become a `Probe`, the
+dashboards become ConfigMaps a Grafana sidecar watches, and Alloy runs one
+pod per node reading logs through the API instead of a Docker socket.
+
+`deploy/k8s/README.md` covers the mechanics and the traps. Bring it up with
+`make kind-up && make kind-deploy PROFILE=full && make kind-seed`; Grafana is
+at `http://grafana.devops-demo.localhost:8080/`.
+
 ## SLOs
 
 Prometheus recording rules define availability, latency, and error-rate

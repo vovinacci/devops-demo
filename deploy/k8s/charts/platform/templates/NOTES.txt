@@ -7,5 +7,6 @@ rendered is the one enabled by the values overlay(s) you passed:
   core + analytics   ... -f values.yaml -f values-analytics.yaml
   everything         ... -f values.yaml -f values-full.yaml
 
-The cluster (Kind, Envoy Gateway) is RFC-0003 PR-3; the Prometheus Operator
-and Grafana/Loki-Alloy observability are PR-4.
+The cluster itself (Kind, Envoy Gateway, kube-prometheus-stack) comes from
+`make kind-up`; this chart is the application and the custom resources that
+describe it to the Operator.

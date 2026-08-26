@@ -1,0 +1,108 @@
+{{/*
+The platform's contribution to Kubernetes-native observability (RFC-0003 DK6,
+ADR-0017). The Operator, Prometheus, Alertmanager and Grafana are a CLUSTER
+prerequisite installed by `make kind-up`; what belongs to the application is
+the set of custom resources describing WHAT to watch:
+
+  ServiceMonitor  -- one per D6 service, rendered by the per-service charts
+  PrometheusRule  -- the SLO recording rules and the alerts, below
+  Probe           -- the blackbox targets, below
+  ConfigMap       -- the Grafana dashboards (templates/dashboards.yaml)
+
+That split is the point of the Operator model. Under compose these are
+sections of one prometheus.yml that Prometheus must be restarted to reload;
+here each is an object owned by the service it describes, and Prometheus
+picks it up with no restart and no central file to edit. The static scrape
+jobs are simply not ported -- their k8s equivalent is the ServiceMonitor each
+chart already renders.
+
+The rule files are byte-identical copies of the compose originals under
+files/rules/ (Helm cannot read outside a chart), diffed against them by
+deploy/k8s/scripts/validate.sh so the copies cannot drift. They are indented
+whole into spec: a Prometheus rule file IS `groups:`, which is exactly what a
+PrometheusRule's spec holds.
+*/}}
+{{- if .Values.monitoring.enabled }}
+{{- if .Values.monitoring.rules }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-slo-rules
+  labels:
+    app.kubernetes.io/part-of: devops-demo
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+{{ .Files.Get "files/rules/prometheus_slo_rules.yml" | indent 2 }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-alerts
+  labels:
+    app.kubernetes.io/part-of: devops-demo
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+{{ .Files.Get "files/rules/prometheus_alerts.yml" | indent 2 }}
+{{- end }}
+{{- if and .Values.monitoring.probe (index .Values "blackbox" "enabled") }}
+---
+{{/*
+The blackbox layer (ADR-0007 D9) as a Probe CR rather than a scrape job with
+relabel_configs. The compose prometheus.yml rewrites __address__ by hand to
+turn a target list into probe requests; the Probe CR states the same thing
+declaratively -- prober here, module there, targets in a list.
+
+Liveness AND readiness are both probed on the backend, deliberately: they
+diverge under degraded-but-alive conditions, and seeing that divergence from
+outside the process is the lesson.
+*/}}
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: {{ .Release.Name }}-blackbox
+  labels:
+    app.kubernetes.io/part-of: devops-demo
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  jobName: blackbox_http
+  interval: 30s
+  module: http_2xx
+  prober:
+    # Namespace-qualified deliberately: Prometheus runs in the stack's
+    # namespace and dials the prober from there, so the bare Service name it
+    # would resolve in its own namespace does not exist. The probe TARGETS
+    # below stay short -- blackbox resolves those, and it is a neighbour.
+    url: {{ .Release.Name }}-blackbox.{{ .Release.Namespace }}.svc:9115
+  targets:
+    staticConfig:
+      static:
+        {{- if index .Values "backend" "enabled" }}
+        - http://{{ .Release.Name }}-backend:8000/healthz
+        - http://{{ .Release.Name }}-backend:8000/readyz
+        {{- end }}
+        {{- if index .Values "frontend" "enabled" }}
+        - http://{{ .Release.Name }}-frontend:80/
+        {{- end }}
+        {{- if index .Values "mailpit" "enabled" }}
+        - http://{{ .Release.Name }}-mailpit:8025/livez
+        {{- end }}
+        {{- if index .Values "loki" "enabled" }}
+        - http://{{ .Release.Name }}-loki:3100/ready
+        {{- end }}
+        {{- if index .Values "canary" "enabled" }}
+        - http://{{ .Release.Name }}-canary:8080/healthz
+        {{- end }}
+        {{- if index .Values "analytics" "enabled" }}
+        - http://{{ .Release.Name }}-analytics:8082/healthz
+        {{- end }}
+        {{- if index .Values "reports" "enabled" }}
+        - http://{{ .Release.Name }}-reports:8083/healthz
+        {{- end }}
+        {{- if index .Values "reports-ui" "enabled" }}
+        - http://{{ .Release.Name }}-reports-ui:8084/healthz
+        {{- end }}
+        {{- with .Values.monitoring.extraProbeTargets }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+{{- end }}
+{{- end }}

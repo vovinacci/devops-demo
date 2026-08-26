@@ -22,6 +22,10 @@ spec:
       {{- include "common.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- if or .Values.config .Values.secret .Values.configFiles }}
+      annotations:
+        checksum/config: {{ include "common.configChecksum" . }}
+      {{- end }}
       labels:
         {{- include "common.selectorLabels" . | nindent 8 }}
     spec:
@@ -92,6 +96,84 @@ spec:
 {{- end -}}
 
 {{/*
+common.daemonset: one pod per node, for workloads whose job is to observe the
+node they run on (the Alloy log shipper, RFC-0003 DK6). Same container shape
+as common.deployment -- probes, resources, envFrom, config files -- minus the
+things that make no sense per-node: there is no replica count to set and no
+rollout surge to configure, because the scheduler decides the count.
+*/}}
+{{- define "common.daemonset" -}}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "common.fullname" . }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "common.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- if or .Values.config .Values.secret .Values.configFiles }}
+      annotations:
+        checksum/config: {{ include "common.configChecksum" . }}
+      {{- end }}
+      labels:
+        {{- include "common.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "common.serviceAccountName" . }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ include "common.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          {{- with .Values.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.containerPort .Values.extraPorts }}
+          ports:
+            {{- include "common.containerPorts" . | trim | nindent 12 }}
+          {{- end }}
+          {{- with .Values.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- include "common.envFrom" . | trim | nindent 10 }}
+          {{- include "common.probes" . | trim | nindent 10 }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.volumeMounts .Values.configFiles }}
+          volumeMounts:
+            {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- if .Values.configFiles }}
+            - name: config-files
+              mountPath: {{ required "configFilesMountPath is required when configFiles is set" .Values.configFilesMountPath }}
+              readOnly: true
+            {{- end }}
+          {{- end }}
+      {{- if or .Values.volumes .Values.configFiles }}
+      volumes:
+        {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.configFiles }}
+        - name: config-files
+          configMap:
+            name: {{ include "common.fullname" . }}-files
+        {{- end }}
+      {{- end }}
+{{- end -}}
+
+{{/*
 common.statefulset: stable identity + durable per-replica storage for the
 three Postgres instances (RFC-0003 DK7, ADR-0018). Pairs with a headless
 common.service (clusterIP: None). Probes are exec pg_isready (type=exec).
@@ -111,6 +193,10 @@ spec:
       {{- include "common.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- if or .Values.config .Values.secret .Values.configFiles }}
+      annotations:
+        checksum/config: {{ include "common.configChecksum" . }}
+      {{- end }}
       labels:
         {{- include "common.selectorLabels" . | nindent 8 }}
     spec:

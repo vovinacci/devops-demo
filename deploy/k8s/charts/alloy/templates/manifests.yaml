@@ -1,0 +1,14 @@
+---
+{{ include "common.serviceaccount" . }}
+---
+{{ include "common.configmap" . }}
+---
+{{ include "common.secret" . }}
+---
+{{ include "common.fileconfigmap" . }}
+---
+{{ include "common.daemonset" . }}
+---
+{{ include "common.service" . }}
+---
+{{ include "common.servicemonitor" . }}

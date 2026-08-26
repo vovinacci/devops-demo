@@ -118,6 +118,21 @@ kubectl --context "kind-${cluster_name}" create namespace "$namespace" \
   --dry-run=client -o yaml | kubectl --context "kind-${cluster_name}" apply -f -
 kubectl --context "kind-${cluster_name}" -n "$namespace" apply -f deploy/k8s/kind/envoyproxy.yaml
 
+# Grafana belongs to the kube-prometheus-stack release in `monitoring`, so the
+# platform's HTTPRoute for it crosses a namespace boundary and the target
+# namespace has to consent (deploy/k8s/kind/referencegrant.yaml).
+# Skipped rather than fatal when the observability stack is absent: the grant
+# protects a namespace that only exists once kind-up has installed the stack,
+# and a platform deploy without it is a legitimate state (the Grafana route
+# simply reports ResolvedRefs=False).
+if kubectl --context "kind-${cluster_name}" get namespace monitoring >/dev/null 2>&1; then
+  echo "==> applying the cross-namespace ReferenceGrant for Grafana"
+  sed "s/__PLATFORM_NAMESPACE__/${namespace}/" deploy/k8s/kind/referencegrant.yaml |
+    kubectl --context "kind-${cluster_name}" -n monitoring apply -f -
+else
+  echo "==> monitoring namespace absent -- skipping the Grafana ReferenceGrant"
+fi
+
 echo "==> helm upgrade --install platform (profile '$profile', namespace '$namespace')"
 helm upgrade --install platform "$umbrella" \
   --kube-context "kind-${cluster_name}" \

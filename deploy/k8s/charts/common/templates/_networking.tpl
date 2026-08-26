@@ -59,6 +59,16 @@ metadata:
   labels:
     {{- include "common.labels" . | nindent 4 }}
 spec:
+  {{- /*
+  Without this, Prometheus names the job after the SERVICE -- platform-reports
+  rather than reports -- and every query written against the compose stack
+  silently matches nothing. The Reports JVM and Reports UI dashboards go blank
+  and the AnalyticsStreamDown alert can never fire, while Prometheus itself
+  looks perfectly healthy. jobLabel names a label ON the Service whose value
+  becomes the job, so the job label is the service's own name and the rules
+  and dashboards are portable across both stacks.
+  */}}
+  jobLabel: {{ .Values.d6.serviceMonitor.jobLabel | default "app.kubernetes.io/name" }}
   selector:
     matchLabels:
       {{- include "common.selectorLabels" . | nindent 6 }}

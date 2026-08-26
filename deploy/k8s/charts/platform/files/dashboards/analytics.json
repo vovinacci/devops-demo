@@ -1,0 +1,498 @@
+{
+  "uid": "analytics-ingest",
+ "annotations": {
+  "list": [
+   {
+    "builtIn": 1,
+    "datasource": "-- Grafana --",
+    "enable": true,
+    "hide": true,
+    "iconColor": "rgba(0, 211, 255, 1)",
+    "name": "Annotations & Alerts",
+    "type": "dashboard"
+   }
+  ]
+ },
+ "editable": true,
+ "fiscalYearStartMonth": 1,
+ "gnetId": null,
+ "graphTooltip": 0,
+ "id": null,
+ "iteration": 1,
+ "links": [],
+ "panels": [
+  {
+   "type": "stat",
+   "title": "Ingest: Stream Connected",
+   "description": "RFC-0001 Phase 3 PR-B (ADR-0002): 1 while the WatchItemEvents stream to the backend is connected, 0 while reconnecting. Feeds the AnalyticsStreamDown alert together with up{job=\"analytics\"}.",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 6,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "analytics_stream_connected",
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": ["lastNotNull"],
+     "fields": "",
+     "values": false
+    },
+    "orientation": "auto",
+    "textMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "min": 0,
+     "max": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       { "value": null, "color": "red" },
+       { "value": 1, "color": "green" }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Ingest: Last Event Staleness",
+   "description": "time() - analytics_last_event_time_seconds -- the degenerate single-source watermark (ADR-0005 D1). Rises during a disconnect (the same signal the canary's pipeline-lag metric measures from the other end), resets on the next ingested event. Gated on the gauge being > 0 so a fresh process that has never ingested an event (gauge still at its zero-value default) shows no data instead of a spurious multi-decade staleness reading.",
+   "gridPos": {
+    "x": 6,
+    "y": 0,
+    "w": 6,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "(time() - analytics_last_event_time_seconds) and analytics_last_event_time_seconds > 0",
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": ["lastNotNull"],
+     "fields": "",
+     "values": false
+    },
+    "orientation": "auto",
+    "textMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       { "value": null, "color": "green" },
+       { "value": 300, "color": "yellow" },
+       { "value": 900, "color": "red" }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Ingest: Reconnects (total)",
+   "description": "analytics_reconnects_total -- cumulative reconnect attempts since process start (ADR-0002 backoff loop). Compare against the Reconnect Rate panel to tell a one-off blip from a sustained outage.",
+   "gridPos": {
+    "x": 12,
+    "y": 0,
+    "w": 6,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "analytics_reconnects_total",
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": ["lastNotNull"],
+     "fields": "",
+     "values": false
+    },
+    "orientation": "auto",
+    "textMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Ingest: Deduplicated Events (total)",
+   "description": "analytics_events_deduplicated_total -- stream events dropped by the item_events ON CONFLICT DO NOTHING guard (idempotent replay after a reconnect). Expected to tick up around every reconnect; a high steady-state rate outside reconnects would be unusual.",
+   "gridPos": {
+    "x": 18,
+    "y": 0,
+    "w": 6,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "analytics_events_deduplicated_total",
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": ["lastNotNull"],
+     "fields": "",
+     "values": false
+    },
+    "orientation": "auto",
+    "textMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Ingest: Events Ingested Rate by Type",
+   "description": "sum(rate(analytics_events_ingested_total[5m])) by (event_type) -- bounded label set (created|updated|deleted). Only counts genuinely new events (dedup-guarded replays are excluded, see Deduplicated Events).",
+   "gridPos": {
+    "x": 0,
+    "y": 8,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "sum(rate(analytics_events_ingested_total[5m])) by (event_type)",
+     "legendFormat": "{{ event_type }}",
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ops",
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "linear",
+      "fillOpacity": 10,
+      "pointSize": 5
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Ingest: Reconnect Rate",
+   "description": "rate(analytics_reconnects_total[5m]) -- a nonzero, climbing rate means the client is actively retrying against a still-unreachable backend, not stuck silently. Zero at steady state is the healthy baseline.",
+   "gridPos": {
+    "x": 12,
+    "y": 8,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "rate(analytics_reconnects_total[5m])",
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ops",
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "linear",
+      "fillOpacity": 10,
+      "pointSize": 5
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "bargauge",
+   "title": "Ingest: Events Ingested (last 24h) by Type",
+   "description": "increase(analytics_events_ingested_total[24h]) by (event_type) -- approximates event_buckets' 24h totals via the whitebox ingest counter. Prometheus is the only datasource wired so far (D5): a Postgres datasource reading event_buckets/current_items directly for true historical dashboards arrives with the RFC-0001 Phase 5 seeder work, not before.",
+   "gridPos": {
+    "x": 0,
+    "y": 16,
+    "w": 24,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "increase(analytics_events_ingested_total[24h])",
+     "legendFormat": "{{ event_type }}",
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     }
+    }
+   ],
+   "options": {
+    "displayMode": "gradient",
+    "orientation": "horizontal",
+    "reduceOptions": {
+     "calcs": ["lastNotNull"],
+     "fields": "",
+     "values": false
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "min": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       { "value": null, "color": "blue" }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Retention: Last Success Age",
+   "description": "time() - analytics_retention_last_success_timestamp_seconds -- RFC-0001 Phase 3 PR-C (ADR-0005 D7). Rises if the retention job stops succeeding (no dedicated alert this phase, see services/analytics/README.md); resets to ~0 on the next successful run. Gated on the gauge being > 0 so a fresh process that has not yet completed a run shows no data instead of a spurious multi-decade reading (same pattern as the Ingest: Last Event Staleness panel).",
+   "gridPos": {
+    "x": 0,
+    "y": 24,
+    "w": 6,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "(time() - analytics_retention_last_success_timestamp_seconds) and analytics_retention_last_success_timestamp_seconds > 0",
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": ["lastNotNull"],
+     "fields": "",
+     "values": false
+    },
+    "orientation": "auto",
+    "textMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       { "value": null, "color": "green" },
+       { "value": 5400, "color": "yellow" },
+       { "value": 10800, "color": "red" }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Retention: Deleted Rows (total)",
+   "description": "analytics_retention_deleted_rows_total -- cumulative raw item_events rows deleted since process start. Delete-only (ADR-0005 D7): event_buckets is already the aggregate, written at ingest time, so this counter reflects raw-row cleanup, not lost aggregate data.",
+   "gridPos": {
+    "x": 6,
+    "y": 24,
+    "w": 6,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "analytics_retention_deleted_rows_total",
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": ["lastNotNull"],
+     "fields": "",
+     "values": false
+    },
+    "orientation": "auto",
+    "textMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Retention: Deleted Rows Rate",
+   "description": "increase(analytics_retention_deleted_rows_total[2h]) -- pace of raw item_events cleanup; 2h window = 2x the default retention cadence (ANALYTICS_RETENTION_INTERVAL, 1h), a 5m window would only show slivers around each hourly run. Expected to track ingest volume roughly RetentionDays in the past; a long flat zero while Deleted Rows (total) also stays flat and Runs (success) keeps climbing just means nothing has aged past the horizon yet.",
+   "gridPos": {
+    "x": 12,
+    "y": 24,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "increase(analytics_retention_deleted_rows_total[2h])",
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ops",
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "linear",
+      "fillOpacity": 10,
+      "pointSize": 5
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Retention: Run Duration p95",
+   "description": "histogram_quantile(0.95, sum(rate(analytics_retention_run_duration_seconds_bucket[2h])) by (le)) -- 2h window = 2x the default retention cadence -- wall-clock duration of the DELETE FROM item_events run, success or failure alike.",
+   "gridPos": {
+    "x": 0,
+    "y": 32,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.95, sum(rate(analytics_retention_run_duration_seconds_bucket[2h])) by (le))",
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "linear",
+      "fillOpacity": 10,
+      "pointSize": 5
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Retention: Runs by Result",
+   "description": "sum(increase(analytics_retention_runs_total[2h])) by (result) -- 2h window = 2x the default retention cadence so a failed hourly run stays visible -- bounded label set (success|failure). A nonzero failure rate combined with a climbing Last Success Age is the signal this phase relies on in place of a dedicated alert (services/analytics/README.md).",
+   "gridPos": {
+    "x": 12,
+    "y": 32,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "sum(increase(analytics_retention_runs_total[2h])) by (result)",
+     "legendFormat": "{{ result }}",
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ops",
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "linear",
+      "fillOpacity": 10,
+      "pointSize": 5
+     }
+    },
+    "overrides": []
+   }
+  }
+ ],
+ "refresh": "10s",
+ "schemaVersion": 39,
+ "style": "dark",
+ "tags": [
+  "devops-demo",
+  "analytics"
+ ],
+ "templating": {
+  "list": [
+   {
+    "name": "DS_PROMETHEUS",
+    "type": "datasource",
+    "query": "prometheus",
+    "current": {
+     "selected": true
+    },
+    "hide": 0,
+    "label": "Prometheus"
+   }
+  ]
+ },
+ "time": {
+  "from": "now-1h",
+  "to": "now"
+ },
+ "timezone": "browser",
+ "title": "Analytics Ingest",
+ "version": 1,
+ "weekStart": ""
+}
