@@ -82,15 +82,14 @@ loki.process "docker_logs" {
   // - Python: INFO, WARNING, ERROR, CRITICAL, DEBUG
   // - Go: info, warn, error, fatal, panic, debug, trace
   // - Common patterns: [WARN], [ERROR], level=warn, etc.
+  // The capture group is NAMED on purpose: stage.regex only puts named groups
+  // into the extracted map, so the positional "$1" this pipeline used to
+  // reference extracted nothing at all. A detected_level label appeared
+  // regardless because Loki 3.x adds one of its own -- which is why its
+  // values used to arrive in mixed case.
   stage.regex {
-    expression = "(?i)(?:level=|\\[|^|\\s|levelname|level_name|log_level|logLevel)(?:=|:)?\\s*(trace|debug|info|warn|warning|error|fatal|crit|critical|panic)(?:\\]|:|\\s|$)"
+    expression = "(?i)(?:level=|\\[|^|\\s|levelname|level_name|log_level|logLevel)(?:=|:)?\\s*(?P<level>trace|debug|info|warn|warning|error|fatal|crit|critical|panic)(?:\\]|:|\\s|$)"
     source     = "output"
-  }
-
-  stage.labels {
-    values = {
-      detected_level = "$1",
-    }
   }
 
   // Normalize log levels to Go log level conventions (lowercase)
@@ -98,9 +97,20 @@ loki.process "docker_logs" {
   // - WARNING -> warn
   // - CRITICAL -> fatal (critical is not a standard Go level, map to fatal)
   // - All others -> lowercase
+  //
+  // This runs BEFORE the label is promoted, also on purpose: stage.labels
+  // copies the extracted value as it stands, so normalising afterwards
+  // rewrites the extracted map and leaves the label already set from the raw
+  // capture.
   stage.template {
-    source   = "detected_level"
-    template = "{{ if eq (.detected_level | lower) \"warning\" }}warn{{ else if or (eq (.detected_level | lower) \"critical\") (eq (.detected_level | lower) \"crit\") }}fatal{{ else }}{{ .detected_level | lower }}{{ end }}"
+    source   = "level"
+    template = "{{ if eq (.Value | lower) \"warning\" }}warn{{ else if or (eq (.Value | lower) \"critical\") (eq (.Value | lower) \"crit\") }}fatal{{ else }}{{ .Value | lower }}{{ end }}"
+  }
+
+  stage.labels {
+    values = {
+      detected_level = "level",
+    }
   }
 
   // Drop internal metadata labels and temporary fields to keep labels clean
