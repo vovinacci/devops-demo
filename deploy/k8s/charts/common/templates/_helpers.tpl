@@ -43,16 +43,21 @@ app.kubernetes.io/version: {{ . | quote }}
 {{- end -}}
 
 {{/*
-image: repository@digest when a digest is pinned (infra images carry the same
-digest as deploy/compose/docker-compose.yml), else repository:tag. Built
-service images have no registry digest yet -- their tag is a PR-3 concern
-(loaded into Kind), so PR-2 renders a placeholder tag.
+image: repository:tag, where an infra image's tag is the full pinned
+reference from deploy/compose/docker-compose.yml -- `3.7.3@sha256:...`. A
+name:tag@digest reference is valid and the digest is what actually resolves,
+so ONE field carries both the human-readable version and the pin.
+
+It used to be two fields (`tag` plus a separate `digest` this template
+preferred). Renovate reads the tag string as an image reference and updates
+the digest inside it, never the other key -- so a bump silently did nothing
+and the two drifted apart. deploy/k8s/scripts/validate.sh now also checks each
+of these against the compose original.
+
+Built service images are loaded into Kind rather than pulled and carry the
+placeholder `dev` tag.
 */}}
 {{- define "common.image" -}}
 {{- $img := .Values.image -}}
-{{- if $img.digest -}}
-{{ $img.repository }}@{{ $img.digest }}
-{{- else -}}
 {{ $img.repository }}:{{ $img.tag | default "dev" }}
-{{- end -}}
 {{- end -}}

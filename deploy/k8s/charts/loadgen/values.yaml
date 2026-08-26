@@ -6,10 +6,20 @@ image:
   repository: devops-demo/loadgen
   tag: dev
 replicaCount: 1
-# LOADGEN_* upstream URLs arrive as a ConfigMap in PR-3 (RFC-0003 DK8).
-env:
-  - name: DEMO_TIME_SCALE
-    value: "1"
+# Upstreams and tuning knobs, no credentials (RFC-0003 DK8).
+# K6_PROMETHEUS_RW_SERVER_URL is deliberately absent: the k6 remote-write
+# output targets Prometheus, which is not charted until PR-4. It returns here
+# with the Operator, together with the -o experimental-prometheus-rw argument.
+config:
+  DEMO_TIME_SCALE: "1"
+  LOADGEN_BACKEND_URL: "http://{{ .Release.Name }}-backend:8000"
+  LOADGEN_WEB_URL: "http://{{ .Release.Name }}-frontend:80"
+  LOADGEN_GRPC_ADDR: "{{ .Release.Name }}-backend:50051"
+  LOADGEN_ANALYTICS_URL: "http://{{ .Release.Name }}-analytics:8082"
+  LOADGEN_DURATION_HOURS: "24"
+  LOADGEN_STAGE_MINUTES: "15"
+  LOADGEN_PREALLOCATED_VUS: "10"
+  LOADGEN_MAX_VUS: "50"
 resources:
   requests:
     cpu: 50m

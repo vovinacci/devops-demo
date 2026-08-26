@@ -577,3 +577,44 @@ ConfigMaps/Secrets demo-grade posture (DK8, continuous with ADR-0011), the CI
 split (DK9, continuous with ADR-0009/ADR-0012), and the `make kind-*` two-model
 contrast (DK10). These are recorded here and in the implementation PRs; they do
 not each warrant a standalone durable decision.
+
+## 12. Amendments
+
+Implementation learnings, recorded as amendments rather than by rewriting the
+sections above (engineering-principles.md Section 2; Hard rule 5).
+
+### A1 -- PR-3 acceptance criteria (added during PR-3)
+
+Section 8 asks PR-3 to bring the **`core`** profile up green while also
+requiring that "the three Postgres StatefulSets bind PVCs" and that
+"reports-ui ... and Grafana are reachable through the Envoy Gateway". Those
+cannot all hold at once: `core` is backend, frontend, postgres-backend,
+postgres-exporter, mailpit and loki -- **one** Postgres and no reports-ui --
+and Grafana is not charted until PR-4 by this RFC's own Section 6.
+
+The criterion PR-3 is delivered against instead:
+
+- `make kind-up && make kind-deploy` brings the **`core`** profile up green on
+  a multi-node Kind cluster, and `make kind-deploy PROFILE=full` brings up the
+  full profile -- which is where all three Postgres StatefulSets bind PVCs and
+  reports-ui exists.
+- Every pod passes its `/healthz` liveness and `/readyz` readiness probes,
+  with the documented D6 opt-outs (ADR-0013); the backend additionally passes
+  its gRPC health startup probe.
+- The frontend, reports-ui, backend REST and backend gRPC are reachable
+  through the Envoy Gateway.
+- **Grafana's route moves to PR-4**, together with Grafana itself.
+- `make kind-down` deletes the cluster cleanly.
+
+### A2 -- the ServiceMonitor CRD arrives in PR-3, not PR-4 (added during PR-3)
+
+Section 6 puts the Prometheus Operator in PR-4, but every D6 chart renders a
+ServiceMonitor unconditionally, so `helm install` fails on an unknown kind
+without the CRD. Guarding the template with `.Capabilities.APIVersions.Has`
+would appear to fix it and would instead gut the DK9 gate: `helm template` has
+no cluster capabilities, so the guard would silently stop rendering
+ServiceMonitors and `kubeconform` would validate nothing.
+
+`make kind-up` therefore installs the **ServiceMonitor CRD alone**, pinned to a
+prometheus-operator tag. The Operator itself, and the choice of
+kube-prometheus-stack version, remain PR-4's.

@@ -1,0 +1,36 @@
+# Kind cluster for the local Kubernetes target (RFC-0003 DK1, DK10).
+# Created by `make kind-up`, deleted by `make kind-down`.
+#
+# Multi-node on purpose. A single-node cluster hides the two things this
+# platform is meant to teach: that a pod is SCHEDULED somewhere (the control
+# plane is tainted here, so every workload lands on a worker), and that a
+# ReadWriteOnce volume binds to ONE node -- the local-path provisioner pins
+# the claim to whichever worker the pod first landed on, which is why the
+# reports Deployment uses strategy: Recreate (charts/reports/values.yaml).
+# A one-node cluster makes both lessons invisible.
+#
+# The node image is digest-pinned like every other image in this repo: the tag
+# alone is mutable, and a silently different Kubernetes version underneath a
+# "reproducible" cluster is the exact failure the pinning discipline exists to
+# prevent (ADR-0012). Its Kubernetes minor is checked against the kubectl pin
+# in .mise.toml by scripts/check-toolchain-drift.sh -- a node image bumped
+# without the client is a version skew the gate refuses.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: devops-demo
+nodes:
+  # Kind has no cloud LoadBalancer, so the Envoy Gateway Service is a NodePort
+  # and this mapping is what makes it reachable from the host: container
+  # :30080 (the fixed NodePort set by kind-up.sh) shows up as localhost:8080.
+  # A NodePort answers on EVERY node, so mapping it once here is enough
+  # (RFC-0003 Section 9, ADR-0016).
+  - role: control-plane
+    image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP
+  - role: worker
+    image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
+  - role: worker
+    image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5

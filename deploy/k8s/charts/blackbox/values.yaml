@@ -5,10 +5,17 @@
 image:
   repository: prom/blackbox-exporter
   tag: v0.26.0@sha256:92e05d5fe0df01d3980518dc42f07b778a8997048b57392ebc7f7391ebd7bb06
-  digest: sha256:92e05d5fe0df01d3980518dc42f07b778a8997048b57392ebc7f7391ebd7bb06
 replicaCount: 1
 containerPort: 9115
 portName: http
+# The exporter reads its module definitions from a file, bind-mounted under
+# compose and mounted from a ConfigMap here (RFC-0003 DK8). The image's default
+# --config.file is /etc/blackbox_exporter/config.yml, so the mount path and
+# file name below are what make it load without an argument override.
+configFiles:
+  - name: config.yml
+    path: files/blackbox.yml
+configFilesMountPath: /etc/blackbox_exporter
 resources:
   requests:
     cpu: 10m

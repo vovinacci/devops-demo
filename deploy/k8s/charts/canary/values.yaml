@@ -5,6 +5,13 @@ image:
 replicaCount: 1
 containerPort: 8080
 portName: http
+# Upstreams only -- no credentials, so no Secret. analytics and reports belong
+# to other profiles and may be absent; the journey skips those steps rather
+# than failing (RFC-0001 D10 graceful degradation), exactly as under compose.
+config:
+  CANARY_BACKEND_URL: "http://{{ .Release.Name }}-backend:8000"
+  CANARY_ANALYTICS_URL: "http://{{ .Release.Name }}-analytics:8082"
+  CANARY_REPORTS_URL: "http://{{ .Release.Name }}-reports:8083"
 resources:
   requests:
     cpu: 25m

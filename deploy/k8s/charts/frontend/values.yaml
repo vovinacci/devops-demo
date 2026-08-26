@@ -17,6 +17,10 @@ resources:
   limits:
     cpu: 200m
     memory: 64Mi
+# The nginx.conf /api/ upstream, substituted at container start. Compose can
+# hardcode `api`; here the Service is named after the release.
+config:
+  FRONTEND_BACKEND_URL: "http://{{ .Release.Name }}-backend:8000"
 service:
   enabled: true
   type: ClusterIP

@@ -23,15 +23,18 @@ k6 = "2.1"
 # scripts/check-toolchain-drift.sh.
 java = "temurin-21"
 gradle = "8.14"
-# Kubernetes packaging toolchain (RFC-0003 DK2, DK9). helm renders the
-# charts under deploy/k8s/; kubeconform schema-validates the rendered
-# manifests (ServiceMonitor CR included, via a vendored CRD schema). Both
-# are what `make lint-k8s` and the k8s-lint CI gate run, so pinning them
-# here keeps make == CI (RFC-0001 D12). kind + kubectl are deliberately
-# NOT added yet -- the cluster is RFC-0003 PR-3; PR-2 is a pure offline
-# templating exercise and needs only helm + kubeconform. Neither tool has a
-# second version consumer (no Dockerfile FROM, no wrapper), so there is
-# nothing for scripts/check-toolchain-drift.sh to compare against -- it is
-# deliberately left untouched.
+# Kubernetes toolchain (RFC-0003 DK2, DK9). helm renders the charts under
+# deploy/k8s/; kubeconform schema-validates the rendered manifests
+# (ServiceMonitor and the Gateway API CRs included, via vendored CRD
+# schemas); kind creates the local cluster and kubectl talks to it. All four
+# are what `make lint-k8s` and `make kind-*` run, so pinning them here keeps
+# make == CI (RFC-0001 D12).
+#
+# kubectl is the one with a second version consumer: the Kubernetes version
+# it must not skew from is baked into the digest-pinned node image in
+# deploy/k8s/kind/cluster.yaml, and scripts/check-toolchain-drift.sh compares
+# the two. Bump this pin and that image together.
 helm = "3.21"
 kubeconform = "0.7"
+kind = "0.32"
+kubectl = "1.36"

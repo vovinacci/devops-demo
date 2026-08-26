@@ -1,14 +1,38 @@
 # Loki: third-party image (digest pinned from compose). Distroless, so probes
-# are kubelet-side httpGet against Lokis own /ready. NO ServiceMonitor in PR-2
-# (RFC-0003 Section 6 leaves Lokis scrape out); config ConfigMap + Alloy
-# DaemonSet land in PR-4.
+# are kubelet-side httpGet against Lokis own /ready. NO ServiceMonitor
+# (RFC-0003 Section 6 leaves Lokis scrape out); the Alloy DaemonSet that ships
+# logs into it lands in PR-4.
 image:
   repository: grafana/loki
-  tag: 3.7.6@sha256:efd47c67f9bac88ca29bcf8cb997d9ab29d1848bd0aff579282295542a745952
-  digest: sha256:70b9f699fc9bb868b62f1cfd4f787dfa50242f1fd92e6089787d5d7daea75fe8
+  tag: 3.7.3@sha256:70b9f699fc9bb868b62f1cfd4f787dfa50242f1fd92e6089787d5d7daea75fe8
 replicaCount: 1
 containerPort: 3100
 portName: http
+# Compose bind-mounts this file; here it is a ConfigMap the pod mounts, and
+# the same -config.file argument points at it (RFC-0003 DK8). The copy under
+# files/ is diffed against the compose original by the k8s gate.
+# args, not command: compose's `command:` overrides CMD, and the Kubernetes
+# equivalent of CMD is args. Putting these in `command` would replace the
+# image's ENTRYPOINT (/usr/bin/loki) and try to exec the flag itself.
+args:
+  - -config.file=/etc/loki/config.yml
+  - -target=all
+configFiles:
+  - name: config.yml
+    path: files/config.yml
+configFilesMountPath: /etc/loki
+# Compose gives Loki a named volume; the same durability here is a claim.
+# ReadWriteOnce binds to one node, so the rollout has to be Recreate for the
+# same reason the reports Deployment does.
+strategy:
+  type: Recreate
+extraPVCs:
+  - name: data
+    size: 2Gi
+    accessMode: ReadWriteOnce
+pvcMounts:
+  - name: data
+    mountPath: /loki
 resources:
   requests:
     cpu: 50m

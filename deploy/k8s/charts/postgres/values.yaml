@@ -3,24 +3,23 @@
 # postgres-analytics / postgres-reports) -- three StatefulSets, three owners,
 # no shared volume (RFC-0001 D1 "service owns its store" stays visible in the
 # topology). Headless Service for stable DNS identity; PVC per replica.
-# Credentials are demo-grade defaults here (same posture as compose); they
-# move to Secrets in PR-3 (RFC-0003 DK8).
+# Credentials are demo-grade defaults (same posture as compose) held in a
+# Secret -- base64, not encrypted, and committed. See deploy/k8s/README.md.
 image:
   repository: postgres
-  tag: 16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
-  digest: sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+  tag: 16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
 replicaCount: 1
 containerPort: 5432
 portName: postgresql
-env:
-  - name: POSTGRES_DB
-    value: appdb
-  - name: POSTGRES_USER
-    value: app
-  - name: POSTGRES_PASSWORD
-    value: app
-  - name: PGDATA
-    value: /var/lib/postgresql/data/pgdata
+# The password is the one credential here; the database name, role and data
+# directory are plain settings (RFC-0003 DK8). The umbrella overrides all of
+# these for the analytics and reports aliases.
+config:
+  POSTGRES_DB: appdb
+  POSTGRES_USER: app
+  PGDATA: /var/lib/postgresql/data/pgdata
+secret:
+  POSTGRES_PASSWORD: app
 resources:
   requests:
     cpu: 50m

@@ -1,0 +1,14 @@
+# The GatewayClass is cluster-scoped and belongs to the platform, not to any
+# release -- which is why it is installed by `make kind-up` alongside Envoy
+# Gateway rather than rendered by the umbrella chart. A cluster has one
+# GatewayClass per controller; N releases share it.
+#
+# This is the Gateway API's separation of concerns (ADR-0016): the cluster
+# operator provisions the class, application teams only write Gateways and
+# Routes against it.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: eg
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
