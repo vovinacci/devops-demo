@@ -84,11 +84,16 @@ loki.process "docker_logs" {
   // - Common patterns: [WARN], [ERROR], level=warn, etc.
   // The capture group is NAMED on purpose: stage.regex only puts named groups
   // into the extracted map, so the positional "$1" this pipeline used to
-  // reference extracted nothing at all. A detected_level label appeared
-  // regardless because Loki 3.x adds one of its own -- which is why its
-  // values used to arrive in mixed case.
+  // reference extracted nothing at all.
+  //
+  // The alternation accepts a QUOTED key and value, because half this
+  // platform logs JSON: `{"level":"INFO"}` matched none of the older
+  // patterns, which needed `level=`, a bracket or whitespace immediately
+  // before the word. A detected_level label appeared for those services
+  // regardless -- Loki 3.x adds one of its own -- so the gap stayed
+  // invisible until the pattern was tested against a real line.
   stage.regex {
-    expression = "(?i)(?:level=|\\[|^|\\s|levelname|level_name|log_level|logLevel)(?:=|:)?\\s*(?P<level>trace|debug|info|warn|warning|error|fatal|crit|critical|panic)(?:\\]|:|\\s|$)"
+    expression = "(?i)(?:\"?(?:level|levelname|level_name|log_level|loglevel)\"?\\s*[:=]\\s*|\\[|^|\\s)\"?(?P<level>trace|debug|info|warn|warning|error|fatal|crit|critical|panic)\\b"
     source     = "output"
   }
 

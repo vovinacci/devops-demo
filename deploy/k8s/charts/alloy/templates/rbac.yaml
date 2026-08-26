@@ -13,7 +13,7 @@ metadata:
     {{- include "common.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
-    resources: ["nodes", "nodes/proxy", "namespaces", "pods", "services", "endpoints"]
+    resources: ["nodes", "namespaces", "pods", "services", "endpoints"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["pods/log"]

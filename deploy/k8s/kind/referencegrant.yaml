@@ -17,7 +17,9 @@ spec:
   from:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
-      namespace: devops-demo
+      # kind-deploy.sh substitutes the release namespace here, so a deploy
+      # into a non-default NAMESPACE still gets a grant that names it.
+      namespace: __PLATFORM_NAMESPACE__
   to:
     - group: ""
       kind: Service

@@ -276,7 +276,7 @@ loopback, and macOS and systemd-resolved both resolve `*.localhost` to
 without systemd-resolved), add one line:
 
 ```text
-127.0.0.1 frontend.devops-demo.localhost reports-ui.devops-demo.localhost api.devops-demo.localhost grpc.devops-demo.localhost
+127.0.0.1 frontend.devops-demo.localhost reports-ui.devops-demo.localhost api.devops-demo.localhost grpc.devops-demo.localhost grafana.devops-demo.localhost
 ```
 
 Grafana's route is the one that crosses a namespace: it belongs to the
@@ -298,8 +298,10 @@ deletes itself; a **failed one is kept** so there is something to read:
 kubectl -n devops-demo logs job/platform-backend-migrate
 ```
 
-Seed *data* is still a manual step -- the equivalent of `make seed --count 20`
-has no Kubernetes counterpart yet.
+Seed *data* is `make kind-seed`, the counterpart of `make seed` and
+`make seed-history`. It needs no DEMO_TIME_SCALE juggling: `kubectl exec` runs
+inside the analytics pod, which already carries the value from its ConfigMap,
+so the seeded history and the running stack cannot disagree about scale.
 
 ### Observability, the Operator way
 
@@ -428,11 +430,14 @@ helm template eg oci://docker.io/envoyproxy/gateway-helm --version 1.9.0 --inclu
   | grep -o 'gateway.networking.k8s.io/bundle-version: v[0-9.]*' | sort -u
 ```
 
-**The stack version and these schemas move together.** `kind-up.sh` pins
-kube-prometheus-stack `88.5.4`, whose appVersion is operator `v0.93.1`, which
-is the tag the files above are cut from. Bump the chart and re-cut the
-schemas in the same change, or the gate validates CRs against a shape the
-cluster no longer has.
+**Two independent pins, each with its own pair to keep in step.** The
+`monitoring.coreos.com` schemas track the Prometheus Operator: `kind-up.sh`
+installs kube-prometheus-stack `88.5.4`, whose appVersion is operator
+`v0.93.1`, which is the tag those files are cut from. The
+`gateway.networking.k8s.io` schemas track Gateway API `v1.6.1`, the bundle
+Envoy Gateway ships. Bumping either chart means re-cutting only its own
+schemas -- but re-cut them in the same change, or the gate validates CRs
+against a shape the cluster no longer has.
 
 ## The toolchain (DK9)
 

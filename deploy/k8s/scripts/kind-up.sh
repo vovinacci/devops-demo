@@ -50,7 +50,9 @@ echo "==> waiting for nodes to be Ready"
 kubectl wait --for=condition=Ready nodes --all --timeout=120s
 
 echo "==> installing kube-prometheus-stack ${KUBE_PROMETHEUS_STACK_VERSION} (Operator, Prometheus, Alertmanager, Grafana)"
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts >/dev/null
+# --force-update: `helm repo add` fails when the name already exists with a
+# different URL, which would abort an otherwise idempotent kind-up.
+helm repo add --force-update prometheus-community https://prometheus-community.github.io/helm-charts >/dev/null
 helm repo update prometheus-community >/dev/null
 helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --version "$KUBE_PROMETHEUS_STACK_VERSION" \

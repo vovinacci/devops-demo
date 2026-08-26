@@ -71,12 +71,17 @@ loki.process "logs" {
   // A parser stage would not do -- this platform emits JSON from some
   // runtimes and plain text from others, and the regex spans both.
   // NAMED capture group, deliberately: stage.regex only puts named groups
-  // into the extracted map, so the positional "$1" the compose pipeline
-  // references extracts nothing. What made a detected_level label appear
-  // there anyway is Loki 3.x adding one of its own -- which is why its values
-  // arrive in mixed case.
+  // into the extracted map, so the positional "$1" this pipeline used to
+  // reference extracted nothing.
+  //
+  // The alternation accepts a QUOTED key and value, because half this
+  // platform logs JSON: `{"level":"INFO"}` matched none of the older
+  // patterns, which needed `level=`, a bracket or whitespace immediately
+  // before the word. A detected_level label showed up for those services
+  // regardless -- Loki 3.x adds one of its own -- so the gap was invisible
+  // until the pattern was tested against a real line.
   stage.regex {
-    expression = "(?i)(?:level=|\\[|^|\\s|levelname|level_name|log_level|logLevel)(?:=|:)?\\s*(?P<level>trace|debug|info|warn|warning|error|fatal|crit|critical|panic)(?:\\]|:|\\s|$)"
+    expression = "(?i)(?:\"?(?:level|levelname|level_name|log_level|loglevel)\"?\\s*[:=]\\s*|\\[|^|\\s)\"?(?P<level>trace|debug|info|warn|warning|error|fatal|crit|critical|panic)\\b"
   }
 
   // Normalise BEFORE promoting to a label. stage.labels copies the extracted
