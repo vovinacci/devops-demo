@@ -5,6 +5,7 @@
 #
 #   make kind-deploy                  # core
 #   make kind-deploy PROFILE=full     # everything
+#   make kind-deploy PROFILE="analytics load"   # combine, as compose does
 #
 # Kind runs no image registry. The charts pin `tag: dev` with the default
 # imagePullPolicy of IfNotPresent, so an image that was never loaded is an
@@ -25,7 +26,11 @@ fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$repo_root"
 
-profile="${PROFILE:-core}"
+# Space-separated, so profiles COMBINE the way compose's repeated --profile
+# flags do: PROFILE="analytics load" is `--profile analytics --profile load`.
+# The k6 smoke gate needs exactly that pair, and a single-value PROFILE keeps
+# working unchanged.
+profiles="${PROFILE:-core}"
 namespace="${NAMESPACE:-devops-demo}"
 umbrella="deploy/k8s/charts/platform"
 cluster_name="$(sed -n 's/^name: \(.*\)$/\1/p' deploy/k8s/kind/cluster.yaml)"
@@ -39,19 +44,30 @@ fi
 # all seven for a core-only deploy would spend minutes on a JVM image the
 # release will not reference.
 core_images="backend frontend"
-case "$profile" in
-  core) images="$core_images" ;;
-  analytics) images="$core_images analytics" ;;
-  reports) images="$core_images reports" ;;
-  reports-ui) images="$core_images reports-ui" ;;
-  synthetic) images="$core_images canary" ;;
-  load) images="$core_images loadgen" ;;
-  full) images="$core_images analytics reports reports-ui canary loadgen" ;;
-  *)
-    echo "unknown PROFILE '$profile' (want: core|analytics|reports|reports-ui|synthetic|load|full)" >&2
-    exit 1
-    ;;
-esac
+images="$core_images"
+# Additive overlays layer on the core base, one -f each, in the order given.
+helm_values=(-f "$umbrella/values.yaml")
+
+for profile in $profiles; do
+  case "$profile" in
+    core) continue ;;
+    analytics) images="$images analytics" ;;
+    reports) images="$images reports" ;;
+    reports-ui) images="$images reports-ui" ;;
+    synthetic) images="$images canary" ;;
+    load) images="$images loadgen" ;;
+    full) images="$images analytics reports reports-ui canary loadgen" ;;
+    *)
+      echo "unknown profile '$profile' in PROFILE='$profiles' (want: core|analytics|reports|reports-ui|synthetic|load|full)" >&2
+      exit 1
+      ;;
+  esac
+  helm_values+=(-f "$umbrella/values-${profile}.yaml")
+done
+
+# The same service can be named by two profiles (full plus a specific one);
+# build each image once.
+images="$(printf '%s' "$images" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
 
 # Build context per image, mirroring deploy/compose/docker-compose.yml. The
 # named extra contexts (proto/, loadprofile/) are the same ones compose passes:
@@ -102,13 +118,6 @@ done
 echo "==> helm dependency build"
 helm dependency build "$umbrella" >/dev/null
 
-# Additive profiles LAYER on the core base with a second -f, the same way the
-# offline gate renders them (deploy/k8s/scripts/validate.sh).
-helm_values=(-f "$umbrella/values.yaml")
-if [ "$profile" != "core" ]; then
-  helm_values+=(-f "$umbrella/values-${profile}.yaml")
-fi
-
 # The EnvoyProxy is Kind-only edge plumbing and has to exist before the
 # Gateway references it, so it is applied here rather than rendered by the
 # chart -- which keeps the umbrella free of any Kind-specific object
@@ -133,7 +142,21 @@ else
   echo "==> monitoring namespace absent -- skipping the Grafana ReferenceGrant"
 fi
 
-echo "==> helm upgrade --install platform (profile '$profile', namespace '$namespace')"
+# Workshop mode (RFC-0001 D5): one profile-day compressed into an hour of
+# wall-clock time. Under compose this is an environment variable on the whole
+# stack; here it is a values override on the two charts that read it. The
+# seeder cannot then disagree about scale -- `kubectl exec` runs inside the
+# analytics pod and inherits whatever this set.
+demo_time_scale="${DEMO_TIME_SCALE:-}"
+if [ -n "$demo_time_scale" ] && [ "$demo_time_scale" != "1" ]; then
+  echo "==> workshop mode: DEMO_TIME_SCALE=${demo_time_scale}"
+  # --set-string: --set types 24 as an int64, and a ConfigMap value must be a
+  # string (the library coerces too, but this keeps the rendered YAML honest).
+  helm_values+=(--set-string "analytics.config.DEMO_TIME_SCALE=${demo_time_scale}")
+  helm_values+=(--set-string "loadgen.config.DEMO_TIME_SCALE=${demo_time_scale}")
+fi
+
+echo "==> helm upgrade --install platform (profiles '$profiles', namespace '$namespace')"
 helm upgrade --install platform "$umbrella" \
   --kube-context "kind-${cluster_name}" \
   --namespace "$namespace" --create-namespace \
@@ -144,7 +167,7 @@ helm upgrade --install platform "$umbrella" \
 echo
 kubectl --context "kind-${cluster_name}" -n "$namespace" get pods
 echo
-echo "deployed profile '$profile'. Reachable through the Gateway on localhost:8080:"
+echo "deployed profiles '$profiles'. Reachable through the Gateway on localhost:8080:"
 kubectl --context "kind-${cluster_name}" -n "$namespace" get httproute,grpcroute \
   -o custom-columns='KIND:.kind,NAME:.metadata.name,HOSTNAMES:.spec.hostnames'
 echo

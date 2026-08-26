@@ -34,7 +34,7 @@ metadata:
     {{- include "common.labels" $ | nindent 4 }}
 data:
   {{- range $k, $v := . }}
-  {{ $k }}: {{ tpl $v $ | quote }}
+  {{ $k }}: {{ tpl (toString $v) $ | quote }}
   {{- end }}
 {{- end -}}
 {{- end -}}
@@ -55,7 +55,7 @@ metadata:
 type: Opaque
 stringData:
   {{- range $k, $v := . }}
-  {{ $k }}: {{ tpl $v $ | quote }}
+  {{ $k }}: {{ tpl (toString $v) $ | quote }}
   {{- end }}
 {{- end -}}
 {{- end -}}
