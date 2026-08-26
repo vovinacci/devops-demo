@@ -179,7 +179,23 @@ if [ "${NIGHTLY:-0}" = "1" ]; then
   # through a Gateway the something else is an error page, which contains no
   # caddy_ lines either. The failure then names the wrong cause.
   metrics_body="$(mktemp)"
-  metrics_code=$(curl -sS -o "$metrics_body" -w '%{http_code}' "${REPORTS_UI_URL}/metrics" 2>/dev/null || true)
+  metrics_err="$(mktemp)"
+  # The transfer's own exit status matters separately from the HTTP status: a
+  # truncated response is a 200 that stopped early, and if the bytes that did
+  # arrive happen to contain a caddy_ line, discarding curl's status would let
+  # it pass. Keep curl's stderr too -- it is the only place the reason appears.
+  if metrics_code=$(curl -sS -o "$metrics_body" -w '%{http_code}' "${REPORTS_UI_URL}/metrics" 2>"$metrics_err"); then
+    curl_status=0
+  else
+    curl_status=$?
+  fi
+  if [ "$curl_status" -ne 0 ]; then
+    echo "--- curl stderr ---" >&2
+    cat "$metrics_err" >&2 || true
+    rm -f "$metrics_body" "$metrics_err"
+    fail reports-ui "GET ${REPORTS_UI_URL}/metrics: curl exited $curl_status (transfer failed or incomplete)"
+  fi
+  rm -f "$metrics_err"
   metrics_code="${metrics_code:-000}"
   if [ "$metrics_code" != "200" ]; then
     echo "--- first 10 lines of the response ---" >&2
