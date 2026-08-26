@@ -127,6 +127,11 @@ kind-deploy: ## Build + `kind load` the service images and helm-install the umbr
 	$(PRINT_TARGET)
 	PROFILE="$(PROFILE)" bash deploy/k8s/scripts/kind-deploy.sh
 
+.PHONY: kind-seed
+kind-seed: ## Seed the deployed stack: items + analytics history (SEED_COUNT/SEED_DAYS/SEED_SEED); schema migrations run themselves via the chart's hook Job
+	$(PRINT_TARGET)
+	bash deploy/k8s/scripts/kind-seed.sh
+
 .PHONY: kind-down
 kind-down: ## Delete the local Kind cluster (data included -- this is a factory reset, not a restart)
 	$(PRINT_TARGET)
