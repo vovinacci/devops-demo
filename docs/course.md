@@ -179,7 +179,7 @@ charts contain, and
 [the bring-up runbook](runbooks/kubernetes-bring-up.md) for what it costs and
 what breaks.
 
-The two exercises are deliberately about failures that **cannot happen under
+The three exercises are deliberately about failures that **cannot happen under
 compose and report nothing when they do**:
 [exercise 09](exercises/09-the-servicemonitor-that-scrapes-nothing.md) breaks
 the link between a scrape target and the queries written against it, leaving

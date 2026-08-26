@@ -24,7 +24,18 @@ is exactly what CI is.
 
 ## Prerequisites
 
-A working repository. No cluster needed for steps 1 to 3.
+A working repository in the state a developer's machine is normally in --
+which is the whole point, so make it explicit:
+
+```shell
+make lint-k8s
+```
+
+That vendors the artifacts step 1 asks you to look at. On a fresh clone they
+do not exist yet, which is the failure this exercise is about; you cannot
+observe something disappear until you have seen it there.
+
+No cluster is needed until step 5.
 
 ## Steps
 
@@ -67,20 +78,40 @@ find deploy/k8s/charts -mindepth 2 -maxdepth 2 \
   \( -name charts -type d -o -name Chart.lock -type f \) -exec rm -rf {} +
 ```
 
-Now render the umbrella the way a deploy does:
+Now do what the deploy script used to do -- vendor the **umbrella's**
+dependencies, and only those:
+
+```shell
+helm dependency build deploy/k8s/charts/platform
+```
+
+That step matters. It packages each service chart as it exists on disk, and
+those charts have just lost their own copy of the library, so the packaged
+copies lack it too. Render the result:
 
 ```shell
 helm template platform deploy/k8s/charts/platform \
-  -f deploy/k8s/charts/platform/values.yaml
+  -f deploy/k8s/charts/platform/values.yaml \
+  -f deploy/k8s/charts/platform/values-full.yaml
 ```
 
-It fails, on a repository you have not modified.
+```text
+Error: template: platform/charts/reports/templates/manifests.yaml:2:3:
+... no template "common.serviceaccount" associated with template "gotpl"
+```
+
+That is the CI failure, on a repository you have not modified. (Skip the
+`dependency build` and you get a different, more honest error -- Helm says the
+dependencies are missing outright. The bug was subtler than that precisely
+because that step ran and appeared to succeed.)
 
 ### 4. Watch the wrong fix work
 
 ```shell
 make lint-k8s
-helm template platform deploy/k8s/charts/platform -f deploy/k8s/charts/platform/values.yaml >/dev/null && echo OK
+helm template platform deploy/k8s/charts/platform \
+  -f deploy/k8s/charts/platform/values.yaml \
+  -f deploy/k8s/charts/platform/values-full.yaml >/dev/null && echo OK
 ```
 
 Green again. This is the trap: running the linter "fixes" the deploy, so the
