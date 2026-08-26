@@ -109,7 +109,7 @@ fix it:
 make doctor
 ```
 
-Minimum for the compose stack: Docker with Compose v2, GNU Make, 2 GB free
+Minimum for the compose stack: Docker Engine >= 24 with Compose v2, GNU Make, 2 GB free
 RAM, 3 GB free disk. The Kind cluster needs substantially more -- it runs a
 Kubernetes control plane, three nodes and an observability stack beside the
 services ([`deploy/k8s/README.md`](deploy/k8s/README.md) has the detail).
