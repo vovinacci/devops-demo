@@ -1,0 +1,69 @@
+# Alloy: the log shipper, as a DaemonSet -- one collector per node (RFC-0003
+# DK6, ADR-0017). Under compose it is a single container reading the Docker
+# socket; on Kubernetes there is no shared socket to read and logs belong to
+# pods spread across nodes, so the topology changes from one-per-host to
+# one-per-node and discovery changes from Docker to the Kubernetes API.
+#
+# Its config is therefore a REWRITE, not a copy of observability/alloy/
+# config.alloy -- there is no Docker service discovery to port. It is also
+# release-aware (it has to name this release's Loki), which is why it is a
+# template rather than a byte-identical file like loki's and blackbox's.
+image:
+  repository: grafana/alloy
+  tag: v1.17.1@sha256:4f6ddc56ffdcf8a6316748fc5162972e20cb301523cac1bb4a31957df733ae9b
+containerPort: 9080
+portName: http
+args:
+  - run
+  - --server.http.listen-addr=0.0.0.0:9080
+  - --storage.path=/var/lib/alloy/data
+  - /etc/alloy/config.alloy
+# Alloy resolves this itself; it is not a Service name. Each pod must know
+# WHICH node it runs on so it can ask the API for that node's pods only --
+# every collector otherwise tails every pod in the cluster N times over.
+env:
+  - name: NODE_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName
+volumes:
+  - name: data
+    emptyDir: {}
+volumeMounts:
+  - name: data
+    mountPath: /var/lib/alloy/data
+# The library turns this into a ConfigMap and mounts it -- the same mechanism
+# loki and blackbox use for their config files.
+configFiles:
+  - name: config.alloy
+    path: files/config.alloy
+configFilesMountPath: /etc/alloy
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+service:
+  enabled: true
+  type: ClusterIP
+# The one release-scoped value the config file needs. It arrives as an
+# environment variable rather than by templating the file, because Alloy's
+# stage.template uses the same {{ }} delimiters Helm does.
+config:
+  LOKI_URL: "http://{{ .Release.Name }}-loki:3100/loki/api/v1/push"
+d6:
+  liveness:
+    type: httpGet
+    path: /-/ready
+    port: http
+  readiness:
+    type: httpGet
+    path: /-/ready
+    port: http
+  serviceMonitor:
+    enabled: true
+    path: /metrics
+    port: http
+    interval: 30s

@@ -1,0 +1,35 @@
+{{/*
+Alloy reads the Kubernetes API to find pods and to stream their logs, so it
+needs cluster-scoped read access -- the k8s replacement for the Docker socket
+mount it uses under compose. Both are broad grants; the difference is that
+this one is declared, namespaced by verb, and auditable, where a socket mount
+is all-or-nothing root on the host daemon.
+*/}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "common.fullname" . }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/proxy", "namespaces", "pods", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "common.fullname" . }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "common.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "common.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}

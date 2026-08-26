@@ -56,6 +56,10 @@ mailpit:
   enabled: true
 loki:
   enabled: true
+# The log shipper is core, as it is under compose: Loki with nothing writing
+# to it is an empty store.
+alloy:
+  enabled: true
 
 # --- +analytics (off) ----------------------------------------------------
 analytics:

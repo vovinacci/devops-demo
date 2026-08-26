@@ -1,0 +1,97 @@
+// Grafana Alloy on Kubernetes -- a REWRITE of observability/alloy/config.alloy,
+// not a copy of it, so this file is deliberately not diffed against that one.
+// Three things differ, and each is the point:
+//
+//   - discovery is `kubernetes`, not `docker`: a node has no shared daemon
+//     socket to read, and the unit of a workload here is a pod;
+//   - it is scoped to THIS node with a field selector on spec.nodeName, fed
+//     by the downward API. Without that scoping every collector in the
+//     DaemonSet tails every pod in the cluster and each line ships N times;
+//   - labels come from pod metadata rather than a container-name regex, so a
+//     line joins back to the workload that produced it.
+//
+// Nothing here is Helm-templated: Alloy's own stage.template uses the same
+// {{ }} delimiters, so the file is read verbatim and the one release-scoped
+// value it needs -- the Loki endpoint -- arrives as an environment variable
+// from the chart's ConfigMap (values.yaml `config:`).
+
+loki.write "default" {
+  endpoint {
+    url = sys.env("LOKI_URL")
+  }
+  external_labels = {
+    source = "alloy",
+  }
+}
+
+// Pods on THIS node only -- see the header.
+discovery.kubernetes "pods" {
+  role = "pod"
+
+  selectors {
+    role  = "pod"
+    field = "spec.nodeName=" + sys.env("NODE_NAME")
+  }
+}
+
+discovery.relabel "pods" {
+  targets = discovery.kubernetes.pods.targets
+
+  rule {
+    source_labels = ["__meta_kubernetes_namespace"]
+    target_label  = "namespace"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_name"]
+    target_label  = "pod"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_container_name"]
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+    target_label  = "app"
+  }
+}
+
+// Reads pod logs through the Kubernetes API rather than from host files, so
+// the DaemonSet needs no hostPath mount and no privileged access -- only the
+// RBAC in templates/rbac.yaml.
+loki.source.kubernetes "pods" {
+  targets    = discovery.relabel.pods.output
+  forward_to = [loki.process.logs.receiver]
+}
+
+loki.process "logs" {
+  forward_to = [loki.write.default.receiver]
+
+  // The SAME level-detection regex the compose pipeline uses, deliberately:
+  // a LogQL query written against one stack has to work against the other.
+  // A parser stage would not do -- this platform emits JSON from some
+  // runtimes and plain text from others, and the regex spans both.
+  // NAMED capture group, deliberately: stage.regex only puts named groups
+  // into the extracted map, so the positional "$1" the compose pipeline
+  // references extracts nothing. What made a detected_level label appear
+  // there anyway is Loki 3.x adding one of its own -- which is why its values
+  // arrive in mixed case.
+  stage.regex {
+    expression = "(?i)(?:level=|\\[|^|\\s|levelname|level_name|log_level|logLevel)(?:=|:)?\\s*(?P<level>trace|debug|info|warn|warning|error|fatal|crit|critical|panic)(?:\\]|:|\\s|$)"
+  }
+
+  // Normalise BEFORE promoting to a label. stage.labels copies the extracted
+  // value as it stands, so a stage.template that runs afterwards rewrites the
+  // extracted map and leaves the label already set from the raw capture --
+  // which is why the same pipeline under compose yields both `error` and
+  // `ERROR`. Order matters here, and it is the whole fix.
+  stage.template {
+    source   = "level"
+    template = "{{ if eq (.Value | lower) \"warning\" }}warn{{ else if or (eq (.Value | lower) \"critical\") (eq (.Value | lower) \"crit\") }}fatal{{ else }}{{ .Value | lower }}{{ end }}"
+  }
+
+  stage.labels {
+    values = {
+      detected_level = "level",
+    }
+  }
+}
