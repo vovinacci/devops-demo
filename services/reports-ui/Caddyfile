@@ -48,7 +48,16 @@
 	# the first probe) while the page still loads (D10 graceful degradation,
 	# handled client-side in app.js).
 	handle_path /api/* {
-		reverse_proxy reports:8083 {
+		# The upstream is an env placeholder with the compose service name as
+		# its default, so an image run with no environment behaves exactly as
+		# before. Kubernetes names the Service after the release
+		# (<release>-reports), so it overrides this -- the same reason the
+		# nginx frontend reads its own upstream from the environment. Left
+		# hardcoded, every /api call 503s on Kubernetes: the active health
+		# check below cannot resolve `reports`, marks the only upstream down,
+		# and the page reports the outage correctly while the service is
+		# actually up.
+		reverse_proxy {$REPORTS_UI_REPORTS_URL} {
 			# Active health checks (RFC-0002 D10): without them
 			# caddy_reverse_proxy_upstreams_healthy is pinned at 1 and the
 			# reports-ui dashboard reports a dead upstream as green while every

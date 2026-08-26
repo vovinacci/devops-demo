@@ -1,0 +1,63 @@
+name: Kind E2E
+
+# The Kubernetes end-to-end stage (RFC-0003 DK9, PR-5): create a real cluster,
+# deploy every profile, seed it, drive it with k6, assert the wiring, delete
+# the cluster. Nightly rather than per-PR -- it takes tens of minutes, where
+# k8s-lint.yml gives per-PR feedback in one, offline.
+#
+# It runs `make kind-smoke`, the same command a developer runs locally, for the
+# same make-==-CI reason e2e.yml runs `make smoke` (RFC-0001 D12). All the
+# profile and address wiring lives in that target, not here.
+#
+# On the full profile set, WITH the observability stack, the cluster measures
+# ~4.2 GiB across its three nodes -- inside the 7 GB standard runner the CI
+# budget assumes. RFC-0003 Section 9 estimated 6-10 GB and treated it as the
+# arc's main risk; measurement says otherwise, which is why this gate does not
+# have to drop the Operator or a profile to fit.
+
+on:
+  schedule:
+    # 04:00 UTC, an hour after nightly.yml: same low-interference window,
+    # staggered so the two do not contend for runners.
+    - cron: "0 4 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  kind-smoke:
+    name: kind smoke (all profiles, real cluster)
+    runs-on: ubuntu-latest
+    # Generous but bounded: cluster creation, seven image builds, a seed and a
+    # k6 run. A hang should fail the workflow, not hold a runner all night.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # kind, kubectl, helm and kubeconform all come from .mise.toml -- the
+      # same versions a developer has, including the Kubernetes minor the node
+      # image carries (scripts/check-toolchain-drift.sh gates that pair).
+      - name: Set up mise
+        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+        with:
+          install: false
+          cache: true
+
+      - name: Install the Kubernetes toolchain (pinned in .mise.toml)
+        run: mise install kind kubectl helm kubeconform
+
+      - name: make kind-smoke (cluster -> deploy -> seed -> k6 -> assert -> teardown)
+        run: make kind-smoke
+
+      # kind-smoke deletes the cluster on every exit path, so by the time this
+      # runs there is nothing left to inspect -- the script dumps pod state and
+      # descriptions itself before tearing down. This is the coarser net for a
+      # failure that happens outside it.
+      - name: Dump any surviving cluster state on failure
+        if: failure()
+        run: |
+          kind get clusters || true
+          kubectl get pods -A || true
