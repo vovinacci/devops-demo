@@ -34,6 +34,22 @@ gateway_port="${GATEWAY_PORT:-8080}"
 keep="${KEEP_CLUSTER:-0}"
 cluster_name="$(sed -n 's/^name: \(.*\)$/\1/p' deploy/k8s/kind/cluster.yaml)"
 
+# PROFILE is overridable, but this gate is not profile-agnostic: it runs a k6
+# Job from the loadgen image and asserts against analytics, reports and
+# reports-ui. A narrower set fails late and confusingly -- an ErrImagePull on
+# an image nobody built, or an assertion against a service nobody deployed --
+# so it is rejected up front.
+for required in analytics reports reports-ui load; do
+  case " $profiles " in
+    *" full "* | *" $required "*) ;;
+    *)
+      echo "PROFILE='$profiles' is missing '$required', which this gate needs" >&2
+      echo "use PROFILE=full (the default), or add every one of: analytics reports reports-ui load" >&2
+      exit 1
+      ;;
+  esac
+done
+
 # Tear down on ANY exit unless asked not to: a CI run that leaves a cluster
 # behind wedges the next one, and a developer debugging locally wants the
 # opposite. Failure paths dump state first (see below), so keeping the cluster

@@ -27,6 +27,28 @@ case "$mode" in
     ;;
 esac
 
+# Validated here rather than left to k6: these are interpolated into a Job
+# manifest, so a bad value produces a container that starts, fails somewhere
+# inside a scenario, and reports it as a k6 error rather than as your typo.
+require_positive_number() {
+  local name="$1" value="$2"
+  case "$value" in
+    '' | *[!0-9.]* | .* | *.)
+      echo "$name must be a positive number (got '$value')" >&2
+      exit 1
+      ;;
+  esac
+  if awk -v v="$value" 'BEGIN { exit !(v > 0) }'; then return 0; fi
+  echo "$name must be greater than zero (got '$value')" >&2
+  exit 1
+}
+
+require_positive_number INCIDENT_MINUTES "$minutes"
+case "$mode" in
+  spike) require_positive_number INCIDENT_SPIKE_MULTIPLIER "${INCIDENT_SPIKE_MULTIPLIER:-10}" ;;
+  errors) require_positive_number INCIDENT_ERROR_RATE_PER_S "${INCIDENT_ERROR_RATE_PER_S:-5}" ;;
+esac
+
 if ! "${kc[@]}" get deployment platform-loadgen >/dev/null 2>&1; then
   echo "loadgen is not deployed -- run 'make kind-deploy PROFILE=load' (or full) first" >&2
   exit 1

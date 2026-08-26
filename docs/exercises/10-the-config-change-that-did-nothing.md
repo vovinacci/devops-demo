@@ -25,9 +25,9 @@ make kind-deploy PROFILE=full
 ### 1. See what a pod is running with
 
 ```shell
-kubectl -n devops-demo get cm platform-canary-config -o jsonpath='{.data}' | jq
+kubectl -n devops-demo get cm platform-canary-config -o json | jq '.data'
 kubectl -n devops-demo get pod -l app.kubernetes.io/name=canary \
-  -o jsonpath='{.items[0].spec.containers[0].envFrom}' | jq
+  -o json | jq '.items[0].spec.containers[0].envFrom'
 ```
 
 The container takes its whole environment from that ConfigMap -- once, at
@@ -79,7 +79,7 @@ kubectl -n devops-demo exec deploy/platform-canary -- env 2>/dev/null | grep CAN
 
 ```shell
 kubectl -n devops-demo get deploy platform-canary \
-  -o jsonpath='{.spec.template.metadata.annotations}' | jq
+  -o json | jq '.spec.template.metadata.annotations'
 ```
 
 There is a `checksum/config` annotation: a hash of this service's config,

@@ -37,6 +37,8 @@ Ask Prometheus what backs them:
 
 ```shell
 kubectl -n monitoring port-forward svc/kube-prometheus-stack-prometheus 9090:9090 &
+PF=$!
+trap 'kill $PF 2>/dev/null' EXIT      # see the note at the end of this exercise
 curl -s 'http://localhost:9090/api/v1/query?query=up%7Bjob%3D%22reports%22%7D' | jq '.data.result'
 ```
 
@@ -103,6 +105,23 @@ Within a minute the query matches again and the dashboard fills.
 - The only reliable check is to ask what a query matched, not whether the
   parts are up. `count(up{job="..."})` is a better dashboard test than any
   number of Ready pods.
+
+## Clean up
+
+```shell
+kill $PF 2>/dev/null
+```
+
+Worth doing deliberately rather than leaving to the shell. A forgotten
+`port-forward` holds a local port, and the next thing that binds it silently
+loses -- during this RFC a stray forward on `:3100` made a check that thought
+it was querying the compose stack's Loki actually query the Kubernetes one,
+and the result looked entirely plausible. If a local port answers when you did
+not expect it to, find out what owns it:
+
+```shell
+lsof -nP -iTCP:9090 -sTCP:LISTEN
+```
 
 ## Going further
 

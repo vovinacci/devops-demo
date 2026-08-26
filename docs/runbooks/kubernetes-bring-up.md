@@ -52,12 +52,17 @@ scheduling and volume affinity visible at all.
 
 ## The JVM exhibit (DK5)
 
-`reports` is the largest single consumer, and deliberately so. Its container
-memory *limit* does not bound the JVM heap by itself -- the limit bounds total
-RSS, while heap, metaspace, thread stacks, code cache and direct buffers all
-live inside it. The chart sets `JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75.0`
-beside `resources.limits.memory` so the heap tracks the limit rather than the
-node.
+`reports` is the largest single consumer, and deliberately so. On JDK 21 the
+JVM already reads the cgroup limit without being told to (UseContainerSupport
+has been on by default since 8u191), so the exhibit is not "the JVM ignores
+the limit". It is that the limit bounds **total RSS** while the heap is only
+one tenant of it: metaspace, thread stacks, code cache, GC structures and
+direct byte buffers all live inside the same limit and none of them are heap.
+
+`JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75.0` sets the **maximum heap** as a
+share of the detected limit. It does not reserve the other 25% as headroom and
+it does not cap anything outside the heap -- a service with heavy off-heap
+usage can be OOMKilled with a heap that never approached its own maximum.
 
 Watch it:
 
@@ -67,8 +72,18 @@ kubectl -n devops-demo logs -l app.kubernetes.io/name=reports | head -30
 ```
 
 The Reports JVM dashboard in Grafana shows the heap sawtooth against the
-limit. If the pod is OOMKilled, the limit is too low for the heap percentage,
-not the other way round.
+limit. **If the pod is OOMKilled, compare heap against non-heap before
+changing anything** -- the two failures need opposite fixes:
+
+- heap at its maximum and total RSS at the limit: the limit is too small for
+  the work, or the percentage is too high for what runs beside the heap;
+- heap comfortably below its maximum while RSS sits at the limit: the growth
+  is off-heap, and raising `MaxRAMPercentage` makes it *worse* by giving the
+  heap a larger share of the same budget.
+
+`jvm_memory_used_bytes{area="heap"}` against `{area="nonheap"}` answers it in
+one panel; `container_memory_working_set_bytes` is what the kubelet actually
+kills on.
 
 ## Failures worth recognising
 
