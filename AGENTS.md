@@ -142,7 +142,13 @@ producing review output; do not re-raise these.
   deferred security capstone (RFC-0001 Section 10).
 - `deploy/k8s/charts/*/values.yaml`: "remove the committed database
   credentials; provision the Secrets externally at deploy time" --
-  rejected, same reason as the entry above and stated in
+  rejected. Provenance first, because the suppression bound in
+  `.coderabbit.yaml` only excuses PRE-EXISTING findings: these values are
+  not introduced by the PR that added this entry. `POSTGRES_PASSWORD: app`
+  reached the charts in #201 and compose has carried it since RFC-0001;
+  RFC-0003 PR-3 moves it from a plain `env:` entry into a Secret, which
+  narrows the exposure rather than creating it. Rejected for the same
+  reason as the entry above and as stated in
   `deploy/k8s/README.md`: these are the same checked-in demo defaults
   compose already carries (`app`/`analytics`/`reports`), the stack is a
   local teaching cluster with no shared environment to reuse them
