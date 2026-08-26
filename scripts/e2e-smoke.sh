@@ -174,9 +174,27 @@ if [ "${NIGHTLY:-0}" = "1" ]; then
   check_http_200 "reports-ui /healthz" "${REPORTS_UI_URL}/healthz" reports-ui
 
   echo "== reports-ui /metrics exposes caddy_ series (nightly only) =="
-  if ! curl -sS "${REPORTS_UI_URL}/metrics" 2>/dev/null | grep -q '^caddy_'; then
-    fail reports-ui "GET ${REPORTS_UI_URL}/metrics returned no caddy_ Prometheus series (metrics handler not exposing Caddy metrics)"
+  # Status first, body second. Grepping the body alone cannot tell "Caddy
+  # answered without the series" from "something else answered instead" -- and
+  # through a Gateway the something else is an error page, which contains no
+  # caddy_ lines either. The failure then names the wrong cause.
+  metrics_body="$(mktemp)"
+  metrics_code=$(curl -sS -o "$metrics_body" -w '%{http_code}' "${REPORTS_UI_URL}/metrics" 2>/dev/null || true)
+  metrics_code="${metrics_code:-000}"
+  if [ "$metrics_code" != "200" ]; then
+    echo "--- first 10 lines of the response ---" >&2
+    head -10 "$metrics_body" >&2 || true
+    rm -f "$metrics_body"
+    fail reports-ui "GET ${REPORTS_UI_URL}/metrics returned $metrics_code (expected 200)"
   fi
+  if ! grep -q '^caddy_' "$metrics_body"; then
+    echo "--- first 10 lines of the 200 response ---" >&2
+    head -10 "$metrics_body" >&2 || true
+    rm -f "$metrics_body"
+    fail reports-ui "GET ${REPORTS_UI_URL}/metrics returned 200 with no caddy_ series (metrics handler not exposing Caddy metrics)"
+  fi
+  rm -f "$metrics_body"
+  echo "OK: reports-ui /metrics exposes caddy_ series"
 
   # The one path that crosses a reverse proxy configured INSIDE an image
   # rather than by a manifest: reports-ui's Caddyfile proxies /api to the
