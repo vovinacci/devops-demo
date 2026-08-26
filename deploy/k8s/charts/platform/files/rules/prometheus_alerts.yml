@@ -1,0 +1,150 @@
+groups:
+  - name: blackbox_probes
+    interval: 30s
+    rules:
+      # Blackbox layer (ADR-0007 D9): fires when any probed endpoint --
+      # in-stack or synthetic target -- fails its HTTP probe. Prometheus
+      # evaluates this without Alertmanager (Phase 4); visible today via
+      # the Prometheus Alerts UI / API only.
+      - alert: ProbeDown
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Blackbox probe failing for {{ $labels.instance }}"
+          description: >-
+            Probe target {{ $labels.instance }} has been unreachable or
+            failing its HTTP check for more than 2 minutes.
+          runbook_url: https://github.com/vovinacci/devops-demo/blob/main/docs/runbooks/probe-down.md
+
+  - name: canary_synthetic
+    interval: 30s
+    rules:
+      # Synthetic layer (ADR-0007 D9): fires only when journeys are
+      # actively failing AND none are succeeding -- a single blip (one
+      # failure between two successes) does not page. This is the
+      # correctness-of-the-whole-journey signal that whitebox and
+      # blackbox cannot see (e.g. the ADR-0002 event-stream durability
+      # gap, once canary v2 adds the pipeline-lag step).
+      #
+      # sum(...) strips the "result" label before the `and`: plain
+      # `and` set-matches on identical label sets, and the failure/
+      # success sides never share one (different "result" values), so
+      # without sum() the intersection is always empty -- this never
+      # fired, in any state. `and on()` then matches the two unlabeled
+      # singletons explicitly.
+      #
+      # The "no recent success" half uses the last-success gauge, not
+      # rate()/increase() of the success counter: those extrapolate over
+      # their full window, so a single real success sits at a small but
+      # nonzero rate for up to the whole window duration afterward --
+      # verified live, it stayed ~0.0018/s (not 0) for 65s+ of continuous
+      # subsequent failure, so `== 0` never went true and the alert
+      # could not fire for up to ~10m after a real success even under
+      # sustained outage. `time() - last_success_timestamp` has no such
+      # decay: it is a clean, monotonically increasing staleness value
+      # from the moment of the last success. 60s (~2 default journey
+      # intervals) is the threshold.
+      #
+      # sum() around the gauge (not just `or vector(0)` on its own)
+      # matters: the raw gauge carries instance/job labels, vector(0)
+      # carries none, so `or` between them doesn't coalesce -- it just
+      # unions both into the result, leaking a bogus `time() - 0` series
+      # that is always "stale" and always matched `and on()` regardless
+      # of the real gauge value (verified live: the alert stayed firing
+      # even seconds after a fresh success, from this leaked series).
+      # max() collapses the real gauge to the same empty label set as
+      # vector(0) first, so `or` only supplies the fallback when the
+      # gauge series is genuinely absent (cold start, no success ever).
+      # max, not sum: with more than one canary replica, summing epoch
+      # timestamps would exceed time() and disarm the alert; max is the
+      # most recent success across replicas.
+      # The `for: 5m` on the rule is the anti-flap debounce on top.
+      - alert: CanaryJourneyFailing
+        expr: >-
+          sum(increase(canary_journey_total{result="failure"}[10m])) > 0
+          and on()
+          (time() - (max(canary_journey_last_success_timestamp_seconds) or vector(0))) > 60
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Canary synthetic journeys are failing"
+          description: >-
+            The canary has recorded at least one failed journey in the
+            last 10 minutes and no success for over a minute -- the
+            backend CRUD journey is not completing end to end.
+          runbook_url: https://github.com/vovinacci/devops-demo/blob/main/docs/runbooks/canary-journey-failing.md
+
+      # Synthetic layer, v2 (RFC-0001 D9): the pipeline-lag step's own
+      # latency, distinct from CanaryJourneyFailing above -- Hard rule 9
+      # (ADR-0008 D10) means a slow or stuck pipeline never fails the
+      # journey itself, so it needs its own alert to be visible at all.
+      #
+      # `and on() (... result="ok" ...) > 0` scopes this to "analytics is
+      # actually being reached and returning success sometimes" -- without
+      # it, a fully-skipped window (analytics profile simply not up) would
+      # have no "ok" samples to quantile over and `histogram_quantile`
+      # returns NaN, which Prometheus's comparison operators treat as not
+      # matching `> 5` anyway; the explicit guard makes that intent
+      # readable rather than relying on NaN-comparison semantics. It also
+      # means sustained timeouts alone (zero "ok" samples) do NOT fire
+      # this alert -- that failure mode has no p95 to compute from and is
+      # instead visible via canary_pipeline_check_total{result="timeout"}
+      # on the dashboard (deliberately not alerted on: a stuck stream
+      # already pages via AnalyticsStreamDown, and paging twice for one
+      # root cause is the exact anti-pattern CanaryJourneyFailing's design
+      # note calls out for `up{job="analytics"}`).
+      - alert: CanaryPipelineLagHigh
+        expr: >-
+          histogram_quantile(0.95, sum(rate(canary_pipeline_lag_seconds_bucket[15m])) by (le)) > 5
+          and on()
+          (sum(increase(canary_pipeline_check_total{result="ok"}[15m])) > 0)
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Canary pipeline-lag p95 is elevated"
+          description: >-
+            The canary's create -> analytics-visible p95 lag has been
+            above 5s for over 10 minutes while pipeline checks are still
+            succeeding -- the gRPC event-stream path (ADR-0002) is slow,
+            not down.
+          runbook_url: https://github.com/vovinacci/devops-demo/blob/main/docs/runbooks/canary-pipeline-lag-high.md
+
+  - name: analytics_ingest
+    interval: 30s
+    rules:
+      # Whitebox layer, ingest-specific (RFC-0001 Phase 3 PR-B, ADR-0002):
+      # the WatchItemEvents stream is down while the analytics process
+      # itself is up. `and on() (up{job="analytics"} == 1)` scopes this
+      # to "analytics is reachable but its gRPC client to the backend
+      # isn't" -- when analytics itself is down, `up{job="analytics"}`
+      # already covers it (a separate, ordinary target-down condition),
+      # and firing this alert too would be a second alert for the same
+      # root cause. `for: 5m` tolerates the ordinary reconnect backoff
+      # window (ANALYTICS_INGEST_BACKOFF_MAX default 30s) so a single
+      # transient blip does not page.
+      #
+      # `and on()` (empty match) assumes a single analytics replica: it
+      # pairs whichever one `analytics_stream_connected` series exists
+      # with whichever one `up{job="analytics"}` series exists, with no
+      # label matching between them. With more than one replica this
+      # would cross-match instances (e.g. replica A's stream down paired
+      # against replica B's up==1) -- switch to `and on(instance)` if
+      # analytics is ever scaled beyond one instance.
+      - alert: AnalyticsStreamDown
+        expr: analytics_stream_connected == 0 and on() (up{job="analytics"} == 1)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Analytics gRPC ingest stream is down"
+          description: >-
+            The analytics service is up but its WatchItemEvents stream to
+            the backend has been disconnected for more than 5 minutes --
+            events are not being ingested (ADR-0002 at-most-once
+            transport: they are not queued, they are lost for this
+            window).
+          runbook_url: https://github.com/vovinacci/devops-demo/blob/main/docs/runbooks/analytics-stream-down.md

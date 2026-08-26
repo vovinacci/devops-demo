@@ -118,6 +118,12 @@ kubectl --context "kind-${cluster_name}" create namespace "$namespace" \
   --dry-run=client -o yaml | kubectl --context "kind-${cluster_name}" apply -f -
 kubectl --context "kind-${cluster_name}" -n "$namespace" apply -f deploy/k8s/kind/envoyproxy.yaml
 
+# Grafana belongs to the kube-prometheus-stack release in `monitoring`, so the
+# platform's HTTPRoute for it crosses a namespace boundary and the target
+# namespace has to consent (deploy/k8s/kind/referencegrant.yaml).
+echo "==> applying the cross-namespace ReferenceGrant for Grafana"
+kubectl --context "kind-${cluster_name}" -n monitoring apply -f deploy/k8s/kind/referencegrant.yaml
+
 echo "==> helm upgrade --install platform (profile '$profile', namespace '$namespace')"
 helm upgrade --install platform "$umbrella" \
   --kube-context "kind-${cluster_name}" \

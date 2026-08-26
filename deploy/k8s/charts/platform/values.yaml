@@ -23,6 +23,26 @@ gateway:
   # chart portable (see deploy/k8s/kind/envoyproxy.yaml).
   envoyProxyRef: ""
 
+# --- observability (ADR-0017) --------------------------------------------
+# The Operator, Prometheus, Alertmanager and Grafana are a CLUSTER
+# prerequisite (`make kind-up`, deploy/k8s/kind/kube-prometheus-stack-values.yaml).
+# What the platform owns is the custom resources that describe what to watch.
+monitoring:
+  enabled: true
+  rules: true
+  probe: true
+  dashboards: true
+  grafanaFolder: DevOps Demo
+  # Grafana lives in the stack's release, in its own namespace -- so its route
+  # crosses a namespace boundary and needs a ReferenceGrant on the other side
+  # (deploy/k8s/kind/referencegrant.yaml, applied by kind-deploy).
+  grafanaNamespace: monitoring
+  grafanaService: kube-prometheus-stack-grafana
+  grafanaPort: 80
+  # Probe targets outside the charted set (the stack's own endpoints are
+  # scraped directly, so they are not repeated here).
+  extraProbeTargets: []
+
 # --- core (on) -----------------------------------------------------------
 backend:
   enabled: true

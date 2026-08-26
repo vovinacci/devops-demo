@@ -1,0 +1,37 @@
+{{/*
+Grafana dashboards as ConfigMaps (RFC-0003 DK6). Under compose the dashboards
+are a bind-mounted directory plus a provisioning file that points at it; here
+the Grafana that ships with kube-prometheus-stack runs a sidecar that watches
+for ConfigMaps carrying a label and writes their contents into its dashboard
+directory -- so the label IS the provisioning, and a dashboard is added by
+creating an object rather than by editing a file and restarting Grafana.
+
+The sidecar is configured cluster-wide in
+deploy/k8s/kind/kube-prometheus-stack-values.yaml (label grafana_dashboard,
+searchNamespace ALL, since these ConfigMaps live in the platform's namespace
+rather than the stack's). grafana_folder reproduces the "DevOps Demo" folder
+the compose provider declares.
+
+The JSON files under files/dashboards/ are byte-identical copies of
+observability/grafana/dashboards/, diffed against the originals by
+deploy/k8s/scripts/validate.sh.
+*/}}
+{{- if and .Values.monitoring.enabled .Values.monitoring.dashboards }}
+{{- range $path, $_ := .Files.Glob "files/dashboards/*.json" }}
+{{- $name := base $path | trimSuffix ".json" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $.Release.Name }}-dashboard-{{ $name }}
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/part-of: devops-demo
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+  annotations:
+    grafana_folder: {{ $.Values.monitoring.grafanaFolder | quote }}
+data:
+  {{ base $path }}: |
+    {{- $.Files.Get $path | nindent 4 }}
+{{- end }}
+{{- end }}

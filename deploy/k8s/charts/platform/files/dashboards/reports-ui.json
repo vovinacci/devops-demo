@@ -1,0 +1,207 @@
+{
+  "uid": "reports-ui",
+ "annotations": {
+  "list": [
+   {
+    "builtIn": 1,
+    "datasource": "-- Grafana --",
+    "enable": true,
+    "hide": true,
+    "iconColor": "rgba(0, 211, 255, 1)",
+    "name": "Annotations & Alerts",
+    "type": "dashboard"
+   }
+  ]
+ },
+ "editable": true,
+ "fiscalYearStartMonth": 1,
+ "gnetId": null,
+ "graphTooltip": 0,
+ "id": null,
+ "iteration": 1,
+ "links": [],
+ "panels": [
+  {
+   "type": "text",
+   "title": "About this dashboard (RFC-0002, ADR-0013)",
+   "gridPos": { "x": 0, "y": 0, "w": 24, "h": 3 },
+   "options": {
+    "mode": "markdown",
+    "content": "Caddy whitebox for the **reports-ui** static server + reverse proxy (RFC-0002). Caddy exposes native Prometheus metrics on its admin API by default; the Caddyfile's `metrics` handler re-exposes them on the `:8084` site listener so Prometheus can scrape them (RFC-0002 D6) -- the win over nginx that lets this second static frontend meet the full D6 contract (contrast: the React `frontend` has no `/metrics`, ADR-0013). All panels read the Prometheus datasource; `reports-ui` is an opt-in compose profile, so panels show *No data* when it is not up (expected, RFC-0001 D10). The reverse-proxy upstream is the reports service (`reports:8083`); its health line reads 0/absent when the `reports` profile is down (RFC-0002 D10 graceful degradation)."
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Service Up",
+   "description": "up{job=\"reports-ui\"} -- Prometheus scrape health (observability/prometheus.yml `reports-ui` job). 0/down when the `reports-ui` compose profile is not running (RFC-0001 D10 graceful degradation), 1 while it is scraped successfully.",
+   "gridPos": { "x": 0, "y": 3, "w": 8, "h": 6 },
+   "targets": [
+    {
+     "expr": "up{job=\"reports-ui\"}",
+     "refId": "A",
+     "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    }
+   ],
+   "options": {
+    "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+    "orientation": "auto",
+    "textMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "min": 0,
+     "max": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       { "value": null, "color": "red" },
+       { "value": 1, "color": "green" }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Requests In-flight",
+   "description": "caddy_http_requests_in_flight{job=\"reports-ui\"} -- requests currently being handled by the site server. Near zero for a static server; brief bumps track proxied /api/* calls waiting on the reports backend.",
+   "gridPos": { "x": 8, "y": 3, "w": 8, "h": 6 },
+   "targets": [
+    {
+     "expr": "sum(caddy_http_requests_in_flight{job=\"reports-ui\"})",
+     "refId": "A",
+     "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    }
+   ],
+   "options": {
+    "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+    "orientation": "auto",
+    "textMode": "auto"
+   },
+   "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+  },
+  {
+   "type": "stat",
+   "title": "Upstream Healthy (reports)",
+   "description": "caddy_reverse_proxy_upstreams_healthy{job=\"reports-ui\"} -- Caddy's active view of the reverse-proxy upstream (reports:8083). 1 healthy, 0 unhealthy; absent/No data when the `reports` profile is down -- the UI still serves its own assets (RFC-0002 D10), only proxied /api calls fail.",
+   "gridPos": { "x": 16, "y": 3, "w": 8, "h": 6 },
+   "targets": [
+    {
+     "expr": "max(caddy_reverse_proxy_upstreams_healthy{job=\"reports-ui\"})",
+     "refId": "A",
+     "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    }
+   ],
+   "options": {
+    "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+    "orientation": "auto",
+    "textMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "min": 0,
+     "max": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       { "value": null, "color": "red" },
+       { "value": 1, "color": "green" }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "HTTP Request Rate by Status",
+   "description": "sum(rate(caddy_http_request_duration_seconds_count{job=\"reports-ui\"}[5m])) by (code) -- Caddy's request rate split by response status code. Mostly 200s (static assets, /healthz, /readyz, /metrics probes); a 5xx line is the signal a proxied /api/* call to reports is failing (e.g. reports profile down -> 503, the active health check having marked the upstream down).",
+   "gridPos": { "x": 0, "y": 9, "w": 12, "h": 8 },
+   "targets": [
+    {
+     "expr": "sum(rate(caddy_http_request_duration_seconds_count{job=\"reports-ui\"}[5m])) by (code)",
+     "legendFormat": "{{ code }}",
+     "refId": "A",
+     "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "HTTP Request Latency p95",
+   "description": "histogram_quantile(0.95, sum(rate(caddy_http_request_duration_seconds_bucket{job=\"reports-ui\"}[5m])) by (le)) -- 95th-percentile round-trip request duration across all handlers. Static-asset requests are sub-millisecond; the tail is dominated by proxied /api/* calls whose latency is the reports backend's.",
+   "gridPos": { "x": 12, "y": 9, "w": 12, "h": 8 },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.95, sum(rate(caddy_http_request_duration_seconds_bucket{job=\"reports-ui\"}[5m])) by (le))",
+     "legendFormat": "p95",
+     "refId": "A",
+     "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "pointSize": 5 }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Reverse-Proxy Upstream Health",
+   "description": "caddy_reverse_proxy_upstreams_healthy{job=\"reports-ui\"} by upstream -- Caddy's health view of each reverse-proxy upstream over time (the reports service, reports:8083). Drops to 0 / goes absent when the `reports` profile is down; the UI keeps serving its static assets and D6 endpoints regardless (RFC-0002 D10).",
+   "gridPos": { "x": 0, "y": 17, "w": 24, "h": 8 },
+   "targets": [
+    {
+     "expr": "caddy_reverse_proxy_upstreams_healthy{job=\"reports-ui\"}",
+     "legendFormat": "{{ upstream }}",
+     "refId": "A",
+     "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "min": 0,
+     "max": 1,
+     "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 10, "pointSize": 5 }
+    },
+    "overrides": []
+   }
+  }
+ ],
+ "refresh": "10s",
+ "schemaVersion": 39,
+ "style": "dark",
+ "tags": [
+  "devops-demo",
+  "reports-ui",
+  "caddy"
+ ],
+ "templating": {
+  "list": [
+   {
+    "name": "DS_PROMETHEUS",
+    "type": "datasource",
+    "query": "prometheus",
+    "current": { "selected": true },
+    "hide": 0,
+    "label": "Prometheus"
+   }
+  ]
+ },
+ "time": { "from": "now-1h", "to": "now" },
+ "timezone": "browser",
+ "title": "Reports UI (Caddy)",
+ "version": 1,
+ "weekStart": ""
+}

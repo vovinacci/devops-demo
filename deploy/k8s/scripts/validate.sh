@@ -58,6 +58,15 @@ check_copy() {
 }
 check_copy observability/loki/config.yml "$charts_dir/loki/files/config.yml"
 check_copy observability/blackbox/blackbox.yml "$charts_dir/blackbox/files/blackbox.yml"
+# The rule files and dashboards are rendered into PrometheusRule CRs and
+# Grafana dashboard ConfigMaps, so they must stay identical to what compose
+# feeds Prometheus and Grafana -- otherwise the two stacks silently alert and
+# chart on different definitions.
+check_copy observability/prometheus_slo_rules.yml "$umbrella/files/rules/prometheus_slo_rules.yml"
+check_copy observability/prometheus_alerts.yml "$umbrella/files/rules/prometheus_alerts.yml"
+for dashboard in observability/grafana/dashboards/*.json; do
+  check_copy "$dashboard" "$umbrella/files/dashboards/$(basename "$dashboard")"
+done
 if [ "$copy_drift" -gt 0 ]; then
   echo "config file drift: ${copy_drift} copy/copies disagree with the compose original." >&2
   exit 1
