@@ -9,13 +9,14 @@ config:
   DEMO_TIME_SCALE: "1"
   ANALYTICS_BACKEND_GRPC_ADDR: "{{ .Release.Name }}-backend:50051"
   ANALYTICS_LOADPROFILE_PATH: /etc/analytics/loadprofile/profile.json
-  # GRAFANA_URL / GRAFANA_USER / GRAFANA_PASSWORD are deliberately absent.
-  # They are read only by the `seed` subcommand's annotation step, never by
-  # the running server (internal/grafana/config.go defaults all three), and
-  # Grafana itself is not charted until PR-4 -- setting them now would point
-  # at a Service that does not exist and commit a password for no benefit.
+  # Read only by the `seed` subcommand's annotation step, never by the running
+  # server. Grafana belongs to the kube-prometheus-stack release, so this is
+  # namespace-qualified; a bare name would not resolve from this namespace.
+  GRAFANA_URL: "http://kube-prometheus-stack-grafana.monitoring.svc"
+  GRAFANA_USER: admin
 secret:
   ANALYTICS_DATABASE_URL: "postgres://analytics:analytics@{{ .Release.Name }}-postgres-analytics:5432/analytics?sslmode=disable"
+  GRAFANA_PASSWORD: admin
 resources:
   requests:
     cpu: 50m

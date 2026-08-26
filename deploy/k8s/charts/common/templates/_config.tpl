@@ -106,3 +106,22 @@ envFrom:
   {{- end }}
 {{- end }}
 {{- end -}}
+
+{{/*
+common.configChecksum: a hash of everything this service's ConfigMap and
+Secret contain, stamped onto the pod template.
+
+Editing a ConfigMap or Secret does NOT restart the pods consuming it. With
+envFrom the container reads its environment once, at start, so a `helm
+upgrade` that changes only configuration reports success, leaves the pods
+running, and the new value never takes effect -- a silent no-op that looks
+exactly like a successful deploy. Changing the pod template is what makes
+Kubernetes roll, and a checksum annotation is the smallest honest change.
+*/}}
+{{- define "common.configChecksum" -}}
+{{- $parts := list -}}
+{{- with .Values.config }}{{- $parts = append $parts (toYaml .) }}{{- end }}
+{{- with .Values.secret }}{{- $parts = append $parts (toYaml .) }}{{- end }}
+{{- range .Values.configFiles }}{{- $parts = append $parts ($.Files.Get .path) }}{{- end }}
+{{- join "\n" $parts | sha256sum -}}
+{{- end -}}

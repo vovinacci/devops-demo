@@ -26,6 +26,10 @@ prometheus:
     ruleSelectorNilUsesHelmValues: false
     # Matches the compose stack's retention (observability/loki/config.yml
     # keeps 24h too), and keeps the Kind footprint small.
+    # loadgen's k6 writes its metrics in over the remote-write API rather than
+    # being scraped -- a k6 run is too short-lived to scrape. Compose enables
+    # the same receiver with --web.enable-remote-write-receiver.
+    enableRemoteWriteReceiver: true
     retention: 24h
     scrapeInterval: 15s
     resources:

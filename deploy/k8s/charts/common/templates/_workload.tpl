@@ -22,6 +22,10 @@ spec:
       {{- include "common.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- if or .Values.config .Values.secret .Values.configFiles }}
+      annotations:
+        checksum/config: {{ include "common.configChecksum" . }}
+      {{- end }}
       labels:
         {{- include "common.selectorLabels" . | nindent 8 }}
     spec:
@@ -111,6 +115,10 @@ spec:
       {{- include "common.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- if or .Values.config .Values.secret .Values.configFiles }}
+      annotations:
+        checksum/config: {{ include "common.configChecksum" . }}
+      {{- end }}
       labels:
         {{- include "common.selectorLabels" . | nindent 8 }}
     spec:
@@ -185,6 +193,10 @@ spec:
       {{- include "common.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- if or .Values.config .Values.secret .Values.configFiles }}
+      annotations:
+        checksum/config: {{ include "common.configChecksum" . }}
+      {{- end }}
       labels:
         {{- include "common.selectorLabels" . | nindent 8 }}
     spec:
