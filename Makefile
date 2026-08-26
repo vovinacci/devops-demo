@@ -23,7 +23,7 @@ PROFILE ?= core
 help: ## Display this help message
 	@echo "Available commands:"
 	@echo ""
-	@awk 'BEGIN {FS = ":.*?## "}; /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) }; /^[a-zA-Z_-]+:.*?## / { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*?## "}; /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) }; /^[a-zA-Z0-9_-]+:.*?## / { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 ##@ Development
 
@@ -131,6 +131,33 @@ kind-deploy: ## Build + `kind load` the service images and helm-install the umbr
 kind-seed: ## Seed the deployed stack: items + analytics history (SEED_COUNT/SEED_DAYS/SEED_SEED); schema migrations run themselves via the chart's hook Job
 	$(PRINT_TARGET)
 	bash deploy/k8s/scripts/kind-seed.sh
+
+.PHONY: kind-workshop
+kind-workshop: ## Deploy every profile at DEMO_TIME_SCALE=24 and seed at the same scale (RFC-0001 D5 workshop mode); the seeder reads the scale from the pod, so the two cannot disagree
+	$(PRINT_TARGET)
+	DEMO_TIME_SCALE=24 PROFILE=full bash deploy/k8s/scripts/kind-deploy.sh
+	DEMO_TIME_SCALE=24 SEED_DAYS=$${SEED_DAYS:-3} bash deploy/k8s/scripts/kind-seed.sh
+
+.PHONY: kind-smoke
+kind-smoke: ## Kubernetes e2e gate, runnable locally: cluster -> deploy -> seed -> k6 smoke Job -> the same assertions `make smoke` runs -> teardown (KEEP_CLUSTER=1 to leave it up)
+	$(PRINT_TARGET)
+	bash deploy/k8s/scripts/kind-smoke.sh
+
+.PHONY: kind-incident
+kind-incident: ## One-shot k6 incident overlay as a Job (INCIDENT_MODE=spike|errors, INCIDENT_MINUTES, default 5); `make kind-heal` stops it early
+	$(PRINT_TARGET)
+	bash deploy/k8s/scripts/kind-incident.sh
+
+.PHONY: kind-heal
+kind-heal: ## Stop a running `make kind-incident` overlay early (safe when nothing is running)
+	$(PRINT_TARGET)
+	bash deploy/k8s/scripts/kind-heal.sh
+
+.PHONY: clean-k8s
+clean-k8s: ## Remove the Kind cluster and the Helm build artifacts (charts/*/charts, Chart.lock)
+	$(PRINT_TARGET)
+	bash deploy/k8s/scripts/kind-down.sh
+	find deploy/k8s/charts -mindepth 2 -maxdepth 2 \( -name charts -type d -o -name Chart.lock -type f \) -exec rm -rf {} +
 
 .PHONY: kind-down
 kind-down: ## Delete the local Kind cluster (data included -- this is a factory reset, not a restart)

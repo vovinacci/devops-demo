@@ -20,6 +20,9 @@ KUBECONFORM_MINOR="$(sed -n 's/^kubeconform = "\(.*\)"/\1/p' .mise.toml)"
 KIND_MINOR="$(sed -n 's/^kind = "\(.*\)"/\1/p' .mise.toml)"
 KUBECTL_MINOR="$(sed -n 's/^kubectl = "\(.*\)"/\1/p' .mise.toml)"
 MIN_RAM_GB=4
+# Measured: ~4.2 GiB for every profile plus the observability stack, so 8 GiB
+# is the point below which the Kind path starts to hurt.
+MIN_RAM_GB_KIND=8
 MIN_DISK_GB=5
 
 failures=0
@@ -259,6 +262,14 @@ if [ "$ram_gb" -ge "$MIN_RAM_GB" ]; then
   pass "RAM ${ram_gb} GiB"
 else
   warn "RAM ${ram_gb} GiB, recommended >= ${MIN_RAM_GB} GiB" "the core compose profile needs ~2 GiB for containers"
+fi
+
+# The Kind path is a separate, much larger ask: a control plane, three nodes
+# and the Prometheus Operator stack beside the services. Measured at ~4.2 GiB
+# with every profile deployed, so warn well before a machine gets there.
+if [ "$ram_gb" -lt "$MIN_RAM_GB_KIND" ]; then
+  warn "RAM ${ram_gb} GiB is thin for the Kind path (recommended >= ${MIN_RAM_GB_KIND} GiB)" \
+    "compose is unaffected; for Kubernetes deploy fewer profiles (make kind-deploy PROFILE=core) -- see docs/runbooks/kubernetes-bring-up.md"
 fi
 
 disk_gb=$(($(df -k . | awk 'NR==2 {print $4}') / 1024 / 1024))

@@ -12,19 +12,57 @@
 set -euo pipefail
 
 COMPOSE_FILE="deploy/compose/docker-compose.yml"
+
+# Every address is a variable defaulting to the compose stack's published
+# port, so `make smoke` behaves exactly as before and the SAME assertions can
+# run against Kubernetes, where the services sit behind the Gateway on one
+# port and are addressed by hostname. Two stacks, one definition of "working".
+SMOKE_TARGET="${SMOKE_TARGET:-compose}"
 PROM_URL="${PROM_URL:-http://localhost:9090}"
+BACKEND_URL="${BACKEND_URL:-http://localhost:8000}"
+ANALYTICS_URL="${ANALYTICS_URL:-http://localhost:8082}"
+REPORTS_URL="${REPORTS_URL:-http://localhost:8083}"
+REPORTS_UI_URL="${REPORTS_UI_URL:-http://localhost:8084}"
+K8S_NAMESPACE="${K8S_NAMESPACE:-devops-demo}"
 
 compose() {
   docker compose -f "$COMPOSE_FILE" --project-directory . "$@"
 }
 
+# fail() is called with COMPOSE service names; Kubernetes names two of them
+# differently (api -> backend, web -> frontend), so the diagnostic dump
+# translates rather than making every call site aware of the target.
+k8s_workload() {
+  case "$1" in
+    api) echo backend ;;
+    web) echo frontend ;;
+    *) echo "$1" ;;
+  esac
+}
+
+diagnose() {
+  local service="$1"
+  case "$SMOKE_TARGET" in
+    k8s)
+      echo "--- pods ---" >&2
+      kubectl -n "$K8S_NAMESPACE" get pods >&2 || true
+      echo "--- ${service} logs (tail 200) ---" >&2
+      kubectl -n "$K8S_NAMESPACE" logs -l "app.kubernetes.io/name=$(k8s_workload "$service")" \
+        --tail=200 >&2 || true
+      ;;
+    *)
+      echo "--- compose ps ---" >&2
+      compose ps >&2 || true
+      echo "--- ${service} logs (tail 200) ---" >&2
+      compose logs --tail=200 "$service" >&2 || true
+      ;;
+  esac
+}
+
 fail() {
   local service="$1" reason="$2"
   echo "::error::e2e-smoke: ${reason}" >&2
-  echo "--- compose ps ---" >&2
-  compose ps >&2 || true
-  echo "--- ${service} logs (tail 200) ---" >&2
-  compose logs --tail=200 "$service" >&2 || true
+  diagnose "$service"
   exit 1
 }
 
@@ -47,20 +85,24 @@ check_http_200() {
 }
 
 echo "== backend /healthz =="
-check_http_200 "backend /healthz" "http://localhost:8000/healthz" api
+check_http_200 "backend /healthz" "${BACKEND_URL}/healthz" api
 
 echo "== analytics /readyz =="
-check_http_200 "analytics /readyz" "http://localhost:8082/readyz" analytics
+check_http_200 "analytics /readyz" "${ANALYTICS_URL}/readyz" analytics
 
 echo "== analytics stream_connected =="
-stream_connected=$(curl -sS http://localhost:8082/metrics 2>/dev/null | awk '/^analytics_stream_connected /{print $2}' || true)
+stream_connected=$(curl -sS "${ANALYTICS_URL}/metrics" 2>/dev/null | awk '/^analytics_stream_connected /{print $2}' || true)
 if [ "${stream_connected:-}" != "1" ]; then
   fail analytics "analytics_stream_connected == '${stream_connected:-<absent>}', expected 1"
 fi
 echo "OK: analytics_stream_connected == 1"
 
-echo "== prometheus targets api + analytics up =="
-for job in api analytics; do
+# Job names differ by stack: compose names its scrape jobs in prometheus.yml
+# (`api`), while Kubernetes derives them from each Service's own name via the
+# ServiceMonitor's jobLabel (`backend`). Same two services either way.
+PROM_JOBS="${PROM_JOBS:-api analytics}"
+echo "== prometheus targets up: ${PROM_JOBS} =="
+for job in $PROM_JOBS; do
   health=$(curl -sS "${PROM_URL}/api/v1/targets" 2>/dev/null | jq -r --arg job "$job" \
     '.data.activeTargets[] | select(.labels.job==$job) | .health' | head -n1 || true)
   if [ "${health:-}" != "up" ]; then
@@ -91,13 +133,13 @@ if [ "${NIGHTLY:-0}" = "1" ]; then
   # path; the k6 `report` scenario already drives it, this proves the async
   # job flow end to end (POST -> poll -> download) as a cheap, targeted check.
   echo "== reports /readyz (nightly only) =="
-  check_http_200 "reports /readyz" "http://localhost:8083/readyz" reports
+  check_http_200 "reports /readyz" "${REPORTS_URL}/readyz" reports
 
   echo "== reports job POST -> poll -> download (nightly only) =="
   # csv is the lightest format (no POI/PDF library), so this assertion stays
   # fast and does not compete with the k6 report scenario's heavier renders.
   submit_headers=$(curl -sS -D - -o /dev/null \
-    -X POST "http://localhost:8083/reports" \
+    -X POST "${REPORTS_URL}/reports" \
     -H 'Content-Type: application/json' \
     -d '{"type":"items-summary","format":"csv"}' 2>/dev/null || true)
   # Spring emits a capital-L `Location: /reports/{id}` over HTTP/1.1 -- match
@@ -111,7 +153,7 @@ if [ "${NIGHTLY:-0}" = "1" ]; then
   status=""
   for _ in $(seq 1 30); do
     sleep 1
-    status=$(curl -sS "http://localhost:8083${location}" 2>/dev/null | jq -r '.status // ""' || true)
+    status=$(curl -sS "${REPORTS_URL}${location}" 2>/dev/null | jq -r '.status // ""' || true)
     if [ "$status" = "SUCCEEDED" ] || [ "$status" = "FAILED" ]; then
       break
     fi
@@ -121,7 +163,7 @@ if [ "${NIGHTLY:-0}" = "1" ]; then
   fi
   echo "OK: report job ${location} SUCCEEDED"
 
-  check_http_200 "reports download" "http://localhost:8083${location}/download" reports
+  check_http_200 "reports download" "${REPORTS_URL}${location}/download" reports
 
   # reports-ui (RFC-0002, the Caddy static frontend + reverse proxy) rides the
   # same nightly/full stack as reports; like reports it stays OUT of the per-PR
@@ -129,12 +171,28 @@ if [ "${NIGHTLY:-0}" = "1" ]; then
   # Prometheus metrics on the site listener (the `metrics` handler re-exposing
   # the admin-API metrics -- the ADR-0013 win over the React frontend's nginx).
   echo "== reports-ui /healthz (nightly only) =="
-  check_http_200 "reports-ui /healthz" "http://localhost:8084/healthz" reports-ui
+  check_http_200 "reports-ui /healthz" "${REPORTS_UI_URL}/healthz" reports-ui
 
   echo "== reports-ui /metrics exposes caddy_ series (nightly only) =="
-  if ! curl -sS "http://localhost:8084/metrics" 2>/dev/null | grep -q '^caddy_'; then
-    fail reports-ui "GET :8084/metrics returned no caddy_ Prometheus series (metrics handler not exposing Caddy metrics)"
+  if ! curl -sS "${REPORTS_UI_URL}/metrics" 2>/dev/null | grep -q '^caddy_'; then
+    fail reports-ui "GET ${REPORTS_UI_URL}/metrics returned no caddy_ Prometheus series (metrics handler not exposing Caddy metrics)"
   fi
+
+  # The one path that crosses a reverse proxy configured INSIDE an image
+  # rather than by a manifest: reports-ui's Caddyfile proxies /api to the
+  # reports service. A wrong upstream there cannot be caught by rendering
+  # manifests or by probing either service directly -- both are healthy while
+  # every /api call fails. It shipped exactly that way to Kubernetes once.
+  echo "== reports-ui /api reaches reports (nightly only) =="
+  check_http_200 "reports-ui /api/reports" "${REPORTS_UI_URL}/api/reports" reports-ui
+
+  echo "== reports-ui upstream is healthy, not just reachable (nightly only) =="
+  upstreams_healthy=$(curl -sS "${REPORTS_UI_URL}/metrics" 2>/dev/null |
+    awk '/^caddy_reverse_proxy_upstreams_healthy/{print $2; exit}' || true)
+  if [ "${upstreams_healthy:-0}" != "1" ]; then
+    fail reports-ui "caddy_reverse_proxy_upstreams_healthy == '${upstreams_healthy:-<absent>}', expected 1 (the /api upstream is down or misaddressed)"
+  fi
+  echo "OK: caddy_reverse_proxy_upstreams_healthy == 1"
   echo "OK: reports-ui /metrics exposes caddy_ series"
 fi
 
