@@ -11,6 +11,9 @@ independent things live here, and they stay independent on purpose:
   thing. A multi-node Kind cluster, Envoy Gateway at the edge, the charts
   installed on top.
 
+Its counterpart is [`deploy/compose/README.md`](../compose/README.md), the same
+system on Docker Compose. Both are supported; neither replaces the other.
+
 Observability is Kubernetes-native: the Prometheus Operator discovers targets
 from ServiceMonitors instead of a static scrape file, and Grafana loads
 dashboards from labelled ConfigMaps instead of a mounted directory.
