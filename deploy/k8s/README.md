@@ -260,7 +260,9 @@ than hidden:
 
 Routing is **by hostname**, not by path prefix (ADR-0016), so every service
 keeps its own origin and nothing has to be rewritten to live under a
-sub-path. Everything goes through the Gateway on `localhost:8080`:
+sub-path. Everything goes through the Gateway on `localhost:8080`. A route is
+rendered only when its service is enabled, so the set follows the profile the
+same way the compose published-port set does:
 
 | URL | Service |
 | --- | --- |
@@ -269,6 +271,9 @@ sub-path. Everything goes through the Gateway on `localhost:8080`:
 | `http://api.devops-demo.localhost:8080/` | backend REST |
 | `grpc.devops-demo.localhost:8080` | backend gRPC (GRPCRoute) |
 | `http://grafana.devops-demo.localhost:8080/` | Grafana (admin/admin) |
+| `http://analytics.devops-demo.localhost:8080/` | analytics (`analytics` profile) |
+| `http://reports.devops-demo.localhost:8080/` | reports (`reports` profile) |
+| `http://canary.devops-demo.localhost:8080/` | canary (`synthetic` profile) |
 
 No `/etc/hosts` editing: RFC 6761 reserves the whole `.localhost` tree for
 loopback, and macOS and systemd-resolved both resolve `*.localhost` to
@@ -276,7 +281,9 @@ loopback, and macOS and systemd-resolved both resolve `*.localhost` to
 without systemd-resolved), add one line:
 
 ```text
-127.0.0.1 frontend.devops-demo.localhost reports-ui.devops-demo.localhost api.devops-demo.localhost grpc.devops-demo.localhost grafana.devops-demo.localhost
+127.0.0.1 frontend.devops-demo.localhost reports-ui.devops-demo.localhost api.devops-demo.localhost
+127.0.0.1 grpc.devops-demo.localhost grafana.devops-demo.localhost analytics.devops-demo.localhost
+127.0.0.1 reports.devops-demo.localhost canary.devops-demo.localhost
 ```
 
 Grafana's route is the one that crosses a namespace: it belongs to the
