@@ -114,6 +114,63 @@ spec:
         - name: {{ .Release.Name }}-reports-ui
           port: 8084
 {{- end }}
+{{- if index .Values "analytics" "enabled" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-analytics
+  labels:
+    app.kubernetes.io/part-of: devops-demo
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  parentRefs:
+    - name: {{ .Release.Name }}-gateway
+  hostnames:
+    - "analytics.{{ .Values.gateway.domain }}"
+  rules:
+    - backendRefs:
+        - name: {{ .Release.Name }}-analytics
+          port: 8082
+{{- end }}
+{{- if index .Values "reports" "enabled" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-reports
+  labels:
+    app.kubernetes.io/part-of: devops-demo
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  parentRefs:
+    - name: {{ .Release.Name }}-gateway
+  hostnames:
+    - "reports.{{ .Values.gateway.domain }}"
+  rules:
+    - backendRefs:
+        - name: {{ .Release.Name }}-reports
+          port: 8083
+{{- end }}
+{{- if index .Values "canary" "enabled" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-canary
+  labels:
+    app.kubernetes.io/part-of: devops-demo
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  parentRefs:
+    - name: {{ .Release.Name }}-gateway
+  hostnames:
+    - "canary.{{ .Values.gateway.domain }}"
+  rules:
+    - backendRefs:
+        - name: {{ .Release.Name }}-canary
+          port: 8080
+{{- end }}
 {{- if index .Values "backend" "enabled" }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
