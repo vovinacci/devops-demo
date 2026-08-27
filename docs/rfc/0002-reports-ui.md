@@ -1,6 +1,6 @@
 # RFC-0002: Reports UI -- a static SPA over the reports API
 
-- **Status:** Accepted
+- **Status:** Implemented (PR-1 and PR-2 delivered)
 - **Author:** vovin
 - **Created:** 2026-07-24
 - **Relationship to RFC-0001:** sibling. RFC-0001 is **immutable** -- its
