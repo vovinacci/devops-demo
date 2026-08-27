@@ -127,6 +127,11 @@ first, the diff second. Applies to human authors equally.
 Review findings evaluated and deliberately not applied. Read before
 producing review output; do not re-raise these.
 
+- PR descriptions: "the PR description contains a summary but no
+  `Change model` section" -- rejected: raised on #220, whose description
+  carried `## Change model` with affected components, Hard rules,
+  assumptions and plan. The finding was anchored to an unrelated ADR
+  file. Verify the rendered PR body before raising this.
 - `services/backend/tests/test_health.py`: "del app.dependency_overrides
   in finally can raise KeyError; use .pop()" -- rejected: the assignment
   is unconditional immediately before the try, KeyError is unreachable.

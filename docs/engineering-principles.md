@@ -101,8 +101,8 @@ quote for years.
 # ADR-NNNN: Title
 - Status: Proposed | Accepted | Deprecated | Superseded by ADR-XXXX
 - Date:
-- Amended:      date, the wording replaced, and that no decision changed
-                (omit unless amended)
+- Amended:      date, a quote of the wording replaced, and that no decision
+                changed (omit unless amended)
 - Context:      what forces are at play, what problem we are solving
 - Decision:     what we chose, stated in one or two sentences
 - Alternatives: what else was considered and why it lost
