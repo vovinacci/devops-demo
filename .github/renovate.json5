@@ -19,6 +19,74 @@
   'pre-commit': {
     enabled: true,
   },
+  // Version pins that live outside any file format Renovate parses on its
+  // own. Each one is real -- a chart version in a shell script, a node image
+  // in a Kind cluster config, a release tag in a documented recipe -- and
+  // without these rules they sit unwatched while everything around them is
+  // kept current.
+  //
+  // A regex manager cannot be verified by reading it, and it cannot be
+  // verified by dispatching the Renovate workflow either: Renovate reads
+  // repository config from the DEFAULT branch, so a rule on a feature branch
+  // is not the one that runs. Check it against the working tree instead:
+  //
+  //   npx --package renovate renovate --platform=local --dry-run=extract
+  //
+  // and read the per-manager fileCount/depCount in the stats it prints.
+  customManagers: [
+    {
+      customType: 'regex',
+      description: 'kube-prometheus-stack, installed by make kind-up',
+      // NOTE: a bump here also requires re-cutting the vendored CRD schemas
+      // under deploy/k8s/schemas/monitoring.coreos.com/ from the new chart's
+      // appVersion (recipe in deploy/k8s/README.md). Renovate cannot do that;
+      // without it the offline gate validates CRs against a shape the cluster
+      // no longer has -- green, and wrong.
+      managerFilePatterns: ['/^deploy/k8s/scripts/kind-up\\.sh$/'],
+      matchStrings: ['KUBE_PROMETHEUS_STACK_VERSION="(?<currentValue>[^"]+)"'],
+      depNameTemplate: 'kube-prometheus-stack',
+      datasourceTemplate: 'helm',
+      registryUrlTemplate: 'https://prometheus-community.github.io/helm-charts',
+    },
+    {
+      customType: 'regex',
+      description: 'Envoy Gateway (OCI chart), installed by make kind-up',
+      // A bump may also move the bundled Gateway API version, which the
+      // vendored gateway.networking.k8s.io schemas track -- see the recipe in
+      // deploy/k8s/README.md.
+      managerFilePatterns: ['/^deploy/k8s/scripts/kind-up\\.sh$/'],
+      matchStrings: ['ENVOY_GATEWAY_VERSION="(?<currentValue>[^"]+)"'],
+      depNameTemplate: 'docker.io/envoyproxy/gateway-helm',
+      datasourceTemplate: 'docker',
+    },
+    {
+      customType: 'regex',
+      description: 'prometheus-operator tag in the vendored-schema recipe (deploy/k8s/README.md)',
+      managerFilePatterns: ['/^deploy/k8s/README\\.md$/'],
+      matchStrings: ['TAG=(?<currentValue>v[0-9][^\\s]*)'],
+      datasourceTemplate: 'github-releases',
+      depNameTemplate: 'prometheus-operator/prometheus-operator',
+    },
+    {
+      customType: 'regex',
+      description: 'gateway-api tag in the vendored-schema recipe (deploy/k8s/README.md)',
+      // Separate from the rule above on purpose: the two recipes track
+      // different upstreams, and one rule with two matchStrings would label
+      // both with a single depName.
+      managerFilePatterns: ['/^deploy/k8s/README\\.md$/'],
+      matchStrings: ['GWAPI=(?<currentValue>v[0-9][^\\s]*)'],
+      datasourceTemplate: 'github-releases',
+      depNameTemplate: 'kubernetes-sigs/gateway-api',
+    },
+  ],
+
+  // The Kind cluster config carries a digest-pinned Kubernetes node image.
+  // It is a kind.x-k8s.io Cluster rather than a workload manifest, so the
+  // kubernetes manager has to be pointed at it explicitly.
+  kubernetes: {
+    managerFilePatterns: ['/^deploy/k8s/kind/cluster\\.yaml$/'],
+  },
+
   packageRules: [
     {
       matchFileNames: ['services/backend/**'],
