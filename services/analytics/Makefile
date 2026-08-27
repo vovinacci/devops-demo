@@ -34,9 +34,13 @@ test: ## Run unit + integration tests; migration tests need real Postgres, so a 
 	docker run -d --name $(TEST_PG_CONTAINER) -p $(TEST_PG_PORT):5432 \
 		-e POSTGRES_DB=analytics_test -e POSTGRES_USER=analytics -e POSTGRES_PASSWORD=analytics \
 		postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777 >/dev/null
+	@# -h 127.0.0.1 forces a TCP probe. The container is recreated with an empty
+	@# data directory on every run, so initdb runs every time behind a temporary
+	@# socket-only server; a socket probe reports ready while port 5432 is still
+	@# closed, and the tests connect over the published port.
 	@echo "waiting for test postgres..."
 	@timeout=30; \
-	until docker exec $(TEST_PG_CONTAINER) pg_isready -U analytics -d analytics_test >/dev/null 2>&1; do \
+	until docker exec $(TEST_PG_CONTAINER) pg_isready -h 127.0.0.1 -U analytics -d analytics_test >/dev/null 2>&1; do \
 		timeout=$$((timeout - 1)); \
 		if [ $$timeout -le 0 ]; then echo "test postgres did not become ready"; docker rm -f $(TEST_PG_CONTAINER) >/dev/null; exit 1; fi; \
 		sleep 1; \
