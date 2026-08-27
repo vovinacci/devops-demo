@@ -25,29 +25,54 @@ else
   db_was_running=no
 fi
 
+# Invoked by the EXIT trap below, which shellcheck does not trace.
+# shellcheck disable=SC2329
+cleanup() {
+  if [ "$db_was_running" = "no" ]; then
+    echo
+    echo "Stopping database started for tests..."
+    $COMPOSE stop db || true
+  fi
+}
+trap cleanup EXIT
+
 if [ "$db_was_running" = "no" ]; then
   echo
   echo "Database is not running. Starting DB only..."
   $COMPOSE up -d db || true
   echo "Waiting for DB readiness..."
+  # -h 127.0.0.1 forces a TCP probe. Without it pg_isready checks the unix
+  # socket, and on a fresh volume the postgres entrypoint runs initdb behind a
+  # temporary socket-only server -- so a socket probe reports ready while the
+  # port the tests connect on is still closed.
+  ready=no
   timeout=$READY_TIMEOUT
   while [ "$timeout" -gt 0 ]; do
-    if $COMPOSE exec -T db pg_isready -U app -d appdb; then
+    if $COMPOSE exec -T db pg_isready -h 127.0.0.1 -U app -d appdb; then
+      ready=yes
       break
     fi
     sleep 1
     timeout=$((timeout - 1))
   done
+  if [ "$ready" = "no" ]; then
+    echo "Database did not become ready within ${READY_TIMEOUT}s." >&2
+    exit 1
+  fi
 fi
 
-# Tolerated on failure, as before: a migration error should surface through
-# the tests that then fail, not by masking them with a different exit code.
+# Fail here rather than letting the tests report it. An unmigrated database
+# turns one legible migration error into a wall of "relation does not exist"
+# failures that say nothing about the cause.
 echo "Running DB migrations..."
 (
   cd services/backend || exit 1
   DATABASE_URL="$DB_URL_ASYNC" ALEMBIC_DATABASE_URL="$DB_URL_SYNC" \
     python -m alembic -c alembic.ini upgrade head
-) || true
+) || {
+  echo "Database migrations failed; not running tests." >&2
+  exit 1
+}
 
 echo "Running backend tests via virtualenv..."
 (
@@ -56,11 +81,5 @@ echo "Running backend tests via virtualenv..."
     pytest -q
 )
 test_exit=$?
-
-if [ "$db_was_running" = "no" ]; then
-  echo
-  echo "Stopping database started for tests..."
-  $COMPOSE stop db || true
-fi
 
 exit "$test_exit"
