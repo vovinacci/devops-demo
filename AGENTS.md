@@ -45,8 +45,12 @@ referenced documents; the rule itself is authoritative as written here.
    (healthz/readyz, /metrics, JSON logs, Make targets) change only with an
    ADR or RFC amendment. proto changes must pass `buf breaking`.
    (RFC-0001 D3, D6)
-5. **Accepted RFCs/ADRs are immutable** -- supersede, never rewrite.
-   (engineering-principles.md Section 3)
+5. **Accepted RFCs/ADRs are immutable in substance** -- a changed decision
+   means a new RFC/ADR that supersedes, never a rewrite. Editorial
+   corrections that change no decision (terminology, a wrong citation or
+   forward reference) are made in place and recorded in the
+   document's **Amended** header line. (engineering-principles.md
+   Sections 2 and 3)
 6. **No secrets in the repo**; gitleaks runs in hooks and CI; do not weaken
    or bypass it. (RFC-0001 D13)
 7. **Analytics buckets on event time, never arrival time.** (RFC-0001 D1)
@@ -139,7 +143,7 @@ producing review output; do not re-raise these.
   static embedded SQL, and the paired Grafana provisioning file cannot
   env-expand -- a secrets-layer password on one side only breaks the
   pair without improving posture. Real secret management belongs to the
-  deferred security capstone (RFC-0001 Section 10).
+  authentication capstone, RFC-0004 (RFC-0003 Section 5, DK8).
 - `deploy/k8s/charts/*/values.yaml`: "remove the committed database
   credentials; provision the Secrets externally at deploy time" --
   rejected. Provenance first, because the suppression bound in
@@ -156,8 +160,8 @@ producing review output; do not re-raise these.
   Splitting the k8s side onto an external secret store while compose
   keeps its defaults would teach that a Secret object IS secrecy. The
   value here is the ConfigMap-vs-Secret split, which makes the later swap
-  a change to one object; real secret management belongs to the deferred
-  security capstone (RFC-0001 Section 10).
+  a change to one object; real secret management belongs to the
+  authentication capstone, RFC-0004 (RFC-0003 Section 5, DK8).
 
 ## When unsure
 

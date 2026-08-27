@@ -5,6 +5,12 @@
 - **Created:** 2026-07-10
 - **Accepted:** 2026-07-12
 - **Discussion:** https://github.com/vovinacci/devops-demo/pull/117
+- **Amended:** 2026-08-27 -- terminology only. The deferred supply-chain work
+  in Sections 6 (D13) and 10 was called a "security capstone"; it is named
+  supply-chain depth throughout. The Section 9 row for phase 7 dropped the
+  same word, from "Capstone: NATS event path refactor"; that phase was already
+  amended as not planned. The capstone is RFC-0004, authentication and
+  authorization. No decision changed.
 
 ## 1. Summary
 
@@ -466,7 +472,7 @@ Conventions:
   - **Trivy** image scan in CI, failing on critical CVEs: "your image ships a
     known vulnerability" is core DevOps literacy, and a red gate with a real
     CVE identifier is a teachable moment, not noise.
-- Deferred to a **security capstone** (Section 10) -- conceptually heavy for
+- Deferred to **supply-chain depth** (Section 10) -- conceptually heavy for
   students until the rest of the pipeline is understood:
   - SBOM generation (syft) attached to releases;
   - CodeQL static analysis (free for public repos; covers Python/JS/Go/Kotlin
@@ -537,7 +543,7 @@ parity, release-please -> GHCR releases, Renovate for dependencies.
 | 4 | k6 loadgen + `loadprofile/` + parity test + incident mode + **Alertmanager + visible receiver** + CI e2e/threshold stage + nightly `full`-profile workflow | Moved early -- every later phase benefits from live traffic and the e2e gate; incident loop ends in a visible notification |
 | 5 | Historical seeder + stitching + anomalies + annotations | Depends on 3 + 4 |
 | 6 | Kotlin reports + JVM dashboards + report k6 scenario; canary v3 (report step) | JVM showcase |
-| 7 | Capstone: NATS event path refactor (separate RFC) | Fixes the documented durability gap of D3 |
+| 7 | NATS event path refactor (separate RFC) | Fixes the documented durability gap of D3 |
 
 (Amended after Phase 6: phase 7 did not happen as written and is not
 planned. The broker refactor was dropped -- see Section 10 -- and the arc
@@ -564,8 +570,8 @@ module's first commit.
   allows; services are already instrumented (D11).
 - **release-please manifest mode:** per-service versioning, if/when the
   repo-level single version stops fitting.
-- **Security capstone (separate RFC):** SBOM (syft) on releases, CodeQL,
-  image signing/verification (cosign) -- the supply-chain depth deferred by D13.
+- **Supply-chain depth (separate future RFC):** SBOM (syft) on releases,
+  CodeQL, image signing/verification (cosign) -- deferred by D13.
 - **Toxiproxy chaos phase:** latency/conn-drop injection between backend and
   Postgres. Compose topology must keep an insertion point.
 - **Reports -> analytics over gRPC:** second buf/codegen exercise.
