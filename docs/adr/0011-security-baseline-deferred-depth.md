@@ -3,6 +3,9 @@
 - Status: Accepted
 - Date: 2026-07-12
 - Extracted from: RFC-0001 D13
+- Amended: 2026-08-27 -- terminology only. The deferred work below was called
+  a "security capstone"; it is named supply-chain depth. The capstone is
+  RFC-0004, authentication and authorization. No decision changed.
 
 ## Context
 
@@ -37,7 +40,7 @@ scan our images" implied to anyone reading the badge. The image list is
 derived from the compose file at scan time, so it cannot drift out of sync
 with what the stack actually runs.
 
-Deferred to a security capstone:
+Deferred to supply-chain depth, a separate future RFC:
 SBOM generation (syft) on releases, CodeQL static analysis (covers
 Python/JS/Go/Kotlin -- notably not Rust, documented honestly), and image
 signing/verification (cosign).
@@ -47,7 +50,7 @@ signing/verification (cosign).
 - Full supply-chain stack now: rejected -- conceptually heavy before the
   rest of the pipeline is understood, and cosign verification is weak in a
   compose-only world; do not cargo-cult it in.
-- No security gates until the capstone: rejected -- both baseline gates are
+- No security gates until that later RFC: rejected -- both baseline gates are
   near-free and produce teachable red builds.
 
 ## Consequences
@@ -55,7 +58,7 @@ signing/verification (cosign).
 - Easier: every pipeline has a security stage from Phase 0; a red gate
   carries a real CVE identifier, a teachable moment. Coverage now matches the
   claim -- every image the stack runs is scanned, not only the ones we build.
-- Harder: the deferred depth is a documented, visible gap until the
-  capstone phase. The report-only lane needs someone to actually read it;
-  a findings list nobody opens is worth about as much as no scan at all,
-  and nothing in CI forces that habit.
+- Harder: the deferred depth is a documented, visible gap until that later
+  RFC lands. The report-only lane needs someone to actually read it; a
+  findings list nobody opens is worth about as much as no scan at all, and
+  nothing in CI forces that habit.

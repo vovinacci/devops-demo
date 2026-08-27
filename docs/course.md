@@ -14,9 +14,9 @@ stress it -- is the material, not a wrapper around it.
 
 The semester is ten modules over roughly fourteen weeks: the seven build
 phases of [RFC-0001](rfc/0001-polyglot-platform.md), the sibling
-[RFC-0002](rfc/0002-reports-ui.md) integration exhibit, and two upcoming
-modules (Kubernetes on Kind, then an authentication capstone) that are in
-design.
+[RFC-0002](rfc/0002-reports-ui.md) integration exhibit, the
+[RFC-0003](rfc/0003-kubernetes-kind-platform.md) Kubernetes-on-Kind module,
+and one upcoming module -- an authentication capstone -- still in design.
 
 ## How to use this course
 
@@ -194,10 +194,10 @@ before being caught.
 Discussion: what did the compose stack make easy that Kubernetes makes
 explicit, and which of those explicit things were always true but hidden?
 
-### Module 9 -- Capstone: security, authN/authZ (RFC-0004, UPCOMING)
+### Module 9 -- Capstone: authN/authZ (RFC-0004, UPCOMING)
 
 The platform today has zero auth -- everything is open with demo credentials
-(ADR-0011 deferred it; RFC-0001 Section 10 names a security capstone). This
+(RFC-0003 Section 4 makes it an explicit non-goal and defers it here). This
 capstone adds authentication and authorization across the polyglot mesh, riding
 on the Kind/Kubernetes platform from Module 8: OIDC login on the SPAs
 (Authorization Code + PKCE), then JWT/JWKS validation and role/scope authz in
@@ -220,10 +220,18 @@ network, and puts it back. Do it before the capstone: authentication is the
 control you add *after* you know what is reachable without it, and the exercise
 makes that reachability concrete rather than theoretical.
 
+Not in this module: **supply-chain depth** -- SBOM generation (syft), CodeQL
+static analysis, and image signing and verification (cosign). RFC-0001 D13 and
+[ADR-0011](adr/0011-security-baseline-deferred-depth.md) defer that work to a
+separate future RFC. It is deliberately outside the capstone: build and release
+integrity is a different subject from runtime access control, and folding them
+together would make one module carry two.
+
 ## Instructor notes
 
 - **Pacing.** Roughly one to two weeks per module fills a ~14-week semester:
-  seven RFC-0001 phases, the RFC-0002 sibling, and the two upcoming modules.
+  seven RFC-0001 phases, the RFC-0002 sibling, the RFC-0003 Kind module, and
+  the one upcoming module.
   Front-load Modules 0-1; Modules 3-4 carry the most operational depth.
 - **Compressed sessions.** For in-class demos use workshop mode
   (`make up-workshop`, `DEMO_TIME_SCALE=24`): a 90-day history plays out in

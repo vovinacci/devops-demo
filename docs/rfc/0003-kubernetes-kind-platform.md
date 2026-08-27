@@ -3,6 +3,10 @@
 - **Status:** Implemented (PR-1 to PR-5 delivered)
 - **Author:** vovin
 - **Created:** 2026-07-24
+- **Amended:** 2026-08-27 -- citation only. DK8 said real secret management was
+  "(originally deferred in RFC-0001 Section 10)"; RFC-0001 never raised secret
+  management, so the parenthetical is dropped and DK8 stands as the first
+  deferral. No decision changed.
 - **Relationship to prior RFCs:** RFC-0001 (the polyglot platform) and
   RFC-0002 (the reports UI) are **immutable**. Their services, decisions, and
   scope freezes stand untouched. This RFC adds a **new deployment target** for
@@ -322,9 +326,8 @@ admin password) move into **Secrets**.
   defaults, no external secret store, no encryption-at-rest configured on the
   Kind cluster. A Kubernetes `Secret` is not a secret-management solution; it
   is a distribution mechanism. Real secret management (external store, sealed/
-  external secrets, KMS) belongs to the authentication capstone, **RFC-0004**
-  (originally deferred in RFC-0001 Section 10), and is forward-referenced
-  there, not cargo-culted here.
+  external secrets, KMS) belongs to the authentication capstone, **RFC-0004**,
+  and is forward-referenced there, not cargo-culted here.
 - Rejected -- **plaintext env in the Deployment spec**: skips the primitive
   entirely and would put the demo passwords in the Deployment manifest instead
   of a Secret -- worse posture *and* a missed lesson.

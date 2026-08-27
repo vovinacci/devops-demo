@@ -172,7 +172,7 @@ For the full command list run `make help`.
   [RFC-0003](docs/rfc/0003-kubernetes-kind-platform.md) (Kubernetes on Kind, a
   second deployment target)
 - [ADRs](docs/adr/) -- one durable decision per file, extracted from the
-  RFCs; immutable once accepted
+  RFCs; immutable in substance once accepted
 - [CI/CD architecture](docs/ci.md) -- pipeline topology, gates, releases,
   branch protection
 - [Contributing](docs/contributing.md) -- practical guide: commits, hooks,

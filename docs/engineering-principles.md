@@ -101,6 +101,8 @@ quote for years.
 # ADR-NNNN: Title
 - Status: Proposed | Accepted | Deprecated | Superseded by ADR-XXXX
 - Date:
+- Amended:      date, a quote of the wording replaced, and that no decision
+                changed (omit unless amended)
 - Context:      what forces are at play, what problem we are solving
 - Decision:     what we chose, stated in one or two sentences
 - Alternatives: what else was considered and why it lost
@@ -110,6 +112,17 @@ quote for years.
 - ADRs live in `docs/adr/`, numbered sequentially, **immutable once accepted**:
   changing a decision means a *new* ADR that supersedes the old one. The chain
   of superseded ADRs is the history of our thinking -- never rewrite it.
+- **Editorial corrections are not decision changes.** In RFCs and ADRs alike,
+  **only** two things may be fixed in place: terminology, and a citation or
+  forward reference that is wrong -- whether it went stale or was never right.
+  The **Amended** header line must give
+  the date, quote the wording it replaced, and state that no decision changed.
+  Anything touching scope, a rejected alternative, or a consequence is a
+  decision change -- supersede instead. **If in doubt, supersede.** The rule
+  above protects decisions, not wording: the *body* should present one
+  vocabulary, and the **Amended** line, not the prose, is where the old term is
+  kept. An **Amended** header is what immutability-in-substance looks like: a
+  document carrying one is still immutable in every sense that rule protects.
 - Large RFCs spawn ADRs for their durable decisions (see RFC-0001 Section 12); the
   RFC narrates, the ADRs endure.
 
