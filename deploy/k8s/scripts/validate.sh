@@ -36,9 +36,16 @@ compose_file="deploy/compose/docker-compose.yml"
 # gateway.networking.k8s.io/httproute_v1.json.
 crd_schema="$schema_dir/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
 
-# Per-service charts (consume the common library) + the library itself.
-services=(backend frontend analytics reports reports-ui canary blackbox
-  loadgen mailpit loki alloy postgres-exporter postgres)
+# Per-service charts (consume the common library), derived from the directory
+# rather than listed: a hand-maintained list is one more thing to remember,
+# and `alloy` had to be added to it by hand when that chart landed.
+services=()
+for chart in "$charts_dir"/*/; do
+  case "$(basename "$chart")" in
+    common | platform) continue ;;
+    *) services+=("$(basename "$chart")") ;;
+  esac
+done
 
 # Config files that exist twice on purpose: compose bind-mounts the original,
 # Helm can only read files inside a chart, so the chart carries a copy that

@@ -32,7 +32,8 @@ cd "$repo_root"
 # working unchanged.
 profiles="${PROFILE:-core}"
 namespace="${NAMESPACE:-devops-demo}"
-umbrella="deploy/k8s/charts/platform"
+charts_dir="deploy/k8s/charts"
+umbrella="$charts_dir/platform"
 cluster_name="$(sed -n 's/^name: \(.*\)$/\1/p' deploy/k8s/kind/cluster.yaml)"
 
 if ! kind get clusters 2>/dev/null | grep -qx "$cluster_name"; then
@@ -115,8 +116,20 @@ for image in $images; do
   kind load docker-image "devops-demo/${image}:dev" --name "$cluster_name"
 done
 
-echo "==> helm dependency build"
-helm dependency build "$umbrella" >/dev/null
+# Every per-service chart imports the `common` library and needs it vendored
+# into its own charts/ before the umbrella packages it. Building only the
+# umbrella works on a machine where `make lint-k8s` has run -- and fails on a
+# fresh checkout with "no template common.serviceaccount", which is exactly
+# what CI is. The chart list is derived rather than repeated: a new chart is
+# picked up the day it lands.
+echo "==> helm dependency update (vendor the common library into each chart)"
+for chart in "$charts_dir"/*/; do
+  case "$(basename "$chart")" in
+    common | platform) continue ;;
+  esac
+  helm dependency update "$chart" >/dev/null
+done
+helm dependency update "$umbrella" >/dev/null
 
 # The EnvoyProxy is Kind-only edge plumbing and has to exist before the
 # Gateway references it, so it is applied here rather than rendered by the

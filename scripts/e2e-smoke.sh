@@ -174,9 +174,43 @@ if [ "${NIGHTLY:-0}" = "1" ]; then
   check_http_200 "reports-ui /healthz" "${REPORTS_UI_URL}/healthz" reports-ui
 
   echo "== reports-ui /metrics exposes caddy_ series (nightly only) =="
-  if ! curl -sS "${REPORTS_UI_URL}/metrics" 2>/dev/null | grep -q '^caddy_'; then
-    fail reports-ui "GET ${REPORTS_UI_URL}/metrics returned no caddy_ Prometheus series (metrics handler not exposing Caddy metrics)"
+  # Status first, body second. Grepping the body alone cannot tell "Caddy
+  # answered without the series" from "something else answered instead" -- and
+  # through a Gateway the something else is an error page, which contains no
+  # caddy_ lines either. The failure then names the wrong cause.
+  metrics_body="$(mktemp)"
+  metrics_err="$(mktemp)"
+  # The transfer's own exit status matters separately from the HTTP status: a
+  # truncated response is a 200 that stopped early, and if the bytes that did
+  # arrive happen to contain a caddy_ line, discarding curl's status would let
+  # it pass. Keep curl's stderr too -- it is the only place the reason appears.
+  if metrics_code=$(curl -sS -o "$metrics_body" -w '%{http_code}' "${REPORTS_UI_URL}/metrics" 2>"$metrics_err"); then
+    curl_status=0
+  else
+    curl_status=$?
   fi
+  if [ "$curl_status" -ne 0 ]; then
+    echo "--- curl stderr ---" >&2
+    cat "$metrics_err" >&2 || true
+    rm -f "$metrics_body" "$metrics_err"
+    fail reports-ui "GET ${REPORTS_UI_URL}/metrics: curl exited $curl_status (transfer failed or incomplete)"
+  fi
+  rm -f "$metrics_err"
+  metrics_code="${metrics_code:-000}"
+  if [ "$metrics_code" != "200" ]; then
+    echo "--- first 10 lines of the response ---" >&2
+    head -10 "$metrics_body" >&2 || true
+    rm -f "$metrics_body"
+    fail reports-ui "GET ${REPORTS_UI_URL}/metrics returned $metrics_code (expected 200)"
+  fi
+  if ! grep -q '^caddy_' "$metrics_body"; then
+    echo "--- first 10 lines of the 200 response ---" >&2
+    head -10 "$metrics_body" >&2 || true
+    rm -f "$metrics_body"
+    fail reports-ui "GET ${REPORTS_UI_URL}/metrics returned 200 with no caddy_ series (metrics handler not exposing Caddy metrics)"
+  fi
+  rm -f "$metrics_body"
+  echo "OK: reports-ui /metrics exposes caddy_ series"
 
   # The one path that crosses a reverse proxy configured INSIDE an image
   # rather than by a manifest: reports-ui's Caddyfile proxies /api to the

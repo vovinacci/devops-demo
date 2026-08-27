@@ -42,18 +42,18 @@ fixed since, so history is for reading, not for bringing up.
 
 ## Course map
 
-| Module                              | Phase / RFC | What lands                            | Read (RFC + ADR)             | Run                                                                 | Do        | Operate (runbooks)                              |
-| ----------------------------------- | ----------- | ------------------------------------- | ---------------------------- | ------------------------------------------------------------------- | --------- | ----------------------------------------------- |
-| 0. Baseline and operability         | Phase 0     | Repo layout, CI, toolchain            | D6, D8, D14; ADR 1/4/9/12    | `make up`                                                           | ex 00     | --                                              |
-| 1. Three-layer monitoring           | Phase 1     | blackbox + canary v1                  | D6, D9, D10; ADR 7/8         | `make up-full`                                                      | ex 01, 08 | probe-down, canary-journey-failing              |
-| 2. Contract-first gRPC              | Phase 2     | proto/ + gRPC server + buf gate       | D3, D11; ADR 2/10            | `make up`                                                           | ex 02     | --                                              |
-| 3. Analytics and the event stream   | Phase 3     | Go analytics + canary v2              | D1, D3, D7; ADR 5/2          | `make up-full`                                                      | ex 03     | analytics-stream-down, canary-pipeline-lag-high |
-| 4. Load and incident-to-inbox       | Phase 4     | loadgen + Alertmanager + e2e gate     | D4, D5; ADR 3/6/7/8          | `make up-full` + `make incident`                                    | ex 04     | all four (triage)                               |
-| 5. Historical data and seams        | Phase 5     | seeder + history dashboards           | D5, D7; ADR 5/3              | `make up-workshop` + seed                                           | ex 05     | --                                              |
-| 6. The JVM showcase                 | Phase 6     | Kotlin reports + canary v3            | D2, D6, D10, D12; ADR 4      | `make up-full`                                                      | ex 06     | --                                              |
-| 7. A UI over the API                | RFC-0002    | reports-ui Caddy SPA (`:8084`)        | RFC-0002; ADR 13             | `make up-full`                                                      | --        | --                                              |
-| 8. Into Kind                        | RFC-0003    | K8s/Kind, Gateway API, Helm, Operator | RFC-0003; ADR 14/15/16/17/18 | `make kind-up` + `make kind-deploy PROFILE=full` + `make kind-seed` | ex 09, 10 | kubernetes-bring-up                             |
-| 9. Capstone: authN/authZ (UPCOMING) | RFC-0004    | OIDC across the polyglot mesh         | RFC-0004 (in design)         | `make up-full`                                                      | ex 07     | --                                              |
+| Module                              | Phase / RFC | What lands                            | Read (RFC + ADR)             | Run                                                                 | Do            | Operate (runbooks)                              |
+| ----------------------------------- | ----------- | ------------------------------------- | ---------------------------- | ------------------------------------------------------------------- | ------------- | ----------------------------------------------- |
+| 0. Baseline and operability         | Phase 0     | Repo layout, CI, toolchain            | D6, D8, D14; ADR 1/4/9/12    | `make up`                                                           | ex 00         | --                                              |
+| 1. Three-layer monitoring           | Phase 1     | blackbox + canary v1                  | D6, D9, D10; ADR 7/8         | `make up-full`                                                      | ex 01, 08     | probe-down, canary-journey-failing              |
+| 2. Contract-first gRPC              | Phase 2     | proto/ + gRPC server + buf gate       | D3, D11; ADR 2/10            | `make up`                                                           | ex 02         | --                                              |
+| 3. Analytics and the event stream   | Phase 3     | Go analytics + canary v2              | D1, D3, D7; ADR 5/2          | `make up-full`                                                      | ex 03         | analytics-stream-down, canary-pipeline-lag-high |
+| 4. Load and incident-to-inbox       | Phase 4     | loadgen + Alertmanager + e2e gate     | D4, D5; ADR 3/6/7/8          | `make up-full` + `make incident`                                    | ex 04         | all four (triage)                               |
+| 5. Historical data and seams        | Phase 5     | seeder + history dashboards           | D5, D7; ADR 5/3              | `make up-workshop` + seed                                           | ex 05         | --                                              |
+| 6. The JVM showcase                 | Phase 6     | Kotlin reports + canary v3            | D2, D6, D10, D12; ADR 4      | `make up-full`                                                      | ex 06         | --                                              |
+| 7. A UI over the API                | RFC-0002    | reports-ui Caddy SPA (`:8084`)        | RFC-0002; ADR 13             | `make up-full`                                                      | --            | --                                              |
+| 8. Into Kind                        | RFC-0003    | K8s/Kind, Gateway API, Helm, Operator | RFC-0003; ADR 14/15/16/17/18 | `make kind-up` + `make kind-deploy PROFILE=full` + `make kind-seed` | ex 09, 10, 11 | kubernetes-bring-up                             |
+| 9. Capstone: authN/authZ (UPCOMING) | RFC-0004    | OIDC across the polyglot mesh         | RFC-0004 (in design)         | `make up-full`                                                      | ex 07         | --                                              |
 
 `ex NN` is [`docs/exercises/NN-*.md`](exercises/00-baseline.md); `D<n>` is the
 decision record of that number in [RFC-0001 Section 6-12](rfc/0001-polyglot-platform.md);
@@ -179,14 +179,17 @@ charts contain, and
 [the bring-up runbook](runbooks/kubernetes-bring-up.md) for what it costs and
 what breaks.
 
-The two exercises are deliberately about failures that **cannot happen under
+The three exercises are deliberately about failures that **cannot happen under
 compose and report nothing when they do**:
 [exercise 09](exercises/09-the-servicemonitor-that-scrapes-nothing.md) breaks
 the link between a scrape target and the queries written against it, leaving
 a green Prometheus and empty dashboards;
 [exercise 10](exercises/10-the-config-change-that-did-nothing.md) changes a
-ConfigMap and watches a successful deploy have no effect. Both shipped for
-real during this RFC before being caught.
+ConfigMap and watches a successful deploy have no effect; and
+[exercise 11](exercises/11-it-worked-on-my-machine.md) removes a gitignored
+build artifact and watches a command that has worked for weeks start failing
+on a repository nobody edited. All three shipped for real during this RFC
+before being caught.
 
 Discussion: what did the compose stack make easy that Kubernetes makes
 explicit, and which of those explicit things were always true but hidden?
