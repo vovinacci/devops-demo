@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.6.0](https://github.com/vovinacci/devops-demo/compare/v1.5.1...v1.6.0) (2026-08-27)
+
+
+### Features
+
+* **k8s:** Helm packaging -- library chart, per-service charts, umbrella (RFC-0003 PR-2) ([#201](https://github.com/vovinacci/devops-demo/issues/201)) ([14a08e7](https://github.com/vovinacci/devops-demo/commit/14a08e76a04669e9def88ebb833d5dcb81b4f34c))
+* **k8s:** Kind cluster, ConfigMaps/Secrets and the Envoy Gateway edge (RFC-0003 PR-3) ([#211](https://github.com/vovinacci/devops-demo/issues/211)) ([70dafb6](https://github.com/vovinacci/devops-demo/commit/70dafb6a4960563af46e45dc74a5d6d22a532675))
+* **k8s:** Kubernetes-native observability -- Operator, dashboards, Alloy (RFC-0003 PR-4) ([#212](https://github.com/vovinacci/devops-demo/issues/212)) ([7096dbb](https://github.com/vovinacci/devops-demo/commit/7096dbb8e7033823764bb40f310a06dde6f927ab))
+* **k8s:** nightly Kind e2e, the kind-* workflow targets, runbook and exercises ([#217](https://github.com/vovinacci/devops-demo/issues/217)) ([4e1bab8](https://github.com/vovinacci/devops-demo/commit/4e1bab816c6e2ca1b90b7cbc8925692ffcf3236f))
+* **k8s:** publish analytics, reports and canary through the Gateway ([#213](https://github.com/vovinacci/devops-demo/issues/213)) ([61e661b](https://github.com/vovinacci/devops-demo/commit/61e661be908bdce65ea1fb0f2eebe7ac75d3b23e))
+
+
+### Bug Fixes
+
+* **ci:** unbreak Checks -- hadolint DL3066/DL3025 and RUSTSEC-2026-0258 ([#207](https://github.com/vovinacci/devops-demo/issues/207)) ([a615ae6](https://github.com/vovinacci/devops-demo/commit/a615ae661252ced50f665a945546c7ca755c4015))
+* **k8s:** vendor every chart dependency in kind-deploy, not just the umbrella ([#218](https://github.com/vovinacci/devops-demo/issues/218)) ([27e9601](https://github.com/vovinacci/devops-demo/commit/27e9601abc9f6225e7ea3cdb5c0f74e711f957ee))
+* **reports-ui:** read the /api upstream from the environment ([#216](https://github.com/vovinacci/devops-demo/issues/216)) ([aa6c9f9](https://github.com/vovinacci/devops-demo/commit/aa6c9f9f6eb650f0a29c3605b24f068b8f7aa8e9))
+
 ## [1.5.1](https://github.com/vovinacci/devops-demo/compare/v1.5.0...v1.5.1) (2026-07-27)
 
 
