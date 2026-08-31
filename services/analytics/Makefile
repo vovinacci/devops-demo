@@ -33,7 +33,7 @@ test: ## Run unit + integration tests; migration tests need real Postgres, so a 
 	@docker rm -f $(TEST_PG_CONTAINER) >/dev/null 2>&1 || true
 	docker run -d --name $(TEST_PG_CONTAINER) -p $(TEST_PG_PORT):5432 \
 		-e POSTGRES_DB=analytics_test -e POSTGRES_USER=analytics -e POSTGRES_PASSWORD=analytics \
-		postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777 >/dev/null
+		postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 >/dev/null
 	@# -h 127.0.0.1 forces a TCP probe. The container is recreated with an empty
 	@# data directory on every run, so initdb runs every time behind a temporary
 	@# socket-only server; a socket probe reports ready while port 5432 is still

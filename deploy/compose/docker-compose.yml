@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-appdb}
       POSTGRES_USER: ${POSTGRES_USER:-app}
@@ -268,7 +268,7 @@ services:
   # Own Postgres instance -- service-owns-its-store must be visible in
   # the compose topology, not a second database on `db`.
   postgres-analytics:
-    image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
     profiles:
       - analytics
     environment:
@@ -356,7 +356,7 @@ services:
   # (Postgres C) -- service-owns-its-store must be visible in the compose
   # topology, the same rule analytics follows, not a schema on `db`.
   postgres-reports:
-    image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
     profiles:
       - reports
     environment:
