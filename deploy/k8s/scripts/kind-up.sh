@@ -32,7 +32,7 @@ cluster_name="$(sed -n 's/^name: \(.*\)$/\1/p' "$cluster_config")"
 # deploy/k8s/schemas/monitoring.coreos.com/ is vendored from. Those two move
 # together -- see deploy/k8s/README.md.
 KUBE_PROMETHEUS_STACK_VERSION="88.5.4"
-ENVOY_GATEWAY_VERSION="1.9.0"
+ENVOY_GATEWAY_VERSION="1.9.1"
 
 if kind get clusters 2>/dev/null | grep -qx "$cluster_name"; then
   echo "==> cluster '$cluster_name' already exists (skipping create)"
