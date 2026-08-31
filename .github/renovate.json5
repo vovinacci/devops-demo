@@ -61,6 +61,17 @@
     },
     {
       customType: 'regex',
+      description: 'Postgres pin in the analytics test harness (throwaway docker run)',
+      // The same image that compose and the postgres chart pin.
+      // deploy/k8s/scripts/validate.sh fails when the copies disagree, so
+      // this one has to be managed rather than left to rot.
+      managerFilePatterns: ['/^services/analytics/Makefile$/'],
+      matchStrings: ['postgres:(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})'],
+      depNameTemplate: 'postgres',
+      datasourceTemplate: 'docker',
+    },
+    {
+      customType: 'regex',
       description: 'prometheus-operator tag in the vendored-schema recipe (deploy/k8s/README.md)',
       managerFilePatterns: ['/^deploy/k8s/README\\.md$/'],
       matchStrings: ['TAG=(?<currentValue>v[0-9][^\\s]*)'],
@@ -133,6 +144,16 @@
     {
       matchManagers: ['dockerfile', 'docker-compose'],
       matchUpdateTypes: ['minor', 'patch', 'digest', 'pin'],
+      groupName: 'docker',
+    },
+    {
+      // postgres is pinned in four places across three managers: compose
+      // (docker-compose), the chart values (helm-values), and the analytics
+      // test harness (the customManager above). validate.sh fails when they
+      // disagree, so a bump that lands in one manager's PR alone is red until
+      // the others follow -- #223. Group by depName so they arrive together
+      // whichever manager reports them.
+      matchDepNames: ['postgres'],
       groupName: 'docker',
     },
     // Runtime version policy (last rules win over the groups above):
