@@ -125,6 +125,26 @@ check_image postgres-exporter postgres_exporter
 check_image mailpit mailpit
 check_image loki loki
 check_image blackbox blackbox
+
+# A fourth copy of the Postgres pin lives in the analytics test harness, in a
+# throwaway `docker run`. Nothing imports it from compose either, and until the
+# customManager in .github/renovate.json5 it was covered by no manager at all --
+# which makes it the pin most likely to rot without anyone noticing.
+analytics_makefile="services/analytics/Makefile"
+# `|| true`: grep exits 1 on no match, and under `set -e` with pipefail that
+# kills the script before the empty-pin branch below can report why.
+analytics_pin="$(grep -oE 'postgres:[^[:space:]]+@sha256:[a-f0-9]{64}' "$analytics_makefile" | head -n1 || true)"
+db_pin="$(compose_image db)"
+if [ -z "$analytics_pin" ]; then
+  echo "DRIFT $analytics_makefile: no digest-pinned postgres image found" >&2
+  image_drift=$((image_drift + 1))
+elif [ "$analytics_pin" = "$db_pin" ]; then
+  echo "ok    $analytics_makefile: $analytics_pin"
+else
+  echo "DRIFT $analytics_makefile: $analytics_pin (compose service 'db' pins $db_pin)" >&2
+  image_drift=$((image_drift + 1))
+fi
+
 if [ "$image_drift" -gt 0 ]; then
   echo "image pin drift: ${image_drift} chart(s) disagree with compose." >&2
   exit 1
