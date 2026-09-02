@@ -113,11 +113,15 @@ kill $PF 2>/dev/null
 ```
 
 Worth doing deliberately rather than leaving to the shell. A forgotten
-`port-forward` holds a local port, and the next thing that binds it silently
-loses -- during this RFC a stray forward on `:3100` made a check that thought
-it was querying the compose stack's Loki actually query the Kubernetes one,
-and the result looked entirely plausible. If a local port answers when you did
-not expect it to, find out what owns it:
+`port-forward` keeps the local port, and the two ways that hurts are not
+equally visible: the next process that wants the port fails loudly with
+`bind: address already in use`, while a client that assumed the port belonged
+to something else just keeps getting answers from the wrong backend. During
+this RFC a stray forward on `:3100` made a check that thought it was querying
+the compose stack's Loki actually query the Kubernetes one, and the result
+looked entirely plausible. The loud half you fix in a minute; the quiet half
+is the one that costs an afternoon. If a local port answers when you did not
+expect it to, find out what owns it:
 
 ```shell
 lsof -nP -iTCP:9090 -sTCP:LISTEN
