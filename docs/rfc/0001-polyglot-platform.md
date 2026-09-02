@@ -11,6 +11,13 @@
   same word, from "Capstone: NATS event path refactor"; that phase was already
   amended as not planned. The capstone is RFC-0004, authentication and
   authorization. No decision changed.
+- **Amended:** 2026-09-03 -- two Section 10 items retired as not planned:
+  the Toxiproxy chaos phase and reports -> analytics over gRPC. Each keeps
+  its original wording in the entry that supersedes it, as the broker
+  refactor does. Section 4 restates both as non-goals. These are decision
+  changes, recorded here as amendments under engineering-principles.md
+  Section 2 ("amendments (small) or a superseding RFC (large)"); the
+  editorial carve-out in Section 3 does not cover them.
 
 ## 1. Summary
 
@@ -50,7 +57,7 @@ operational difference visible on a dashboard, not just add code.
 
 - Kubernetes manifests / Helm (compose remains the deployment target).
 - Message broker (NATS) -- out of scope, and not planned later either (see Section 10, amended).
-- Chaos engineering (Toxiproxy) -- noted as a future phase; topology must not preclude it.
+- Chaos engineering (Toxiproxy) -- out of scope, and not planned later either (see Section 10, amended).
 - AuthN/AuthZ between services.
 - CDC (Debezium) -- rejected as too heavy for repo size.
 
@@ -572,9 +579,17 @@ module's first commit.
   repo-level single version stops fitting.
 - **Supply-chain depth (separate future RFC):** SBOM (syft) on releases,
   CodeQL, image signing/verification (cosign) -- deferred by D13.
-- **Toxiproxy chaos phase:** latency/conn-drop injection between backend and
-  Postgres. Compose topology must keep an insertion point.
-- **Reports -> analytics over gRPC:** second buf/codegen exercise.
+- **Toxiproxy chaos phase: not planned.** Failure injection is already
+  covered from two directions -- exercise 07 makes what the flat network
+  reaches concrete, and the incident loop plus k6 manufacture load failures
+  -- so a third mechanism would repeat a lesson rather than add one.
+  (Amended after RFC-0003: originally "latency/conn-drop injection between
+  backend and Postgres. Compose topology must keep an insertion point.")
+- **Reports -> analytics over gRPC: not planned.** D2 and ADR-0002 already
+  teach contract-first gRPC and buf codegen; a second instance repeats that
+  lesson and pays for it with a new service-to-service dependency. Reports
+  keeps its HTTP call to analytics. (Amended after RFC-0003: originally
+  "second buf/codegen exercise.")
 - **Kubernetes deployment** under `deploy/k8s/`.
 
 **Scope freeze:** with D1-D14 this RFC is scope-complete. Further additions
