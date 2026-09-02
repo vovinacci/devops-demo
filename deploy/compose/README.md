@@ -55,27 +55,33 @@ it out unless you are exercising it.
 
 ## URLs
 
-Every service publishes on loopback only. Ports are the compose stack's; the
-Kubernetes stack routes the same services by hostname through a single gateway
-port instead (see its README).
+Every service publishes on loopback only, and on IPv4 (`127.0.0.1`)
+specifically -- so if a tool resolves `localhost` to `::1` first and does not
+fall back, use `http://127.0.0.1:<port>` instead. Ports are the compose
+stack's; the Kubernetes stack routes the same services by hostname through a
+single gateway port instead (see its README).
+
+Services marked **no UI** serve the uniform contract (`/healthz`, `/readyz`,
+`/metrics`) and their API paths, nothing at `/` -- a bare port answers `404`
+by design, so the URL below is the endpoint worth opening.
 
 | Service | URL | Credentials | Notes |
 | --- | --- | --- | --- |
 | Frontend | http://localhost:8080 | -- | React SPA, CRUD over the API |
-| API | http://localhost:8000 | -- | FastAPI REST |
+| API | http://localhost:8000/items | -- | FastAPI REST, no UI: browse it through the docs below |
 | API (gRPC) | localhost:50051 | -- | ItemService -- backend serves, analytics dials |
 | API docs | http://localhost:8000/docs | -- | Swagger UI |
 | API docs (ReDoc) | http://localhost:8000/redoc | -- | Alternative rendering |
 | Grafana | http://localhost:3000 | admin/admin | Dashboards for metrics and logs |
 | Prometheus | http://localhost:9090 | -- | Metrics, targets, rules |
-| Loki | http://localhost:3100 | -- | Log API |
+| Loki | http://localhost:3100/ready | -- | Log API, no UI |
 | Alertmanager | http://localhost:9093 | -- | Routing, grouping, silencing |
 | Mailpit | http://localhost:8025 | -- | Visible alert receiver: SMTP sink + web UI |
 | Postgres Exporter | http://localhost:9187 | -- | PostgreSQL metrics |
 | cAdvisor | http://localhost:8081 | -- | Container resource metrics |
-| Analytics API | http://localhost:8082 | -- | `analytics` profile |
-| Canary | http://localhost:8085 | -- | `synthetic` profile |
-| Reports API | http://localhost:8083 | -- | `reports` profile |
+| Analytics API | http://localhost:8082/api/v1/stats | -- | `analytics` profile, no UI |
+| Canary | http://localhost:8085/metrics | -- | `synthetic` profile, no UI: a probe, not a service to browse |
+| Reports API | http://localhost:8083/reports | -- | `reports` profile, no UI: the UI is `reports-ui` below |
 | Reports UI | http://localhost:8084 | -- | `reports-ui` profile |
 
 ## Seeding
