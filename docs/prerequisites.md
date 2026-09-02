@@ -15,6 +15,7 @@ Platform support: macOS and Linux only.
 - [Reports UI](#reports-ui)
 - [Proto](#proto)
 - [Loadgen](#loadgen)
+- [Kubernetes](#kubernetes)
 - [Infrastructure](#infrastructure)
 - [Learning Resources](#learning-resources)
 
@@ -389,6 +390,84 @@ against the shared load profile (`loadprofile/`, RFC-0001 D5).
 
 ---
 
+## Kubernetes
+
+The second supported deployment target (RFC-0003): the same platform on Kind,
+behind Gateway API, packaged as Helm charts over one library chart.
+
+### Core objects
+
+- Pod, Deployment, Service, ConfigMap, Secret, Job; namespaces and labels
+- The **pod template** is what a rollout watches: nothing about a referenced
+  ConfigMap or Secret triggers one on its own (exercise 10)
+- Liveness and readiness probes, and how they map onto the D6 contract paths
+  (`/healthz`, `/readyz`) the compose stack already serves
+- Requests and limits, and why the measured per-service footprint is where
+  the numbers come from rather than a round guess
+
+### Kind
+
+- A multi-node cluster in Docker; the node image is a Kubernetes version and
+  is digest-pinned (`deploy/k8s/kind/cluster.yaml`)
+- `kind load` puts locally built images into the cluster -- there is no
+  registry in the loop
+- `kubectl` tolerates one minor of skew from the API server, so the client
+  pin and the node image move together
+  (`scripts/check-toolchain-drift.sh`)
+
+### Helm
+
+- Chart layout: `Chart.yaml`, `values.yaml`, `templates/`, dependencies
+- Go templating: `include`, named templates, `tpl`, `required`, pipelines
+- An **umbrella chart** over per-service charts, all sharing one **library
+  chart** (`charts/common`) that makes the D6 contract executable rather
+  than documented -- probes, ports, ServiceMonitor and the config checksum
+  are written once
+- `checksum/config` annotations on the pod template: the standard answer to
+  the config-only upgrade that would otherwise be a silent no-op
+- `helm upgrade --install`, release lifecycle, values precedence
+
+### Validating without a cluster
+
+- `helm template | kubeconform -strict` per profile, offline
+  (`make lint-k8s`, `deploy/k8s/scripts/validate.sh`) -- CI runs the same
+  script
+- CRD schemas have to be supplied (`deploy/k8s/schemas/`): a strict
+  validator does not know `gateway.networking.k8s.io` or
+  `monitoring.coreos.com` on its own
+
+### Gateway API and Envoy Gateway
+
+- `Gateway`, `HTTPRoute`, `GRPCRoute`, and the implementation-specific
+  `EnvoyProxy` parameters
+- One entry point routed by hostname, replacing compose's port-per-service
+  publishing -- the same services, addressed differently
+- Ingress vs Gateway API: why the newer API splits infrastructure ownership
+  from route ownership
+
+### Prometheus Operator
+
+- `ServiceMonitor` and `PrometheusRule` as CRs replacing a static scrape
+  file and a rules file
+- `jobLabel` names a label **on the Service** whose value becomes the `job`
+  label on every scraped series -- the difference between a green pipeline
+  and a dashboard that matches nothing (exercise 09)
+- Operator-generated labels vs the labels existing queries were written
+  against; portability of queries across both stacks
+
+### Operating a cluster
+
+- `kubectl get/describe/logs/exec`, `rollout status`, `-o jsonpath`
+- `port-forward` and its cost: a forgotten forward keeps the local port, so
+  the next process that wants it fails loudly (`bind: address already in
+  use`) -- while a client that assumed the port belonged to something else
+  goes on getting plausible answers from the wrong backend, which is the
+  half nobody notices (exercise 09)
+- Reading events and pod state when a deploy reports success and nothing
+  changed
+
+---
+
 ## Infrastructure
 
 ### Docker
@@ -527,6 +606,20 @@ CI workflows are documented in [ci.md](ci.md).
 | OpenTelemetry Rust | <https://opentelemetry.io/docs/languages/rust/> |
 | wiremock docs | <https://docs.rs/wiremock/latest/wiremock/> |
 | cargo-deny docs | <https://embarkstudios.github.io/cargo-deny/> |
+
+### Kubernetes resources
+
+| Topic | Link |
+| --- | --- |
+| Kubernetes docs | <https://kubernetes.io/docs/home/> |
+| Kubernetes concepts | <https://kubernetes.io/docs/concepts/> |
+| kind docs | <https://kind.sigs.k8s.io/> |
+| Helm docs | <https://helm.sh/docs/> |
+| Helm library charts | <https://helm.sh/docs/topics/library_charts/> |
+| kubeconform | <https://github.com/yannh/kubeconform> |
+| Gateway API | <https://gateway-api.sigs.k8s.io/> |
+| Envoy Gateway | <https://gateway.envoyproxy.io/docs/> |
+| Prometheus Operator | <https://prometheus-operator.dev/docs/getting-started/introduction/> |
 
 ### Infrastructure resources
 
