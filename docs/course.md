@@ -245,6 +245,13 @@ together would make one module carry two.
   those double as assignments, quiz prompts, or lab write-ups. `make ci` is the
   same gate the platform holds itself to, so "make CI green" is a fair grading
   bar.
+- **AI Policy & Integrity.** The course policy operates on "allowed, disclosed,
+  verified, owned": AI tools (Copilot, Claude, ChatGPT) are permitted as in industry,
+  code authorship is irrelevant, but the quality bar is higher. Submissions must
+  pass `make ci`, include telemetry/evidence from the student's own run, contain
+  a one-line tool disclosure, and the student must be able to explain and modify
+  any submitted line during code review. Fabricating logs/screenshots or failing an
+  explainability check yields 0 for the practical part.
 
 ## How the platform was built
 
