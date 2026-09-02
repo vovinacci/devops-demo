@@ -11,6 +11,8 @@ Platform support: macOS and Linux only.
 - [Frontend](#frontend)
 - [Canary](#canary)
 - [Analytics](#analytics)
+- [Reports](#reports)
+- [Reports UI](#reports-ui)
 - [Proto](#proto)
 - [Loadgen](#loadgen)
 - [Infrastructure](#infrastructure)
@@ -170,6 +172,116 @@ Platform support: macOS and Linux only.
 - Mutable upserts (`ON CONFLICT DO UPDATE`) vs stream-processor watermarks
 - Liveness vs readiness for a service with an optional upstream dependency
   (RFC-0001 D10)
+
+---
+
+## Reports
+
+The `reports` service (RFC-0001 Phase 6, D2) is the JVM exhibit: the same
+uniform service contract (D6) implemented on a fifth runtime.
+
+### Kotlin
+
+- Null safety (`?`, `?:`, `!!`), data classes, sealed classes, enums
+- Extension functions, scope functions (`let`, `apply`, `run`), `val`/`var`
+- Collections API, destructuring, string templates
+
+### Spring Boot
+
+- Constructor injection, component scanning, `@RestController`,
+  `@Service`, `@Configuration`
+- Typed configuration (`@ConfigurationProperties`) bound from environment
+  variables; profiles
+- Spring Web MVC: request mapping, `ResponseEntity`, status codes, the
+  `Location` header on `202 Accepted`
+- Spring Boot Actuator: health groups behind `/healthz` and `/readyz`
+  (the D6 contract paths, not the Actuator defaults)
+
+### Persistence
+
+- Spring JDBC (`JdbcTemplate` + `RowMapper`), not an ORM
+- Flyway: versioned migrations, baseline, migration-on-startup
+- PostgreSQL: the reports service owns its own database
+  (`postgres-reports`), same ownership rule as analytics (ADR-0005)
+
+### Concurrency on the JVM
+
+- `kotlinx-coroutines`: `suspend` functions, structured concurrency,
+  dispatchers
+- Bounded job dispatch (`reports.job-concurrency`) and why the bound is
+  the point: it is what makes the heap sawtooth legible
+- Job lifecycle as state: `PENDING` -> `RUNNING` -> `SUCCEEDED`/`FAILED`,
+  polled by the client rather than pushed
+
+### Report generation
+
+- Apache POI (XLSX) -- also the deliberate bursty-allocation workload
+  behind the GC-sawtooth exhibit
+- OpenPDF (PDF); CSV needs no library
+- Artifact storage on a volume, streamed back on download
+
+### Observability on the JVM
+
+- Micrometer with the Prometheus registry; JVM metrics: heap used vs
+  committed, GC pause count and time, thread and class-loading metrics
+- `micrometer-tracing-bridge-otel`: W3C trace-context propagation across
+  the same mesh as the Python/Go/Rust services (ADR-0010)
+- JSON logs via `logstash-logback-encoder` (D6 contract)
+- Graceful degradation (D10): a report succeeds with an "unavailable"
+  analytics section rather than failing when analytics is down
+
+### Reports Testing
+
+- JUnit 5 (`useJUnitPlatform`), `spring-boot-starter-test`
+- Testcontainers: a real PostgreSQL per test run, no in-memory substitute
+- `spring-boot-testcontainers` service connections
+
+### Reports Code Quality
+
+- Gradle Kotlin DSL, the version catalog (`libs.versions.toml`) as the
+  single place a dependency version is written
+- `ktlint` via the Gradle plugin
+- Dependency pinning that overrides the Boot BOM when a CVE requires it
+
+---
+
+## Reports UI
+
+The `reports-ui` service (RFC-0002, ADR-0013) is an integration exhibit, not
+a sixth language: a static single-page app over the reports API, served and
+reverse-proxied by Caddy.
+
+### The web platform without a framework
+
+- Vanilla HTML/CSS/JS with **no build step** (RFC-0002 D3) -- the
+  deliberate opposite of the React `frontend`
+- DOM APIs: `querySelector`, element creation, event listeners
+- `fetch` against the same origin under `/api/*`: no CORS, no hardcoded
+  host
+
+### Polling a job-based API
+
+- Submit (`202` + job id from `Location`), poll until a terminal state,
+  then offer the download link
+- Rendering server state (recent jobs, newest first) rather than local
+  state
+
+### Caddy
+
+- The Caddyfile as the whole service: `handle` blocks, `root` +
+  `file_server` for the static assets, and `handle_path /api/*` whose
+  prefix strip is what makes `reverse_proxy` hit the upstream path
+- Why a reverse proxy makes the SPA same-origin, and what that removes
+  (CORS, a build-time API host)
+- Caddy's native Prometheus metrics: the `metrics` global option plus the
+  `metrics` handler on the service listener
+
+### Operability of a static server
+
+- The D6 contract applies unchanged: `/healthz`, `/readyz`, `/metrics` on
+  `:8084`, served by the proxy itself and not forwarded upstream
+- Why `/readyz` deliberately does not depend on the reports API being up
+  (RFC-0002 D7/D10)
 
 ---
 
@@ -370,6 +482,31 @@ CI workflows are documented in [ci.md](ci.md).
 | log/slog docs | <https://pkg.go.dev/log/slog> |
 | golangci-lint docs | <https://golangci-lint.run/> |
 | govulncheck docs | <https://go.dev/security/vuln/> |
+
+### Reports resources
+
+| Topic | Link |
+| --- | --- |
+| Kotlin docs | <https://kotlinlang.org/docs/home.html> |
+| Kotlin coroutines | <https://kotlinlang.org/docs/coroutines-guide.html> |
+| Spring Boot docs | <https://docs.spring.io/spring-boot/index.html> |
+| Spring Boot Actuator | <https://docs.spring.io/spring-boot/reference/actuator/index.html> |
+| Flyway docs | <https://documentation.red-gate.com/flyway> |
+| Micrometer docs | <https://docs.micrometer.io/micrometer/reference/> |
+| Apache POI docs | <https://poi.apache.org/components/spreadsheet/> |
+| Testcontainers docs | <https://java.testcontainers.org/> |
+| Gradle Kotlin DSL | <https://docs.gradle.org/current/userguide/kotlin_dsl.html> |
+| ktlint docs | <https://pinterest.github.io/ktlint/latest/> |
+
+### Reports UI resources
+
+| Topic | Link |
+| --- | --- |
+| Caddy docs | <https://caddyserver.com/docs/> |
+| Caddyfile directives | <https://caddyserver.com/docs/caddyfile/directives> |
+| Caddy metrics | <https://caddyserver.com/docs/metrics> |
+| MDN Web Docs | <https://developer.mozilla.org/> |
+| Fetch API | <https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API> |
 
 ### Proto resources
 
