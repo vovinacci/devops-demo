@@ -1,0 +1,29 @@
+# Trivy ignore policy (ADR-0011).
+#
+# The gated lane in `.github/workflows/images.yml` fails on CRITICAL findings
+# that have a fix, because what we build we can patch. That rule breaks down
+# when the finding is in a base image we do not build: there is nothing to
+# patch until upstream republishes, and a red pipeline nobody can act on is
+# one people learn to ignore -- the same argument that keeps third-party
+# images in a reporting lane rather than a gating one.
+#
+# Every entry here MUST carry `expired_at` and a `statement` saying why the
+# finding is not actionable. An expired entry stops suppressing anything, so
+# the gate comes back on its own rather than staying quietly disabled.
+vulnerabilities:
+  - id: CVE-2026-56854
+    expired_at: 2026-09-30
+    statement: |
+      golang.org/x/crypto/ssh: authentication bypass through unenforced
+      source-address restrictions. Reaches us only through base images we
+      pull and cannot patch: grafana/k6 (loadgen, x/crypto v0.53.0) and
+      caddy:2-alpine (reports-ui, v0.52.0). Both digests are still the
+      latest published upstream, so there is no fixed image to move to.
+
+      Not in the execute path either: the flaw is in the SSH server's
+      handling of source-address restrictions in authorized_keys, and
+      neither image runs an SSH server -- k6 drives HTTP load, Caddy serves
+      static files and reverse-proxies HTTP.
+
+      Remove this entry once grafana/k6 and caddy republish against
+      x/crypto 0.55.0 or later; Renovate will open the digest bumps.
