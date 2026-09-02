@@ -61,9 +61,11 @@ fall back, use `http://127.0.0.1:<port>` instead. Ports are the compose
 stack's; the Kubernetes stack routes the same services by hostname through a
 single gateway port instead (see its README).
 
-Services marked **no UI** serve the uniform contract (`/healthz`, `/readyz`,
-`/metrics`) and their API paths, nothing at `/` -- a bare port answers `404`
-by design, so the URL below is the endpoint worth opening.
+Services marked **no UI** answer on their API paths and nothing at `/` -- a
+bare port is a `404` by design, so the URL below is the endpoint worth
+opening. The ones this repo builds also serve the uniform contract
+(`/healthz`, `/readyz`, `/metrics`); Loki is third-party and implements none
+of it, exposing `/ready` and `/metrics` instead.
 
 | Service | URL | Credentials | Notes |
 | --- | --- | --- | --- |
