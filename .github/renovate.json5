@@ -142,17 +142,22 @@
       groupName: 'git-hooks',
     },
     {
-      matchManagers: ['dockerfile', 'docker-compose'],
+      // helm-values belongs here with the other image managers: every
+      // third-party image in deploy/k8s/charts/*/values.yaml is a second
+      // copy of a compose pin (postgres, postgres-exporter, mailpit, loki,
+      // blackbox), and deploy/k8s/scripts/validate.sh fails when the two
+      // disagree. Grouping the managers together is what makes both copies
+      // of one image arrive in one PR -- #223 (postgres) and #231 (loki)
+      // were each a bump that reached the chart alone and stayed red until
+      // the compose side was pushed by hand.
+      matchManagers: ['dockerfile', 'docker-compose', 'helm-values'],
       matchUpdateTypes: ['minor', 'patch', 'digest', 'pin'],
       groupName: 'docker',
     },
     {
-      // postgres is pinned in four places across three managers: compose
-      // (docker-compose), the chart values (helm-values), and the analytics
-      // test harness (the customManager above). validate.sh fails when they
-      // disagree, so a bump that lands in one manager's PR alone is red until
-      // the others follow -- #223. Group by depName so they arrive together
-      // whichever manager reports them.
+      // The fourth postgres copy lives in the analytics test harness and is
+      // reported by the customManager above, which no matchManagers list
+      // covers. Group it by name so it rides along with the other three.
       matchDepNames: ['postgres'],
       groupName: 'docker',
     },
