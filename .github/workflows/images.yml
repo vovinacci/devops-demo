@@ -91,6 +91,9 @@ jobs:
           severity: CRITICAL
           exit-code: "1"
           ignore-unfixed: true
+          # Expiring, justified suppressions for findings we cannot patch
+          # because they live in a base image we only pull (ADR-0011).
+          trivyignores: .trivyignore.yaml
 
   # Third-party images (Prometheus, Grafana, Postgres, ...) are pulled, not
   # built here, and are just as reachable as our own code -- an unscanned
