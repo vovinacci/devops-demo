@@ -458,8 +458,11 @@ behind Gateway API, packaged as Helm charts over one library chart.
 ### Operating a cluster
 
 - `kubectl get/describe/logs/exec`, `rollout status`, `-o jsonpath`
-- `port-forward` and its cost: a forgotten forward holds a local port and
-  the next thing to bind it loses silently
+- `port-forward` and its cost: a forgotten forward keeps the local port, so
+  the next process that wants it fails loudly (`bind: address already in
+  use`) -- while a client that assumed the port belonged to something else
+  goes on getting plausible answers from the wrong backend, which is the
+  half nobody notices (exercise 09)
 - Reading events and pod state when a deploy reports success and nothing
   changed
 
