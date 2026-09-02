@@ -4,7 +4,7 @@
 # logs into it lands in PR-4.
 image:
   repository: grafana/loki
-  tag: 3.7.3@sha256:70b9f699fc9bb868b62f1cfd4f787dfa50242f1fd92e6089787d5d7daea75fe8
+  tag: 3.7.7@sha256:d70e4659623f3e109af669cae76fe2a5dd5be54e2298fe8aed380d982fbc2500
 replicaCount: 1
 containerPort: 3100
 portName: http
