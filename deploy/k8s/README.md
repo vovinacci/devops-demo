@@ -422,7 +422,7 @@ curl -fsSL "https://raw.githubusercontent.com/prometheus-operator/prometheus-ope
   > deploy/k8s/schemas/monitoring.coreos.com/servicemonitor_v1.json
 
 # Gateway API, from a gateway-api release (standard channel)
-GWAPI=v1.6.1
+GWAPI=v1.6.2
 curl -fsSL -o /tmp/gwapi.yaml \
   "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GWAPI}/standard-install.yaml"
 for pair in gateways:gateway httproutes:httproute grpcroutes:grpcroute; do
