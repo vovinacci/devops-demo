@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/vovinacci/devops-demo/compare/v1.6.0...v1.6.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* **devcontainer:** move base image to v3 so the container builds ([a553cdf](https://github.com/vovinacci/devops-demo/commit/a553cdfaa130ff97e803f510dd0bff663ceef165))
+
 ## [1.6.0](https://github.com/vovinacci/devops-demo/compare/v1.5.1...v1.6.0) (2026-08-27)
 
 
