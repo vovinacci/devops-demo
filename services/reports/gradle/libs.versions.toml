@@ -16,6 +16,14 @@ logstashLogbackEncoder = "8.1"
 # downgrade, fixed in 42.7.12. An explicit version on the dependency wins over
 # the BOM (io.spring.dependency-management overriddenByDependencies default).
 postgresql = "42.7.12"
+# Override the Boot BOM's embedded Tomcat (10.1.55 in Boot 3.5.16): affected
+# by CVE-2026-65182, CVE-2026-65905 and CVE-2026-68525 (security-constraint,
+# DIGEST and FORM authentication bypasses), fixed in 10.1.58+. Tomcat is a
+# transitive of spring-boot-starter-web, so the override goes through the
+# BOM's `tomcat.version` property (build.gradle.kts) and covers embed-core,
+# embed-el and embed-websocket together. Drop once the Boot BOM manages
+# 10.1.60 or later.
+tomcat = "10.1.60"
 # Apache POI (PR-2, RFC-0001 D2): the XLSX generator and the deliberate
 # bursty-allocation workload that makes the GC sawtooth visible. Not managed
 # by the Boot BOM, pinned here; Renovate updates it like every other manifest.

@@ -24,6 +24,11 @@ repositories {
     mavenCentral()
 }
 
+// Boot BOM property override for embedded Tomcat (CVE fix, rationale next
+// to the version in gradle/libs.versions.toml). io.spring.dependency-management
+// reads BOM property overrides from project ext.
+extra["tomcat.version"] = libs.versions.tomcat.get()
+
 // Dependency locking (RFC-0001 D6 audit): pins every resolved dependency,
 // transitive included, into gradle.lockfile -- a reproducible-resolution
 // guarantee, and the artifact the reports.yml Trivy audit enumerates for
