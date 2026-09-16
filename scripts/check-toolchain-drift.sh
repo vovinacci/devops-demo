@@ -51,7 +51,7 @@ expect ".nvmrc" \
   "$(tr -d '[:space:]' <services/frontend/.nvmrc)" "$canon_node"
 
 expect "devcontainer image (python)" \
-  "$(sed -n 's/.*devcontainers\/python:1-\([0-9.]*\)-.*/\1/p' .devcontainer/devcontainer.json)" \
+  "$(sed -n 's/.*devcontainers\/python:[0-9]*-\([0-9.]*\)-.*/\1/p' .devcontainer/devcontainer.json)" \
   "$canon_python"
 
 expect "devcontainer node feature" \
