@@ -90,6 +90,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONHASHSEED=random \
     PIP_NO_CACHE_DIR=1
 
+# Apply Debian security updates to the packages the slim base ships. The
+# image is gated on fixable CRITICAL CVEs (RFC-0001 D13, ADR-0011: what we
+# build we patch), and the upstream python:*-slim digest lags the Debian
+# point releases -- perl-base 5.40.1-6 (CVE-2026-13221, CVE-2026-42496,
+# CVE-2026-8376) stayed in the republished tag while trixie already carried
+# 5.40.1-6+deb13u1. perl-base is Essential, so removal is not an option.
+# Runtime stage only: builder layers never reach the shipped image.
+# hadolint ignore=DL3005
+RUN apt-get update && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create non-root user for security (security best practice)
 RUN groupadd -r appuser && \
     useradd -r -g appuser -u 1000 appuser && \
