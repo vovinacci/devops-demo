@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.1](https://github.com/vovinacci/devops-demo/compare/v1.6.0...v1.6.1) (2026-09-21)
+
+
+### Bug Fixes
+
+* **deps:** update backend ([#243](https://github.com/vovinacci/devops-demo/issues/243)) ([857dde5](https://github.com/vovinacci/devops-demo/commit/857dde56c3eb1db7ef0606f189b165138e770eb1))
+* **devcontainer:** move base image to v3 so the container builds ([a553cdf](https://github.com/vovinacci/devops-demo/commit/a553cdfaa130ff97e803f510dd0bff663ceef165))
+* **security:** patch CRITICAL CVEs in backend and reports images ([#241](https://github.com/vovinacci/devops-demo/issues/241)) ([a0a7706](https://github.com/vovinacci/devops-demo/commit/a0a770602526bf87a4119a7359acc9d4c2f42f1e))
+
 ## [1.6.0](https://github.com/vovinacci/devops-demo/compare/v1.5.1...v1.6.0) (2026-08-27)
 
 
