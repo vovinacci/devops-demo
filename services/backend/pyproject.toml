@@ -10,18 +10,18 @@ name = "devops-demo-backend"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi==0.139.0",
-    "uvicorn[standard]==0.51.0",
-    "pydantic==2.13.4",
-    "psycopg[binary]==3.3.4",
-    "SQLAlchemy[asyncio]==2.0.51",
+    "fastapi==0.141.1",
+    "uvicorn[standard]==0.53.0",
+    "pydantic==2.13.5",
+    "psycopg[binary]==3.3.6",
+    "SQLAlchemy[asyncio]==2.0.54",
     "asyncpg==0.31.0",
-    "alembic==1.18.5",
-    "python-dotenv==1.2.2",
-    "prometheus-client==0.25.0",
+    "alembic==1.20.0",
+    "python-dotenv==1.2.3",
+    "prometheus-client==0.26.0",
     "httpx==0.28.1",
-    "grpcio==1.82.1",
-    "grpcio-health-checking==1.82.1",
+    "grpcio==1.84.0",
+    "grpcio-health-checking==1.84.0",
     "opentelemetry-sdk==1.44.0",
     "opentelemetry-instrumentation-fastapi==0.65b0",
     "opentelemetry-instrumentation-grpc==0.65b0",
@@ -29,11 +29,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "mypy==2.2.0",
+    "mypy==2.3.1",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
-    "ruff==0.15.21",
-    "grpcio-tools==1.82.1",
+    "ruff==0.16.8",
+    "grpcio-tools==1.84.0",
 ]
 
 [tool.setuptools]
