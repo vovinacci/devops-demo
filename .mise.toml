@@ -15,7 +15,7 @@ python = "3.12"
 node = "24"
 rust = "1.98"
 go = "1.26"
-buf = "1.72"
+buf = "1.73.0"
 k6 = "2.1"
 # JDK pinned at LTS major (Temurin), Gradle at minor -- added in Phase 6
 # with the Kotlin reports service (RFC-0001 D2). The reports Dockerfile
