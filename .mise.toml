@@ -34,7 +34,7 @@ gradle = "8.14"
 # it must not skew from is baked into the digest-pinned node image in
 # deploy/k8s/kind/cluster.yaml, and scripts/check-toolchain-drift.sh compares
 # the two. Bump this pin and that image together.
-helm = "3.21"
+helm = "3.22.0"
 kubeconform = "0.7"
 kind = "0.32"
 kubectl = "1.36"
