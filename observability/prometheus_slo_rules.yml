@@ -14,7 +14,7 @@ groups:
       - record: slo:critical_requests_total:rate7d
         expr: |
           sum(rate(http_requests_total{
-            endpoint=~"/health|/items|/items/\\{item_id\\}",
+            endpoint=~"/healthz|/items|/items/.*",
             method=~"GET|POST|DELETE"
           }[5m])) * 604800
 
@@ -22,7 +22,7 @@ groups:
       - record: slo:critical_requests_success:rate7d
         expr: |
           sum(rate(http_requests_total{
-            endpoint=~"/health|/items|/items/\\{item_id\\}",
+            endpoint=~"/healthz|/items|/items/.*",
             method=~"GET|POST|DELETE",
             status!~"5.."
           }[5m])) * 604800
@@ -32,13 +32,13 @@ groups:
       - record: slo:availability:ratio7d
         expr: |
           sum(rate(http_requests_total{
-            endpoint=~"/health|/items|/items/\\{item_id\\}",
+            endpoint=~"/healthz|/items|/items/.*",
             method=~"GET|POST|DELETE",
             status!~"5.."
           }[5m]))
           /
           sum(rate(http_requests_total{
-            endpoint=~"/health|/items|/items/\\{item_id\\}",
+            endpoint=~"/healthz|/items|/items/.*",
             method=~"GET|POST|DELETE"
           }[5m]))
 
@@ -65,13 +65,13 @@ groups:
       - record: slo:latency:ratio7d
         expr: |
           sum(rate(http_request_latency_seconds_bucket{
-            endpoint=~"/health|/items|/items/\\{item_id\\}",
+            endpoint=~"/healthz|/items|/items/.*",
             method=~"GET|POST|DELETE",
             le="0.2"
           }[5m]))
           /
           sum(rate(http_request_latency_seconds_count{
-            endpoint=~"/health|/items|/items/\\{item_id\\}",
+            endpoint=~"/healthz|/items|/items/.*",
             method=~"GET|POST|DELETE"
           }[5m]))
 
@@ -80,7 +80,7 @@ groups:
         expr: |
           histogram_quantile(0.95,
             sum(rate(http_request_latency_seconds_bucket{
-              endpoint=~"/health|/items|/items/\\{item_id\\}",
+              endpoint=~"/healthz|/items|/items/.*",
               method=~"GET|POST|DELETE"
             }[5m])) by (le)
           )
@@ -115,7 +115,7 @@ groups:
         expr: |
           (
             sum(rate(http_requests_total{
-              endpoint=~"/health|/items|/items/\\{item_id\\}",
+              endpoint=~"/healthz|/items|/items/.*",
               method=~"GET|POST|DELETE",
               status=~"5.."
             }[5m]))
@@ -123,7 +123,7 @@ groups:
           )
           /
           sum(rate(http_requests_total{
-            endpoint=~"/health|/items|/items/\\{item_id\\}",
+            endpoint=~"/healthz|/items|/items/.*",
             method=~"GET|POST|DELETE"
           }[5m]))
 
