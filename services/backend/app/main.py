@@ -126,7 +126,7 @@ async def health() -> dict[str, str]:
 async def get_items(db: AsyncSession = Depends(get_db)):
     items = await list_items(db)
     # SQLAlchemy 2.0: convert ORM models to schemas
-    return [ItemOut(id=i.id, name=i.name) for i in items]
+    return [ItemOut(id=i.id, name=i.name, description=i.description) for i in items]
 
 
 @app.post("/items", response_model=ItemOut, status_code=201)
@@ -135,7 +135,7 @@ async def post_item(payload: ItemCreate, db: AsyncSession = Depends(get_db)) -> 
         logger.info(f"Creating item: {payload.name}")
         item = await create_item(db, payload)
         logger.info(f"Item created successfully: id={item.id}, name={item.name}")
-        return ItemOut(id=item.id, name=item.name)
+        return ItemOut(id=item.id, name=item.name, description=item.description)
     except IntegrityError as e:
         # Uniqueness conflict (duplicate name)
         logger.warning(f"Failed to create item '{payload.name}': already exists")

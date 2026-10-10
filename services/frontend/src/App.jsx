@@ -12,6 +12,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [newItemName, setNewItemName] = useState('')
+  const [newItemDescription, setNewItemDescription] = useState('')
 
   // Load items from API
   const fetchItems = async () => {
@@ -32,7 +33,7 @@ function App() {
   }
 
   // Create new item
-  const createItem = async name => {
+  const createItem = async (name, description) => {
     setError(null)
     try {
       const response = await fetch(`${API_URL}/items`, {
@@ -40,7 +41,7 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, description: description || null }),
       })
 
       if (!response.ok) {
@@ -85,8 +86,9 @@ function App() {
     }
 
     try {
-      await createItem(newItemName.trim())
+      await createItem(newItemName.trim(), newItemDescription.trim())
       setNewItemName('')
+      setNewItemDescription('')
     } catch {
       // Error already set in createItem
     }
@@ -115,6 +117,14 @@ function App() {
               placeholder="Enter item name"
               disabled={loading}
             />
+            <input
+              type="text"
+              value={newItemDescription}
+              onChange={e => setNewItemDescription(e.target.value)}
+              placeholder="Enter description (optional)"
+              maxLength={1000}
+              disabled={loading}
+            />
             <button type="submit" disabled={loading || !newItemName.trim()}>
               Add Item
             </button>
@@ -137,7 +147,12 @@ function App() {
             <ul className="items-list">
               {items.map(item => (
                 <li key={item.id} className="item">
-                  <span>{item.name}</span>
+                  <span>
+                    {item.name}
+                    {item.description && (
+                      <small className="item-description"> — {item.description}</small>
+                    )}
+                  </span>
                   <button
                     onClick={() => {
                       if (window.confirm(`Delete "${item.name}"?`)) {
