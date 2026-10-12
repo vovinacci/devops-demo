@@ -33,6 +33,8 @@ vulnerabilities:
       x/crypto 0.55.0 or later; Renovate will open the digest bumps.
 
   - id: CVE-2026-47884
+    purls:
+      - pkg:maven/org.springframework/spring-webmvc@6.2.19
     expired_at: 2026-11-12
     statement: |
       Spring Framework: remote code execution via improper path limitation
@@ -50,6 +52,8 @@ vulnerabilities:
       services/reports.
 
   - id: CVE-2026-47890
+    purls:
+      - pkg:maven/org.springframework/spring-webmvc@6.2.19
     expired_at: 2026-11-12
     statement: |
       Spring Framework: stream corruption in Server-Sent Events with view
