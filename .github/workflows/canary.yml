@@ -12,6 +12,11 @@ on:
       - "services/canary/**"
       - ".github/workflows/canary.yml"
 
+# Read-only token for the whole workflow: lint, test, audit and image build
+# only read the checkout.
+permissions:
+  contents: read
+
 jobs:
   lint-canary:
     name: Lint Canary

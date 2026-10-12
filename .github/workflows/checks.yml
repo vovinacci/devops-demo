@@ -15,6 +15,12 @@ on:
   schedule:
     - cron: "0 4 * * 1"
 
+# Read-only token for the whole workflow: hooks and PR-title lint read the
+# checkout; gitleaks-history (push/schedule only, no PR comments) reads
+# commits through GITHUB_TOKEN.
+permissions:
+  contents: read
+
 jobs:
   hooks:
     name: Git hooks (prek)

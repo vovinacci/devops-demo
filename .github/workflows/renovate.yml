@@ -24,6 +24,12 @@ on:
 concurrency:
   group: renovate
 
+# Read-only token for the whole workflow: Renovate authenticates with
+# PR_PAT_TOKEN, not GITHUB_TOKEN; the workflow token only serves the
+# checkout.
+permissions:
+  contents: read
+
 jobs:
   renovate:
     name: Renovate
