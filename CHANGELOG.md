@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.7.0](https://github.com/vovinacci/devops-demo/compare/v1.6.0...v1.7.0) (2026-10-12)
+
+
+### Features
+
+* **reports:** migrate to Spring Boot 4.1 ([cd36cd8](https://github.com/vovinacci/devops-demo/commit/cd36cd8c731a474d6f9979b16551e21725503b96))
+
+
+### Bug Fixes
+
+* **analytics:** bump Go and deps for reachable govulncheck findings ([#258](https://github.com/vovinacci/devops-demo/issues/258)) ([2471bf9](https://github.com/vovinacci/devops-demo/commit/2471bf92fd9e8f8c8f97bf24327935789dd94e1f))
+* **ci:** patch canary perl CVEs, time-box Spring 6.2 CVEs ([#253](https://github.com/vovinacci/devops-demo/issues/253)) ([e135b0d](https://github.com/vovinacci/devops-demo/commit/e135b0d53252630bfb1b9ab7819d0130b80e7c14))
+* **ci:** replace empty dry_run choice in renovate.yml ([#259](https://github.com/vovinacci/devops-demo/issues/259)) ([9294135](https://github.com/vovinacci/devops-demo/commit/9294135e402f4bf57e0fb529a256023a8c789639))
+* **deps:** update backend ([#243](https://github.com/vovinacci/devops-demo/issues/243)) ([857dde5](https://github.com/vovinacci/devops-demo/commit/857dde56c3eb1db7ef0606f189b165138e770eb1))
+* **deps:** update frontend ([#244](https://github.com/vovinacci/devops-demo/issues/244)) ([4924ec3](https://github.com/vovinacci/devops-demo/commit/4924ec39db776199fe6866c05716f4d5e93a42c0))
+* **devcontainer:** move base image to v3 so the container builds ([a553cdf](https://github.com/vovinacci/devops-demo/commit/a553cdfaa130ff97e803f510dd0bff663ceef165))
+* **security:** patch CRITICAL CVEs in backend and reports images ([#241](https://github.com/vovinacci/devops-demo/issues/241)) ([a0a7706](https://github.com/vovinacci/devops-demo/commit/a0a770602526bf87a4119a7359acc9d4c2f42f1e))
+
 ## [1.6.0](https://github.com/vovinacci/devops-demo/compare/v1.5.1...v1.6.0) (2026-08-27)
 
 
