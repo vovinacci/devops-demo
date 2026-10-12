@@ -20,6 +20,11 @@ env:
   # (Renovate-managed), not here.
   BUF_VERSION: "1.72.0"
 
+# Read-only token for the whole workflow: lint, test and image build only
+# read the checkout; audit-analytics keeps its own job-level block.
+permissions:
+  contents: read
+
 jobs:
   lint-analytics:
     name: Lint Analytics
