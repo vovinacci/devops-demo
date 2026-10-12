@@ -4,10 +4,10 @@ import com.devopsdemo.reports.domain.JobStatus
 import com.devopsdemo.reports.domain.ReportFormat
 import com.devopsdemo.reports.domain.ReportJob
 import com.devopsdemo.reports.domain.ReportType
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.stereotype.Repository
+import tools.jackson.databind.ObjectMapper
 import java.sql.ResultSet
 import java.sql.Timestamp
 import java.time.Instant

@@ -1,9 +1,9 @@
 package com.devopsdemo.reports.data
 
 import com.devopsdemo.reports.config.ReportsProperties
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.stereotype.Component
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.ObjectMapper
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -73,12 +73,14 @@ class BackendClient(
         if (!root.isArray) {
             throw BackendUnavailableException("backend /items did not return a JSON array")
         }
-        return root.map { node ->
+        // values(), not map(): Jackson 3's JsonNode.map(fn) transforms the node
+        // itself and would shadow Kotlin's Iterable.map.
+        return root.values().map { node ->
             val idNode = node.get("id")
             if (idNode.isAbsentOrNull()) throw BackendUnavailableException("backend item missing 'id'")
             val nameNode = node.get("name")
             if (nameNode.isAbsentOrNull()) throw BackendUnavailableException("backend item missing 'name'")
-            val name = nameNode!!.asText()
+            val name = nameNode!!.asString()
             ItemRow(
                 id = idNode!!.asLong(),
                 name = name,
@@ -131,12 +133,12 @@ class AnalyticsClient(
         return try {
             val root = mapper.readTree(response.body())
             require(root.isArray) { "analytics /api/v1/stats did not return a JSON array" }
-            root.map { node ->
+            root.values().map { node ->
                 val typeNode = node.get("event_type")
                 require(!typeNode.isAbsentOrNull()) { "analytics stat missing 'event_type'" }
                 val countNode = node.get("count")
                 require(!countNode.isAbsentOrNull()) { "analytics stat missing 'count'" }
-                AnalyticsStat(eventType = typeNode!!.asText(), count = countNode!!.asLong())
+                AnalyticsStat(eventType = typeNode!!.asString(), count = countNode!!.asLong())
             }
         } catch (e: Exception) {
             throw AnalyticsUnavailableException("analytics response was not the expected shape", e)
