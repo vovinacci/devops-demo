@@ -26,6 +26,12 @@ on:
       - "deploy/k8s/**"
       - ".github/workflows/images.yml"
 
+# Read-only token for the whole workflow: every job builds or pulls images
+# and scans them locally; results go to the job log, nothing is pushed or
+# uploaded back to GitHub.
+permissions:
+  contents: read
+
 jobs:
   build-scan:
     name: Build + Trivy scan (${{ matrix.service }})
