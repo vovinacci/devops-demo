@@ -6,7 +6,7 @@
 # Stage 1: builder -- generate gRPC stubs (buf, RFC-0001 D8/ADR-0002), then
 # compile a static binary
 # ----------------------------------------------------------------------------
-FROM golang:1.26.5-bookworm@sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651 AS builder
+FROM golang:1.26.9-bookworm@sha256:d9c68c2c51161e12fd77e4c6320687c9cd86e1af1e3ad6e6cd63ff970641453c AS builder
 
 # buf is pinned to the same version as .mise.toml. The Go protoc
 # plugins are NOT installed here: buf.gen.yaml invokes them via
