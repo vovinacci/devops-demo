@@ -7,6 +7,10 @@
 # one people learn to ignore -- the same argument that keeps third-party
 # images in a reporting lane rather than a gating one.
 #
+# The same holds, temporarily, for a library whose only fix is a major
+# framework migration: the entry buys the time to do that migration as its
+# own change, and its expiry forces the question again.
+#
 # Every entry here MUST carry `expired_at` and a `statement` saying why the
 # finding is not actionable. An expired entry stops suppressing anything, so
 # the gate comes back on its own rather than staying quietly disabled.
@@ -27,3 +31,34 @@ vulnerabilities:
 
       Remove this entry once grafana/k6 and caddy republish against
       x/crypto 0.55.0 or later; Renovate will open the digest bumps.
+
+  - id: CVE-2026-47884
+    expired_at: 2026-11-12
+    statement: |
+      Spring Framework: remote code execution via improper path limitation
+      in XsltView. Reaches us through spring-webmvc 6.2.19 in the reports
+      jar (Spring Boot 3.5.16). This is a library we build, not a base
+      image, so the ADR-0011 rule would normally say patch it -- but the
+      only fix is spring-webmvc 7.0.9 (Spring Boot 4.x). 6.2.19 is the last
+      open-source 6.2.x release, so there is no fixed version on our line
+      to move to without a major-version migration.
+
+      Not in the execute path: services/reports never configures or
+      returns an XsltView; it serves JSON and generated PDF/XLSX files.
+
+      Remove this entry with the Spring Boot 4 migration of
+      services/reports.
+
+  - id: CVE-2026-47890
+    expired_at: 2026-11-12
+    statement: |
+      Spring Framework: stream corruption in Server-Sent Events with view
+      rendering. Same situation as CVE-2026-47884: spring-webmvc 6.2.19 in
+      the reports jar, fixed only in 7.0.9 (Spring Boot 4.x), no
+      open-source 6.2.x fix.
+
+      Not in the execute path: services/reports has no SSE endpoints
+      (no SseEmitter, no text/event-stream responses).
+
+      Remove this entry with the Spring Boot 4 migration of
+      services/reports.
