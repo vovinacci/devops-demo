@@ -16,10 +16,13 @@ on:
         # Repository config is read from the DEFAULT branch, so this cannot
         # test config changes on a feature branch -- use
         # `renovate --platform=local` for that.
+        # "off" stands in for "no dry run": a choice option cannot be an
+        # empty string (actionlint), and RENOVATE_DRY_RUN must be empty for
+        # a normal run. Mapped back to empty below.
         description: "Dry run: detect and look up without opening PRs"
         type: choice
-        options: ["", "extract", "lookup", "full"]
-        default: ""
+        options: ["off", "extract", "lookup", "full"]
+        default: "off"
 
 concurrency:
   group: renovate
@@ -52,6 +55,6 @@ jobs:
           token: ${{ secrets.PR_PAT_TOKEN }}
         env:
           RENOVATE_REPOSITORIES: ${{ github.repository }}
-          # Empty on the schedule, so a normal run is unaffected.
-          RENOVATE_DRY_RUN: ${{ inputs.dry_run }}
+          # Empty on the schedule and for "off", so a normal run is unaffected.
+          RENOVATE_DRY_RUN: ${{ inputs.dry_run != 'off' && inputs.dry_run || '' }}
           LOG_LEVEL: ${{ inputs.dry_run != '' && 'debug' || 'info' }}
