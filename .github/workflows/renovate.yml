@@ -58,3 +58,17 @@ jobs:
           # Empty on the schedule and for "off", so a normal run is unaffected.
           RENOVATE_DRY_RUN: ${{ inputs.dry_run != 'off' && inputs.dry_run || '' }}
           LOG_LEVEL: ${{ inputs.dry_run != '' && 'debug' || 'info' }}
+          # services/reports locks every resolved dependency in
+          # gradle.lockfile (build.gradle.kts dependencyLocking), so a catalog
+          # or wrapper bump is only valid once `./gradlew --write-locks` has
+          # rewritten the locks. Renovate refuses to run gradlew unless this
+          # global option allows it ("Gradle wrapper command was requested to
+          # run, but `gradleWrapper` is not permitted in the
+          # allowedUnsafeExecutions"), and without it every reports PR is red
+          # on stale locks -- #267 was the first.
+          # Trade-off: this runs the reports Gradle build, plugins included,
+          # inside this job, where PR_PAT_TOKEN is in the environment. CI runs
+          # the same build, but only with a read-only GITHUB_TOKEN. Plugin
+          # versions are pinned in libs.versions.toml and resolution is
+          # pinned by the lockfile.
+          RENOVATE_ALLOWED_UNSAFE_EXECUTIONS: '["gradleWrapper"]'
