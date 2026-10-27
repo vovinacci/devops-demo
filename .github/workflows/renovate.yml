@@ -50,7 +50,7 @@ jobs:
           fi
 
       - name: Run Renovate
-        uses: renovatebot/github-action@e26264186543fd355dc60776e21f7fbb67ce6f85 # v46.3.2
+        uses: renovatebot/github-action@2804199d260ad00c1fae0e9e842888369391c776 # v46.3.10
         with:
           token: ${{ secrets.PR_PAT_TOKEN }}
         env:

@@ -48,7 +48,7 @@ jobs:
           cache-dependency-path: services/analytics/go.sum
 
       - name: Set up buf
-        uses: bufbuild/buf-action@8c6a16e16f12ba20b6470afa9c2ba9b5ba8c97c3 # v1.5.0
+        uses: bufbuild/buf-action@85aebf73123b5c15fd5528aaecbf9129cddf7fa7 # v1.6.0
         with:
           version: ${{ env.BUF_VERSION }}
           setup_only: true
@@ -70,7 +70,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          version: v2.13.2
+          version: v2.15.0
           working-directory: services/analytics
 
   test-analytics:
@@ -100,7 +100,7 @@ jobs:
           cache-dependency-path: services/analytics/go.sum
 
       - name: Set up buf
-        uses: bufbuild/buf-action@8c6a16e16f12ba20b6470afa9c2ba9b5ba8c97c3 # v1.5.0
+        uses: bufbuild/buf-action@85aebf73123b5c15fd5528aaecbf9129cddf7fa7 # v1.6.0
         with:
           version: ${{ env.BUF_VERSION }}
           setup_only: true
@@ -138,7 +138,7 @@ jobs:
           cache-dependency-path: services/analytics/go.sum
 
       - name: Set up buf
-        uses: bufbuild/buf-action@8c6a16e16f12ba20b6470afa9c2ba9b5ba8c97c3 # v1.5.0
+        uses: bufbuild/buf-action@85aebf73123b5c15fd5528aaecbf9129cddf7fa7 # v1.6.0
         with:
           version: ${{ env.BUF_VERSION }}
           setup_only: true
