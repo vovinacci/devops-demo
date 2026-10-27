@@ -161,6 +161,18 @@
       matchDepNames: ['postgres'],
       groupName: 'docker',
     },
+    {
+      // Rust is pinned in three places read by three managers: mise
+      // (.mise.toml), dockerfile (the canary FROM) and github-actions (the
+      // dtolnay/rust-toolchain `toolchain:` input in canary.yml).
+      // scripts/check-toolchain-drift.sh fails unless all three agree, so a
+      // bump that reaches one alone is red by construction -- #263 moved the
+      // workflow input to 1.99 inside the github-actions group and nothing
+      // else. All three report the depName 'rust'; one name-based group,
+      // placed after the manager groups so it wins, keeps them in one PR.
+      matchDepNames: ['rust'],
+      groupName: 'rust',
+    },
     // Runtime version policy (last rules win over the groups above):
     // Python and Go move by patch only -- minor/major runtime bumps are
     // deliberate decisions, not dependency chores
