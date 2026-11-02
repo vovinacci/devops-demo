@@ -35,6 +35,6 @@ gradle = "8.14"
 # deploy/k8s/kind/cluster.yaml, and scripts/check-toolchain-drift.sh compares
 # the two. Bump this pin and that image together.
 helm = "3.22.1"
-kubeconform = "0.7"
+kubeconform = "0.8.0"
 kind = "0.33.0"
 kubectl = "1.36"
