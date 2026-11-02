@@ -173,6 +173,17 @@
       matchDepNames: ['rust'],
       groupName: 'rust',
     },
+    {
+      // Hold Kotlin on 2.3.x until ktlint can parse 2.4: ktlint 1.8.0
+      // (pinned in services/reports/gradle/libs.versions.toml) crashes with
+      // "Extensions storage is not registered" on Kotlin 2.4, a 1.x fix is
+      // not planned (ktlint/ktlint#3403), and 2.0.0-ALPHA-4 still fails on
+      // 2.4.2x. #267 and #270 were both red on that alone. Matched by
+      // package-name prefix so the jvm and plugin.spring plugin ids are held
+      // together. Drop this rule with the ktlint bump that supports 2.4.
+      matchPackageNames: ['/^org\\.jetbrains\\.kotlin/'],
+      allowedVersions: '<2.4.0',
+    },
     // Runtime version policy (last rules win over the groups above):
     // Python and Go move by patch only -- minor/major runtime bumps are
     // deliberate decisions, not dependency chores
