@@ -74,6 +74,8 @@ async def test_unhandled_error_counted_as_500():
 
     labels = {"method": "GET", "endpoint": "/items", "status": "500"}
     before = REGISTRY.get_sample_value("http_requests_total", labels) or 0.0
+    latency_labels = {"method": "GET", "endpoint": "/items"}
+    latency_before = REGISTRY.get_sample_value("http_request_latency_seconds_count", latency_labels) or 0.0
     app.dependency_overrides[get_db] = broken_db
     try:
         transport = ASGITransport(app=app, raise_app_exceptions=False)
@@ -84,4 +86,4 @@ async def test_unhandled_error_counted_as_500():
 
     assert resp.status_code == 500
     assert REGISTRY.get_sample_value("http_requests_total", labels) == before + 1
-    assert REGISTRY.get_sample_value("http_request_latency_seconds_count", {"method": "GET", "endpoint": "/items"}) is not None
+    assert REGISTRY.get_sample_value("http_request_latency_seconds_count", latency_labels) == latency_before + 1
