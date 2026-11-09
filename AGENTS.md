@@ -167,6 +167,12 @@ producing review output; do not re-raise these.
   value here is the ConfigMap-vs-Secret split, which makes the later swap
   a change to one object; real secret management belongs to the
   authentication capstone, RFC-0004 (RFC-0003 Section 5, DK8).
+- `services/backend/tests/*.py`: "`base_url="http://test"` sends data
+  in cleartext; use https" (ast-grep `requests-http`,
+  `llm-client-insecure-http-python`, CWE-319) -- rejected: raised on #281.
+  The client uses httpx `ASGITransport`, which calls the app in-process;
+  no socket is opened and nothing leaves the test process. `http://test`
+  is only the URL the transport routes on.
 
 ## When unsure
 
