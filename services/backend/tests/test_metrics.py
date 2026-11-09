@@ -1,4 +1,7 @@
 import pytest
+from httpx import ASGITransport, AsyncClient
+
+from app.main import app
 
 
 @pytest.mark.asyncio
@@ -54,3 +57,33 @@ async def test_endpoint_label_bounded_for_unmatched_paths(client):
     metrics = (await client.get("/metrics")).text
     assert 'endpoint="__unmatched__"' in metrics
     assert 'endpoint="/definitely/not/a/route"' not in metrics
+
+
+@pytest.mark.asyncio
+async def test_unhandled_error_counted_as_500():
+    # an exception escaping the route (e.g. DB down) becomes a 500 outside
+    # the middleware; it must still reach http_requests_total, or the
+    # availability SLO reads 100% during an outage
+    from prometheus_client import REGISTRY
+
+    from app.deps import get_db
+
+    async def broken_db():
+        raise RuntimeError("database unavailable")
+        yield  # pragma: no cover
+
+    labels = {"method": "GET", "endpoint": "/items", "status": "500"}
+    before = REGISTRY.get_sample_value("http_requests_total", labels) or 0.0
+    latency_labels = {"method": "GET", "endpoint": "/items"}
+    latency_before = REGISTRY.get_sample_value("http_request_latency_seconds_count", latency_labels) or 0.0
+    app.dependency_overrides[get_db] = broken_db
+    try:
+        transport = ASGITransport(app=app, raise_app_exceptions=False)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get("/items")
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+    assert resp.status_code == 500
+    assert REGISTRY.get_sample_value("http_requests_total", labels) == before + 1
+    assert REGISTRY.get_sample_value("http_request_latency_seconds_count", latency_labels) == latency_before + 1
