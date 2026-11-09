@@ -184,6 +184,17 @@
       groupName: 'k6',
     },
     {
+      // Kubernetes is pinned twice, read by two managers: mise (.mise.toml,
+      // depName 'kubectl') and kubernetes (the Kind node image in
+      // deploy/k8s/kind/cluster.yaml, depName 'kindest/node').
+      // scripts/check-toolchain-drift.sh fails unless the two agree on the
+      // minor, so a minor bump that reaches one alone is red by construction
+      // -- #279 moved kubectl to 1.37.2 and left the node image on 1.36.1.
+      // Same shape as the rust and k6 groups above.
+      matchDepNames: ['kubectl', 'kindest/node'],
+      groupName: 'kubernetes',
+    },
+    {
       // Hold Kotlin on 2.3.x until ktlint can parse 2.4: ktlint 1.8.0
       // (pinned in services/reports/gradle/libs.versions.toml) crashes with
       // "Extensions storage is not registered" on Kotlin 2.4, a 1.x fix is
