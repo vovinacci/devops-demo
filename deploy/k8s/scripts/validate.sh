@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Offline Helm chart gate (RFC-0003 DK2, DK9): helm lint every chart, then
+# No-cluster Helm chart gate (RFC-0003 DK2, DK9): helm lint every chart, then
 # `helm template <umbrella> | kubeconform -strict` for every profile overlay.
 # No cluster required -- this is a pure templating + schema-validation pass.
+# Not offline: `-schema-location default` downloads the core Kubernetes
+# schemas from GitHub; only the CRD schemas are vendored.
 #
 # kubeconform is given an explicit -schema-location for every CRD the charts
 # render -- the Prometheus Operator ServiceMonitor and the Gateway API
