@@ -60,5 +60,5 @@ jobs:
       - name: Install helm + kubeconform (pinned in .mise.toml)
         run: mise install helm kubeconform
 
-      - name: helm lint + helm template | kubeconform (offline, no cluster)
+      - name: helm lint + helm template | kubeconform (no cluster)
         run: make lint-k8s

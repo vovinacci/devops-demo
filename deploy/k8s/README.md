@@ -4,9 +4,11 @@ The RFC-0001/0002 stack on Kubernetes, per RFC-0003: Helm charts that package
 it (DK2, ADR-0015) and a local Kind cluster to run them on (DK1, DK10). Two
 independent things live here, and they stay independent on purpose:
 
-- **`make lint-k8s`** -- offline. Renders every profile with `helm template`
+- **`make lint-k8s`** -- no cluster. Renders every profile with `helm template`
   and schema-validates it with `kubeconform`. No cluster, no `kubectl`; this
-  is the per-PR CI gate.
+  is the per-PR CI gate. Not offline: `kubeconform` downloads the core
+  Kubernetes schemas from GitHub on every run (only the CRD schemas are
+  vendored).
 - **`make kind-up` / `make kind-deploy` / `make kind-down`** -- the real
   thing. A multi-node Kind cluster, Envoy Gateway at the edge, the charts
   installed on top.
@@ -69,7 +71,7 @@ deploy/k8s/
     monitoring.coreos.com/servicemonitor_v1.json     vendored CRD schemas
     gateway.networking.k8s.io/{gateway,httproute,grpcroute}_v1.json
   scripts/
-    validate.sh             the offline lint + render + kubeconform gate
+    validate.sh             the no-cluster lint + render + kubeconform gate
     kind-up.sh              cluster + Envoy Gateway + kube-prometheus-stack
     kind-deploy.sh          build + `kind load` + `helm upgrade --install`
     kind-seed.sh            items + analytics history (schema is a hook Job)
@@ -104,8 +106,8 @@ Charted here (application + supporting services, RFC-0003 Section 6):
 **Deliberately NOT charted here:** `prometheus`, `grafana`, `alertmanager`.
 They come from **kube-prometheus-stack**, installed by `make kind-up` as a
 cluster prerequisite -- charting them would package the wrong (static-config)
-shape, and a remote chart in the umbrella would make the offline CI gate
-reach the network. `cadvisor` is retired outright on Kubernetes (the kubelet
+shape, and a remote chart in the umbrella would make the CI gate fetch
+charts at render time. `cadvisor` is retired outright on Kubernetes (the kubelet
 already exposes cAdvisor container metrics, DK6).
 
 ## The D6 opt-out mechanism (DK2) and the frontend exception (DK4)
@@ -378,8 +380,10 @@ kubectl -n devops-demo get pods          # and look at what did not start
 
 ## Validate locally (== CI)
 
-Everything below is offline -- no cluster. `helm` and `kubeconform` are pinned
-in `.mise.toml`; `mise install` gets them.
+Everything below needs no cluster, but it is not offline: `kubeconform`
+downloads the core Kubernetes schemas from GitHub (`-schema-location default`;
+only the CRD schemas under `schemas/` are vendored). `helm` and `kubeconform`
+are pinned in `.mise.toml`; `mise install` gets them.
 
 ```sh
 make lint-k8s          # the whole gate: helm lint + template | kubeconform, all profiles

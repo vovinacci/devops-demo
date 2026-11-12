@@ -22,7 +22,7 @@ flowchart LR
     pr --> par["parity.yml<br/>load profile parity: JS vs Go goldens<br/>(loadprofile/**, services/analytics/internal/loadshape/**)"]
     pr --> img["images.yml<br/>docker build + Trivy<br/>(services/**, loadgen/**, loadprofile/**)"]
     pr --> e2e["e2e.yml<br/>compose up core+analytics+load, k6 smoke gate, wiring assertions"]
-    pr --> k8s["k8s-lint.yml<br/>helm lint + helm template through kubeconform -strict<br/>(deploy/k8s/**, offline, no cluster)"]
+    pr --> k8s["k8s-lint.yml<br/>helm lint + helm template through kubeconform -strict<br/>(deploy/k8s/**, no cluster)"]
     night["nightly.yml<br/>schedule + workflow_dispatch<br/>all profiles incl. reports/JVM, longer k6 run, +report/canary/blackbox assertions"]
     kinde["kind-e2e.yml<br/>schedule + workflow_dispatch<br/>real Kind cluster: deploy every profile, seed, k6 Job, same assertions, teardown"]
     merge[Squash-merge to main] --> rp["release-please.yml<br/>maintains release PR"]
@@ -138,10 +138,11 @@ compatible).
 - **Helm chart lint + render (`k8s-lint.yml`, RFC-0003 PR-2):** `make lint-k8s`
   -- the same `deploy/k8s/scripts/validate.sh` locally and in CI -- `helm lint`s
   every chart, then `helm template`s the umbrella for each profile overlay and
-  pipes the rendered manifests through `kubeconform -strict`. It is **offline
-  and needs no cluster** (that is the point of splitting packaging from the
-  cluster, RFC-0003 PR-2 vs PR-3). `kubeconform` is given an explicit
-  `-schema-location` for the vendored Prometheus Operator **ServiceMonitor**
+  pipes the rendered manifests through `kubeconform -strict`. It **needs no
+  cluster** (that is the point of splitting packaging from the cluster,
+  RFC-0003 PR-2 vs PR-3), but it is not offline: `-schema-location default`
+  downloads the core Kubernetes schemas from GitHub. `kubeconform` is given an
+  explicit `-schema-location` for the vendored Prometheus Operator **ServiceMonitor**
   CRD schema (`deploy/k8s/schemas/`), so the CR is actually validated;
   `--ignore-missing-schemas` is deliberately not used -- it would silently skip
   exactly the CRs worth checking (RFC-0003 DK9). `helm` + `kubeconform` are
@@ -155,7 +156,7 @@ compatible).
   compose's published ports. Two stacks, one definition of "working": an
   assertion that passes on one and fails on the other is a real difference,
   not an artefact of testing them differently. Nightly rather than per-PR
-  because it takes tens of minutes; `k8s-lint.yml` is the fast offline gate
+  because it takes tens of minutes; `k8s-lint.yml` is the fast no-cluster gate
   that runs on every PR. The cluster measures ~4.2 GiB with every profile and
   the Prometheus Operator running, inside the 7 GB runner budget (D12).
 - **e2e stage (`e2e.yml`, PR-4):** `make smoke` -- the same command a
