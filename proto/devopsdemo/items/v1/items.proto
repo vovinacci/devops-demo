@@ -24,7 +24,7 @@ message GetItemStatsRequest {}
 // v1 minimal snapshot metric (RFC-0001 Phase 2 handoff): extend with new
 // fields as analytics needs grow, never repurpose total_items.
 message GetItemStatsResponse {
-  int64 total_items = 1;
+  int64 count = 1;
 }
 
 enum EventType {
