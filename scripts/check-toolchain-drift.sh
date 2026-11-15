@@ -114,10 +114,13 @@ expect "reports Gradle wrapper" \
 # a Kubernetes version pin -- and kubectl supports only one minor of skew
 # either side of the API server. Nothing imports one from the other (the image
 # is a digest-pinned string in a YAML file), so this comparison is what stops a
-# node-image bump from quietly outrunning the client.
+# node-image bump from quietly outrunning the client. Skew is defined per
+# minor, and kind publishes node images for only some patch releases (kind
+# 0.33.0 ships v1.37.0 while kubectl is at 1.37.2), so both sides are cut to
+# major.minor before comparing.
 expect "kind node image (Kubernetes)" \
-  "$(sed -n 's/.*image: kindest\/node:v\([0-9][0-9.]*\).*/\1/p' deploy/k8s/kind/cluster.yaml | head -n1)" \
-  "$canon_kubectl"
+  "$(sed -n 's/.*image: kindest\/node:v\([0-9][0-9.]*\).*/\1/p' deploy/k8s/kind/cluster.yaml | head -n1 | cut -d. -f1,2)" \
+  "$(printf '%s' "$canon_kubectl" | cut -d. -f1,2)"
 
 if [ "$drift" -gt 0 ]; then
   echo

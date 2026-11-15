@@ -24,7 +24,13 @@ RUN npm run build
 # ----------------------------------------------------------------------------
 # Stage 2: Runtime - nginx for static hosting
 # ----------------------------------------------------------------------------
-FROM nginx:alpine@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752 AS runtime
+FROM nginx:alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606 AS runtime
+
+# CVE-2026-111497 (brotli-libs, CRITICAL): the Alpine repos ship the fix
+# (1.2.1-r0) but the upstream image has not been rebuilt with it yet, so the
+# Trivy gate (ADR-0011) fails on the pinned digest alone. Drop this line once
+# a Renovate digest bump carries brotli-libs >= 1.2.1-r0.
+RUN apk upgrade --no-cache brotli-libs
 
 # Copy built application from builder stage
 COPY --from=builder /build/dist /usr/share/nginx/html

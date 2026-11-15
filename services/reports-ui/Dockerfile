@@ -3,7 +3,13 @@
 # Single-stage, digest-pinned (repo convention) -- there is no build step
 # (RFC-0002 D3): the site is hand-written HTML/CSS/JS copied in verbatim.
 # ============================================================================
-FROM caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+FROM caddy:2-alpine@sha256:e70b164da81ef698b3ad19af799ea6086ce6d9e48ed4079eb9fe26f6fbf14ee5
+
+# CVE-2026-111497 (brotli-libs, CRITICAL): the Alpine repos ship the fix
+# (1.2.1-r0) but the upstream image has not been rebuilt with it yet, so the
+# Trivy gate (ADR-0011) fails on the pinned digest alone. Drop this line once
+# a Renovate digest bump carries brotli-libs >= 1.2.1-r0.
+RUN apk upgrade --no-cache brotli-libs
 
 # Default upstream for the /api reverse proxy: the compose service name, so
 # the image is unchanged out of the box. Kubernetes overrides it through the

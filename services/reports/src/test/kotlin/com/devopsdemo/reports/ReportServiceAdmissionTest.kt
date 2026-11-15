@@ -18,12 +18,12 @@ import com.devopsdemo.reports.jobs.ReportService
 import com.devopsdemo.reports.jobs.ReportServiceUnavailableException
 import com.devopsdemo.reports.render.CsvReportRenderer
 import com.devopsdemo.reports.render.ReportRenderers
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.jdbc.core.JdbcTemplate
+import tools.jackson.databind.ObjectMapper
 import java.net.http.HttpClient
 import java.nio.file.Files
 import java.time.Duration

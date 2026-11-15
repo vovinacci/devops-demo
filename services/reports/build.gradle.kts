@@ -40,22 +40,27 @@ dependencyLocking {
 }
 
 dependencies {
-    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     // Flyway schema migrations for report_jobs (PR-2, RFC-0001 D2: "the
     // heavyweight framework is the lesson"). flyway-database-postgresql is a
     // required companion since Flyway 10 -- the Postgres dialect moved out of
-    // flyway-core. Both versions are Boot-BOM-managed.
-    implementation("org.flywaydb:flyway-core")
+    // flyway-core. Both versions are Boot-BOM-managed. Boot 4 moved the
+    // Flyway auto-configuration into its own module, so without the starter
+    // the migrations would silently stop running at startup.
+    implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-database-postgresql")
     // Prometheus exposition at /metrics (D6) and W3C trace context in logs
     // (D11): Micrometer meter registry + the OpenTelemetry tracing bridge.
     // No OTLP exporter is on the classpath, so spans are created and dropped
     // -- trace_id/span_id reach Loki via the JSON logs, Tempo is deferred.
+    // Boot 4 moved tracing auto-configuration into its own module. Not the
+    // OpenTelemetry starter: it adds OTLP exporters, and spans stay unexported.
     implementation("io.micrometer:micrometer-registry-prometheus")
     implementation("io.micrometer:micrometer-tracing-bridge-otel")
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    implementation("org.springframework.boot:spring-boot-micrometer-tracing-opentelemetry")
+    implementation("tools.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     // Structured concurrency for the async job runner (RFC-0001 D2
     // coroutines): the POST returns immediately, the job runs off-thread on a
@@ -69,15 +74,17 @@ dependencies {
     implementation(libs.poi.ooxml)
     implementation(libs.openpdf)
     implementation(libs.logstash.logback.encoder)
-    // Pinned via the version catalog to override the Boot BOM (42.7.11 ->
-    // 42.7.12, CVE-2026-54291): an explicit dependency version wins over the
-    // BOM-managed one.
-    runtimeOnly(libs.postgresql)
+    runtimeOnly("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    // TestRestTemplate lives in its own module in Boot 4 and builds on
+    // RestTemplateBuilder from spring-boot-restclient; the app itself uses
+    // java.net.http, so both are test-only.
+    testImplementation("org.springframework.boot:spring-boot-resttestclient")
+    testImplementation("org.springframework.boot:spring-boot-restclient")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+    testImplementation("org.testcontainers:testcontainers-postgresql")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

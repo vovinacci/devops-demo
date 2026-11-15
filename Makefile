@@ -308,7 +308,7 @@ lint-proto: ## proto/ code quality check via buf lint + buf format --diff
 	cd proto && buf format --diff --exit-code
 
 .PHONY: lint-k8s
-lint-k8s: ## Helm charts: helm lint + `helm template | kubeconform -strict` per profile, offline, no cluster (RFC-0003 DK2/DK9; helm+kubeconform from mise). CI runs this exact script.
+lint-k8s: ## Helm charts: helm lint + `helm template | kubeconform -strict` per profile, no cluster (RFC-0003 DK2/DK9; helm+kubeconform from mise). CI runs this exact script.
 	$(PRINT_TARGET)
 	bash deploy/k8s/scripts/validate.sh
 

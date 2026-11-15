@@ -15,6 +15,8 @@ on:
       - "loadprofile/**"
       - "deploy/k8s/**"
       - ".github/workflows/images.yml"
+      # the ignore file changes what the gate lets through (ADR-0011)
+      - ".trivyignore.yaml"
   push:
     branches:
       - main
@@ -25,6 +27,14 @@ on:
       - "loadprofile/**"
       - "deploy/k8s/**"
       - ".github/workflows/images.yml"
+      # the ignore file changes what the gate lets through (ADR-0011)
+      - ".trivyignore.yaml"
+
+# Read-only token for the whole workflow: every job builds or pulls images
+# and scans them locally; results go to the job log, nothing is pushed or
+# uploaded back to GitHub.
+permissions:
+  contents: read
 
 jobs:
   build-scan:
@@ -91,8 +101,9 @@ jobs:
           severity: CRITICAL
           exit-code: "1"
           ignore-unfixed: true
-          # Expiring, justified suppressions for findings we cannot patch
-          # because they live in a base image we only pull (ADR-0011).
+          # Expiring, justified suppressions for findings we cannot patch:
+          # in a base image we only pull, or with no fix short of a major
+          # framework migration (ADR-0011).
           trivyignores: .trivyignore.yaml
 
   # Third-party images (Prometheus, Grafana, Postgres, ...) are pulled, not

@@ -15,7 +15,7 @@ python = "3.12"
 node = "24"
 rust = "1.98"
 go = "1.26"
-buf = "1.72"
+buf = "1.75.0"
 k6 = "2.1"
 # JDK pinned at LTS major (Temurin), Gradle at minor -- added in Phase 6
 # with the Kotlin reports service (RFC-0001 D2). The reports Dockerfile
@@ -34,7 +34,7 @@ gradle = "8.14"
 # it must not skew from is baked into the digest-pinned node image in
 # deploy/k8s/kind/cluster.yaml, and scripts/check-toolchain-drift.sh compares
 # the two. Bump this pin and that image together.
-helm = "3.21"
-kubeconform = "0.7"
-kind = "0.32"
-kubectl = "1.36"
+helm = "3.22.1"
+kubeconform = "0.8.0"
+kind = "0.33.0"
+kubectl = "1.37.2"

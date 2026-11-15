@@ -47,7 +47,13 @@ LABEL maintainer="DevOps Demo Team" \
 # a distroless image ships no shell and no HTTP client (see the loki
 # service comment in deploy/compose/docker-compose.yml for the tradeoff
 # this avoids).
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# apt-get upgrade applies Debian security updates the slim base lags on:
+# the current bookworm-slim digest still ships perl-base 5.36.0-7+deb12u3
+# (CVE-2026-13221, CVE-2026-42496, CVE-2026-8376), fixed in deb12u4. Same
+# approach and rationale as services/backend/Dockerfile.
+# hadolint ignore=DL3005
+RUN apt-get update && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
     wget \
     && rm -rf /var/lib/apt/lists/*
 

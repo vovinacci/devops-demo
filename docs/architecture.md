@@ -137,7 +137,7 @@ design and permanent, not a gap awaiting a fix (ADR-0002).
   D10 graceful degradation): a skipped, timed-out, or failed step never
   fails the journey verdict. `synthetic` compose profile.
 - **Reports** ([readme](../services/reports/README.md)) -- Kotlin /
-  Spring Boot 3 service, the JVM showcase (RFC-0001 D2), own Postgres
+  Spring Boot 4 service, the JVM showcase (RFC-0001 D2, ADR-0020), own Postgres
   instance (`postgres-reports`) and a named artifact volume. `reports`
   compose profile (opt-in via `make up-full` or `--profile reports`); the
   largest RAM increment of any profile. As of RFC-0001 Phase 6 PR-2 the
@@ -255,7 +255,7 @@ them on purpose to show what each one prevents.
 | Analytics runtime  | Go            |
 | Analytics DB driver| pgx           |
 | Reports runtime    | Kotlin / JVM  |
-| Reports framework  | Spring Boot 3 |
+| Reports framework  | Spring Boot 4 |
 | Reports build tool | Gradle        |
 | Metrics            | Prometheus    |
 | Visualization      | Grafana       |

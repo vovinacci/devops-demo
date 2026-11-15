@@ -18,7 +18,7 @@ GRADLE_MINOR="$(sed -n 's/^gradle = "\(.*\)"/\1/p' .mise.toml)"
 HELM_MINOR="$(sed -n 's/^helm = "\(.*\)"/\1/p' .mise.toml)"
 KUBECONFORM_MINOR="$(sed -n 's/^kubeconform = "\(.*\)"/\1/p' .mise.toml)"
 KIND_MINOR="$(sed -n 's/^kind = "\(.*\)"/\1/p' .mise.toml)"
-KUBECTL_MINOR="$(sed -n 's/^kubectl = "\(.*\)"/\1/p' .mise.toml)"
+KUBECTL_MINOR="$(sed -n 's/^kubectl = "\(.*\)"/\1/p' .mise.toml | cut -d. -f1,2)"
 MIN_RAM_GB=4
 # Measured: ~4.2 GiB for every profile plus the observability stack, so 8 GiB
 # is the point below which the Kind path starts to hurt.

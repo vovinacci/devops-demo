@@ -22,31 +22,31 @@ flowchart LR
     pr --> par["parity.yml<br/>load profile parity: JS vs Go goldens<br/>(loadprofile/**, services/analytics/internal/loadshape/**)"]
     pr --> img["images.yml<br/>docker build + Trivy<br/>(services/**, loadgen/**, loadprofile/**)"]
     pr --> e2e["e2e.yml<br/>compose up core+analytics+load, k6 smoke gate, wiring assertions"]
-    pr --> k8s["k8s-lint.yml<br/>helm lint + helm template through kubeconform -strict<br/>(deploy/k8s/**, offline, no cluster)"]
+    pr --> k8s["k8s-lint.yml<br/>helm lint + helm template through kubeconform -strict<br/>(deploy/k8s/**, no cluster)"]
     night["nightly.yml<br/>schedule + workflow_dispatch<br/>all profiles incl. reports/JVM, longer k6 run, +report/canary/blackbox assertions"]
     kinde["kind-e2e.yml<br/>schedule + workflow_dispatch<br/>real Kind cluster: deploy every profile, seed, k6 Job, same assertions, teardown"]
     merge[Squash-merge to main] --> rp["release-please.yml<br/>maintains release PR"]
     rp -->|release PR merged| rel["release.yml<br/>tag + publish (placeholder)"]
 ```
 
-| Workflow           | Triggers on                                                                  | Jobs                                                                                                    |                                                 |
-| ------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| checks.yml         | every PR, push to main                                                       | prek hooks (all files), PR title commitlint                                                             |                                                 |
-| backend.yml        | services/backend/** changes                                                  | no-committed-codegen check, ruff + mypy, `make generate-backend` + pytest against real Postgres         |                                                 |
-| frontend.yml       | services/frontend/** changes                                                 | eslint, vitest                                                                                          |                                                 |
-| canary.yml         | services/canary/** changes                                                   | fmt + clippy, cargo test, cargo-deny, image                                                             |                                                 |
-| analytics.yml      | services/analytics/**, proto/** changes                                      | no-committed-codegen check, buf generate + lint + test (Postgres container), govulncheck, image         |                                                 |
-| reports.yml        | services/reports/** changes                                                  | ktlint, test (Testcontainers Postgres), Trivy gradle.lockfile audit, image                              |                                                 |
-| reports-ui.yml     | services/reports-ui/** changes                                               | caddy fmt + validate (via the caddy image), ASCII/HTML sanity, image build (no dependency audit, D3)    |                                                 |
-| proto.yml          | proto/** changes                                                             | buf lint + format, buf breaking (against main)                                                          |                                                 |
-| parity.yml         | loadprofile/**, services/analytics/internal/loadshape/**                     | JS (shape.js) vs Go (loadshape) parity against checked-in goldens (Hard rule 8)                         |                                                 |
-| images.yml         | services/**, deploy/compose/**, loadgen/**, loadprofile/**                   | docker build + Trivy gate per self-built service; Trivy report-only per pulled image (ADR-0011)         |                                                 |
-| e2e.yml            | services/**, deploy/compose/**, observability/**, loadgen/**, loadprofile/** | `make smoke`: compose up core+analytics+load (`--wait`), k6 smoke gate, wiring assertions (see below)   |                                                 |
-| k8s-lint.yml       | deploy/k8s/**, observability/** (the copied configs), .mise.toml, Makefile   | `make lint-k8s`: helm lint + `helm template \                                                           | kubeconform -strict` per profile, CRD-validated |
-| kind-e2e.yml       | schedule (nightly) + workflow_dispatch                                       | `make kind-smoke`: real Kind cluster, every profile, seed, k6 Job, the same wiring assertions, teardown |                                                 |
-| nightly.yml        | schedule (daily) + workflow_dispatch                                         | `make smoke-full`: same gate + reports/JVM profile, longer run, +report/canary/blackbox assertions      |                                                 |
-| release-please.yml | push to main                                                                 | maintain release PR from commit history                                                                 |                                                 |
-| release.yml        | release published                                                            | placeholder (image publishing comes later)                                                              |                                                 |
+| Workflow           | Triggers on                                                                                  | Jobs                                                                                                    |                                                 |
+| ------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| checks.yml         | every PR, push to main                                                                       | prek hooks (all files), PR title commitlint                                                             |                                                 |
+| backend.yml        | services/backend/** changes                                                                  | no-committed-codegen check, ruff + mypy, `make generate-backend` + pytest against real Postgres         |                                                 |
+| frontend.yml       | services/frontend/** changes                                                                 | eslint, vitest                                                                                          |                                                 |
+| canary.yml         | services/canary/** changes                                                                   | fmt + clippy, cargo test, cargo-deny, image                                                             |                                                 |
+| analytics.yml      | services/analytics/**, proto/** changes                                                      | no-committed-codegen check, buf generate + lint + test (Postgres container), govulncheck, image         |                                                 |
+| reports.yml        | services/reports/** changes                                                                  | ktlint, test (Testcontainers Postgres), Trivy gradle.lockfile audit, image                              |                                                 |
+| reports-ui.yml     | services/reports-ui/** changes                                                               | caddy fmt + validate (via the caddy image), ASCII/HTML sanity, image build (no dependency audit, D3)    |                                                 |
+| proto.yml          | proto/** changes                                                                             | buf lint + format, buf breaking (against main)                                                          |                                                 |
+| parity.yml         | loadprofile/**, services/analytics/internal/loadshape/**                                     | JS (shape.js) vs Go (loadshape) parity against checked-in goldens (Hard rule 8)                         |                                                 |
+| images.yml         | services/**, deploy/compose/**, deploy/k8s/**, loadgen/**, loadprofile/**, .trivyignore.yaml | docker build + Trivy gate per self-built service; Trivy report-only per pulled image (ADR-0011)         |                                                 |
+| e2e.yml            | services/**, deploy/compose/**, observability/**, loadgen/**, loadprofile/**                 | `make smoke`: compose up core+analytics+load (`--wait`), k6 smoke gate, wiring assertions (see below)   |                                                 |
+| k8s-lint.yml       | deploy/k8s/**, observability/** (the copied configs), .mise.toml, Makefile                   | `make lint-k8s`: helm lint + `helm template \                                                           | kubeconform -strict` per profile, CRD-validated |
+| kind-e2e.yml       | schedule (nightly) + workflow_dispatch                                                       | `make kind-smoke`: real Kind cluster, every profile, seed, k6 Job, the same wiring assertions, teardown |                                                 |
+| nightly.yml        | schedule (daily) + workflow_dispatch                                                         | `make smoke-full`: same gate + reports/JVM profile, longer run, +report/canary/blackbox assertions      |                                                 |
+| release-please.yml | push to main                                                                                 | maintain release PR from commit history                                                                 |                                                 |
+| release.yml        | release published                                                                            | placeholder (image publishing comes later)                                                              |                                                 |
 
 New services add their own path-filtered workflow in the phase that adds the
 service -- "has CI" is part of the Definition of Done
@@ -138,10 +138,11 @@ compatible).
 - **Helm chart lint + render (`k8s-lint.yml`, RFC-0003 PR-2):** `make lint-k8s`
   -- the same `deploy/k8s/scripts/validate.sh` locally and in CI -- `helm lint`s
   every chart, then `helm template`s the umbrella for each profile overlay and
-  pipes the rendered manifests through `kubeconform -strict`. It is **offline
-  and needs no cluster** (that is the point of splitting packaging from the
-  cluster, RFC-0003 PR-2 vs PR-3). `kubeconform` is given an explicit
-  `-schema-location` for the vendored Prometheus Operator **ServiceMonitor**
+  pipes the rendered manifests through `kubeconform -strict`. It **needs no
+  cluster** (that is the point of splitting packaging from the cluster,
+  RFC-0003 PR-2 vs PR-3), but it is not offline: `-schema-location default`
+  downloads the core Kubernetes schemas from GitHub. `kubeconform` is given an
+  explicit `-schema-location` for the vendored Prometheus Operator **ServiceMonitor**
   CRD schema (`deploy/k8s/schemas/`), so the CR is actually validated;
   `--ignore-missing-schemas` is deliberately not used -- it would silently skip
   exactly the CRs worth checking (RFC-0003 DK9). `helm` + `kubeconform` are
@@ -155,7 +156,7 @@ compatible).
   compose's published ports. Two stacks, one definition of "working": an
   assertion that passes on one and fails on the other is a real difference,
   not an artefact of testing them differently. Nightly rather than per-PR
-  because it takes tens of minutes; `k8s-lint.yml` is the fast offline gate
+  because it takes tens of minutes; `k8s-lint.yml` is the fast no-cluster gate
   that runs on every PR. The cluster measures ~4.2 GiB with every profile and
   the Prometheus Operator running, inside the 7 GB runner budget (D12).
 - **e2e stage (`e2e.yml`, PR-4):** `make smoke` -- the same command a

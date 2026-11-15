@@ -1,6 +1,6 @@
 # Reports
 
-Kotlin / Spring Boot 3 reports service (RFC-0001 D2) -- the JVM showcase of
+Kotlin / Spring Boot 4 reports service (RFC-0001 D2, ADR-0020) -- the JVM showcase of
 the polyglot platform, with its own Postgres instance and an artifact
 volume. PR-1 (`feat/reports-skeleton`, Phase 6) shipped the skeleton and the
 D6 uniform service contract. This PR (`feat/report-engine`, Phase 6 PR-2)
@@ -26,8 +26,9 @@ bursts, capped so the exhibit is a sawtooth, not an OOM.
 
 ## Stack and the choices behind it
 
-- **Spring Boot 3.5 + Kotlin, Spring MVC (not WebFlux), JDK 21 virtual
-  threads.** Report generation is blocking (POI/PDF); virtual threads carry
+- **Spring Boot 4.1 + Kotlin, Spring MVC (not WebFlux), JDK 21 virtual
+  threads.** Boot 4 since ADR-0020: the Spring 6.2 open-source line ended
+  with unfixed CRITICAL CVEs. Report generation is blocking (POI/PDF); virtual threads carry
   blocking work at scale without a reactive rewrite, and the blocking model
   keeps the heap/GC lesson legible.
 - **Coroutines for the async job runner (RFC-0001 D2).** `POST /reports`

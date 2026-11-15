@@ -429,7 +429,7 @@ behind Gateway API, packaged as Helm charts over one library chart.
 
 ### Validating without a cluster
 
-- `helm template | kubeconform -strict` per profile, offline
+- `helm template | kubeconform -strict` per profile, no cluster
   (`make lint-k8s`, `deploy/k8s/scripts/validate.sh`) -- CI runs the same
   script
 - CRD schemas have to be supplied (`deploy/k8s/schemas/`): a strict

@@ -106,6 +106,7 @@ All SLO metrics are calculated via Prometheus recording rules in the `observabil
 - **Description:** Current availability level over 7 days (0-1, where 1 = 100%)
 - **Formula:** `rate(http_requests_total{status!~"5.."}[5m]) / rate(http_requests_total[5m])`
 - **Target Value:** > 0.9995 (99.95%)
+- **Counting:** an exception that escapes a route (for example, the database is down) is counted as status `500` by the backend metrics middleware, so a real outage lowers this ratio
 
 **`slo:availability:error_budget7d`**
 

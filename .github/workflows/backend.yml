@@ -12,6 +12,11 @@ on:
       - "services/backend/**"
       - ".github/workflows/backend.yml"
 
+# Read-only token for the whole workflow: lint and test only read the
+# checkout.
+permissions:
+  contents: read
+
 jobs:
   lint-backend:
     name: Lint Backend

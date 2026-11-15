@@ -1,8 +1,11 @@
 # Alertmanager config as code (RFC-0001 Section 7, ADR-0007): routing,
 # grouping, and inhibition for the four alerts in
 # observability/prometheus_alerts.yml. Nothing here is set up only in
-# the UI -- amtool check-config validates this file in CI/pre-commit,
-# same "config as code" posture as every other observability/* file.
+# the UI -- same "config as code" posture as every other observability/*
+# file. Hooks and CI only run yamllint on it (YAML syntax, not
+# Alertmanager semantics); validate routes and receivers by hand with
+# `docker compose -f deploy/compose/docker-compose.yml --project-directory .
+# exec alertmanager amtool check-config /etc/alertmanager/alertmanager.yml`.
 
 route:
   # group_by [alertname] only (not cluster/instance): with one demo

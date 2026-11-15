@@ -94,6 +94,12 @@ async def metrics_mw(request: Request, call_next) -> Response:
         return response
     except Exception as e:
         duration = time.time() - start
+        # the 500 for an escaped exception is built by Starlette outside this
+        # middleware; count it here or the availability SLO reads 100% while
+        # every request fails (e.g. DB down)
+        endpoint = _endpoint_label(request)
+        REQUEST_LATENCY_SECONDS.labels(request.method, endpoint).observe(duration)
+        HTTP_REQUESTS_TOTAL.labels(request.method, endpoint, "500").inc()
         logger.error(f"Error: {request.method} {request.url.path} - {type(e).__name__}: {e} ({duration:.3f}s)")
         raise
 

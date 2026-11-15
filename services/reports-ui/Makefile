@@ -9,7 +9,7 @@ PRINT_TARGET = @echo "> make -> $@"
 
 # Digest-pinned Caddy image (matches the Dockerfile FROM). Every fmt/validate
 # runs through it -- no host caddy install required.
-CADDY_IMAGE = caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+CADDY_IMAGE = caddy:2-alpine@sha256:e70b164da81ef698b3ad19af799ea6086ce6d9e48ed4079eb9fe26f6fbf14ee5
 CADDY = docker run --rm -v "$(CURDIR):/work" -w /work $(CADDY_IMAGE) caddy
 
 IMAGE = devops-demo-reports-ui:dev
